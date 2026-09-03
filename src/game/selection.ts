@@ -1,23 +1,64 @@
-import { Kernel, Point } from './types';
-import { areAdjacent, neighborsOf } from './adjacency';
+import { MIN_WORD_LENGTH, validateWord } from './dictionary';
+import { Kernel } from './types';
 
-export function extendSelection(path: Kernel[], next: Kernel, columns: number): Kernel[] {
-  if (!path.length) return [next];
-  if (path.length > 1 && path[path.length - 2].id === next.id) return path.slice(0, -1);
-  if (path.some(k => k.id === next.id)) return path;
-  return areAdjacent(path[path.length - 1], next, columns) ? [...path, next] : path;
+export type TapRejectReason = 'hidden' | 'harvested' | 'locked';
+
+export type TapResult = {
+  path: Kernel[];
+  accepted: boolean;
+  reason?: TapRejectReason;
+};
+
+export type TapAttempt = {
+  kernel: Kernel;
+  visible: boolean;
+};
+
+export function selectionWord(path: Kernel[]): string {
+  return path.map(kernel => kernel.letter).join('');
 }
 
-export function magneticNeighbor(current: Kernel, candidates: Kernel[], centers: Record<string, Point>, origin: Point, finger: Point, columns: number, threshold: number, directionalBias: number): Kernel | undefined {
-  const dx = finger.x - origin.x, dy = finger.y - origin.y;
-  const distance = Math.hypot(dx, dy);
-  if (distance < threshold) return undefined;
-  return neighborsOf(current, candidates, columns).map(kernel => {
-    const p = centers[kernel.id];
-    if (!p) return { kernel, score: Infinity };
-    const vx = p.x - origin.x, vy = p.y - origin.y;
-    const magnitude = Math.max(1, Math.hypot(vx, vy));
-    const cosine = (dx * vx + dy * vy) / (distance * magnitude);
-    return { kernel, score: Math.hypot(finger.x - p.x, finger.y - p.y) - cosine * directionalBias };
-  }).sort((a, b) => a.score - b.score)[0]?.kernel;
+export function tapKernel(
+  path: Kernel[],
+  attempt: TapAttempt,
+  _columns: number,
+  options: { locked?: boolean } = {},
+): TapResult {
+  const { kernel, visible } = attempt;
+  if (options.locked) return { path, accepted: false, reason: 'locked' };
+  if (kernel.harvested) return { path, accepted: false, reason: 'harvested' };
+  if (!visible) return { path, accepted: false, reason: 'hidden' };
+
+  if (!path.length) return { path: [kernel], accepted: true };
+
+  const index = path.findIndex(item => item.id === kernel.id);
+  if (index === path.length - 1) return { path: path.slice(0, -1), accepted: true };
+  if (index >= 0) return { path: path.slice(0, index + 1), accepted: true };
+
+  return { path: [...path, kernel], accepted: true };
+}
+
+export function canSubmitSelection(
+  path: Kernel[],
+  options: { minLength?: number; busy?: boolean } = {},
+): boolean {
+  if (options.busy) return false;
+  return path.length >= (options.minLength ?? MIN_WORD_LENGTH);
+}
+
+export type Submission =
+  | { harvest: true; word: string; harvestIds: string[]; path: Kernel[] }
+  | { harvest: false; path: Kernel[]; reason: 'too-short' | 'not-found' | 'busy' };
+
+export function evaluateSubmission(
+  path: Kernel[],
+  dictionary?: Set<string>,
+  busy = false,
+): Submission {
+  if (busy || !canSubmitSelection(path)) {
+    return { harvest: false, path, reason: busy ? 'busy' : 'too-short' };
+  }
+  const result = validateWord(selectionWord(path), dictionary);
+  if (!result.valid) return { harvest: false, path, reason: result.reason };
+  return { harvest: true, word: result.word, harvestIds: path.map(kernel => kernel.id), path };
 }

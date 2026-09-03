@@ -14,7 +14,7 @@ export type ShopProduct = {
 
 export const TOOL_INFO: Record<ToolId, { title: string; blurb: string }> = {
   scarecrow: { title: 'Scarecrow', blurb: 'Highlights the first letter of a hidden word.' },
-  butterBrush: { title: 'Butter Brush', blurb: 'Reveals the full path of a hidden word.' },
+  butterBrush: { title: 'Butter Brush', blurb: 'Highlights the letters of a hidden word around the cob.' },
   cornPicker: { title: 'Corn Picker', blurb: 'Remove any single kernel from the cob.' },
 };
 

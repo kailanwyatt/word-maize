@@ -1,7 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, ImageSourcePropType, Pressable, StyleSheet, Text } from 'react-native';
 import { wordMaizeAssets } from '../../../assets/word-maize/assets';
 import { KernelLayout } from './layout';
+
+function kernelArt(selected: boolean, hinted: boolean): ImageSourcePropType {
+  if (selected || hinted) return wordMaizeAssets.kernels.selectedV2;
+  return wordMaizeAssets.kernels.normalV2;
+}
 
 export function KernelTile({
   layout,
@@ -9,6 +14,8 @@ export function KernelTile({
   selected,
   hinted,
   harvesting,
+  faulted,
+  rejected,
   onPress,
 }: {
   layout: KernelLayout;
@@ -16,11 +23,13 @@ export function KernelTile({
   selected: boolean;
   hinted: boolean;
   harvesting?: boolean;
+  faulted?: boolean;
+  rejected?: boolean;
   onPress?: () => void;
 }) {
   const { kernel, x, y, scaleX, scale, shade } = layout;
-  const visual = size * (selected ? 1.06 : 1);
   const harvest = useRef(new Animated.Value(0)).current;
+  const reject = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!harvesting) {
@@ -33,16 +42,28 @@ export function KernelTile({
     ]).start();
   }, [harvesting, harvest]);
 
+  useEffect(() => {
+    if (!rejected) {
+      reject.setValue(0);
+      return;
+    }
+    Animated.sequence([
+      Animated.timing(reject, { toValue: 1, duration: 70, useNativeDriver: true }),
+      Animated.timing(reject, { toValue: 0, duration: 110, useNativeDriver: true }),
+    ]).start();
+  }, [rejected, reject]);
+
   return (
     <Pressable
       onPress={onPress}
       style={[
         styles.wrap,
         {
-          width: visual,
-          height: visual,
-          left: x - visual / 2,
-          top: y - visual / 2,
+          width: size,
+          height: size,
+          left: x - size / 2,
+          top: y - size / 2,
+          zIndex: Math.round((1 - shade) * 5),
           transform: [{ scaleX }, { scale }],
           opacity: 1 - shade * 0.18,
         },
@@ -64,22 +85,28 @@ export function KernelTile({
           },
         ]}
       >
-        <Image source={wordMaizeAssets.kernels.normalV2} style={styles.kernel} />
-        {(selected || hinted) && <View style={[styles.glow, selected ? styles.selected : styles.hinted]} />}
-        <Text style={[styles.letter, { fontSize: size * 0.46 }, selected && styles.letterSelected]}>{kernel.letter}</Text>
+        <Animated.Image
+          source={kernelArt(selected, hinted)}
+          style={[
+            styles.kernel,
+            faulted && styles.kernelFaulted,
+            rejected && { opacity: reject.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] }) },
+          ]}
+        />
+        <Text style={[styles.letter, { fontSize: size * 0.42 }, faulted && styles.letterFaulted]}>
+          {kernel.letter}
+        </Text>
       </Animated.View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', zIndex: 5, alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
-  socket: { position: 'absolute', width: '102%', height: '102%', resizeMode: 'contain' },
+  wrap: { position: 'absolute', alignItems: 'center', justifyContent: 'center', overflow: 'visible', backgroundColor: 'transparent' },
+  socket: { position: 'absolute', width: '92%', height: '92%', resizeMode: 'contain' },
   fullKernel: { position: 'absolute', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
-  kernel: { position: 'absolute', width: '106%', height: '106%', resizeMode: 'contain' },
-  glow: { position: 'absolute', left: '0%', right: '0%', top: '0%', bottom: '0%', borderRadius: 16, borderWidth: 3 },
-  selected: { backgroundColor: 'transparent', borderColor: '#dfffad', borderWidth: 4, shadowColor: '#4d8a28', shadowOffset: { width: 0, height: 0 }, shadowRadius: 4, shadowOpacity: 1 },
-  hinted: { backgroundColor: 'rgba(126,190,36,0.4)', borderColor: '#efff71' },
+  kernel: { position: 'absolute', width: '92%', height: '92%', resizeMode: 'contain' },
+  kernelFaulted: { tintColor: '#c45a32' },
   letter: {
     fontWeight: '900',
     color: '#2e1a0c',
@@ -87,9 +114,9 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1.5 },
     textShadowRadius: 1.5,
   },
-  letterSelected: {
-    color: '#ffffff',
-    textShadowColor: '#4d8a28',
+  letterFaulted: {
+    color: '#fff1e8',
+    textShadowColor: '#8a2a12',
     textShadowOffset: { width: 0, height: 1.5 },
     textShadowRadius: 2,
   },

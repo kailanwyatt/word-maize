@@ -59,9 +59,13 @@ export function layoutKernels(
 }
 
 export function hitKernel(point: Point, visible: KernelLayout[], size: number, touchMultiplier: number): Kernel | undefined {
-  const radius = (size * touchMultiplier) / 2;
+  const half = (size * touchMultiplier) / 2;
   return visible
-    .map(item => ({ kernel: item.kernel, d: Math.hypot(point.x - item.x, point.y - item.y) }))
-    .filter(item => item.d <= radius)
+    .map(item => ({
+      kernel: item.kernel,
+      d: Math.hypot(point.x - item.x, point.y - item.y),
+      box: Math.max(Math.abs(point.x - item.x), Math.abs(point.y - item.y)),
+    }))
+    .filter(item => item.box <= half)
     .sort((a, b) => a.d - b.d)[0]?.kernel;
 }

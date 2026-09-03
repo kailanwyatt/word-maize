@@ -29,9 +29,7 @@ export type Level = {
 export type Tuning = {
   kernelSize: number;
   touchMultiplier: number;
-  snapSensitivity: number;
   movementThreshold: number;
-  directionalBias: number;
   rotationSensitivity: number;
   rotationSnap: number;
   visibleColumns: number;

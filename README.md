@@ -1,6 +1,6 @@
 # Word Maize
 
-Portrait Expo/React Native word game: trace adjacent kernels on a rotating 2.5D corn cob, harvest the cob, and work through Sweet Corn Fields.
+Portrait Expo/React Native word game: hunt letters on a rotating 2.5D corn cob, harvest the cob, and work through Sweet Corn Fields.
 
 ## Run it
 
@@ -44,9 +44,9 @@ npm test
 
 ## Controls
 
-- Press a kernel and drag through adjacent letters (8-way, including cob wrap).
-- Release to submit. Invalid words shake off; valid words harvest.
-- Swipe empty cob space to rotate.
+- Tap any visible kernel in spelling order to build a word, then press the word display to submit. Letters do not need to sit next to each other.
+- Invalid words flash and stay on the cob; valid words harvest.
+- Drag horizontally to rotate, or tap the wood rotate buttons to step one column (45° on an 8-column cob). Your word stays selected so you can hunt letters around the back.
 - Scarecrow / Butter Brush / Corn Picker sit on the tool belt. The lightbulb is a Scarecrow shortcut.
 - Shuffle (↻) reshuffles remaining letters once per attempt.
 

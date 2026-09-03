@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { areAdjacent } from '../adjacency';
-import { exposedKernels, kernelId, shuffleExposedLetters } from '../board';
+import { exposedKernels, kernelId, resetLevel, shuffleExposedLetters } from '../board';
 import { validateWord, WORD_LIST } from '../dictionary';
 import { canSpendEnergy, replenishEnergy } from '../energy';
+import { hitKernel } from '../../components/CornCob/layout';
+import { classifyMovement, resolvePointerRelease } from '../gestures';
 import { harvestKernels, harvestPercent } from '../harvest';
 import { findDiscoverablePath } from '../powerups';
-import { wrapColumn, signedColumnOffset, snapRotation } from '../rotation';
+import { wrapColumn, signedColumnOffset, snapRotation, rotationFromDrag, finishRotation, nearestRotationTarget, stepRotation, degreesPerColumn } from '../rotation';
 import { coinsForWord, starsForLevel } from '../scoring';
-import { extendSelection } from '../selection';
+import { canSubmitSelection, evaluateSubmission, tapKernel } from '../selection';
 import { ENERGY_REGEN_MS, Kernel } from '../types';
 import { LEVELS } from '../../data/levels';
 import { nextDailyDay } from '../../store/types';
@@ -27,14 +29,155 @@ describe('cylindrical adjacency', () => {
   it('rejects jumps', () => expect(areAdjacent(k('a', 0, 0), k('b', 2, 2), 8)).toBe(false));
 });
 
-describe('selection', () => {
-  const a = k('a', 0, 0), b = k('b', 0, 1), c = k('c', 0, 2);
-  it('extends adjacent paths and prevents duplicates', () => {
-    expect(extendSelection([a], b, 8)).toEqual([a, b]);
-    expect(extendSelection([a, b], a, 8)).toEqual([a]);
-    expect(extendSelection([a, b], b, 8)).toEqual([a, b]);
+describe('tap selection', () => {
+  const a = k('a', 0, 0), b = k('b', 0, 1), c = k('c', 0, 2), d = k('d', 0, 3);
+  const visible = (kernel: Kernel) => ({ kernel, visible: true });
+
+  it('selects the first kernel', () => {
+    expect(tapKernel([], visible(a), 8)).toEqual({ path: [a], accepted: true });
   });
-  it('rejects non-adjacent extensions', () => expect(extendSelection([a], c, 8)).toEqual([a]));
+  it('appends a visible kernel that is not a neighbor', () => {
+    expect(tapKernel([a], visible(d), 8).path).toEqual([a, d]);
+  });
+  it('rejects a hidden kernel so you must rotate to hunt', () => {
+    expect(tapKernel([a], { kernel: b, visible: false }, 8)).toMatchObject({ path: [a], accepted: false, reason: 'hidden' });
+  });
+  it('rejects a harvested kernel', () => {
+    expect(tapKernel([], { kernel: { ...a, harvested: true }, visible: true }, 8)).toMatchObject({
+      path: [],
+      accepted: false,
+      reason: 'harvested',
+    });
+  });
+  it('prevents duplicate selection except through backtracking', () => {
+    expect(tapKernel([a, b, c], visible(a), 8).path).toEqual([a]);
+    expect(tapKernel([a, b], visible(c), 8).path).toEqual([a, b, c]);
+  });
+  it('undoes the final kernel when it is tapped again', () => {
+    expect(tapKernel([a, b], visible(b), 8).path).toEqual([a]);
+  });
+  it('trims the path when an earlier selected kernel is tapped', () => {
+    expect(tapKernel([a, b, c], visible(b), 8).path).toEqual([a, b]);
+  });
+  it('keeps the selected path when the cob rotates', () => {
+    const path = tapKernel([a], visible(d), 8).path;
+    const rotated = rotationFromDrag(1.5, 90, 0.016);
+    expect(path).toEqual([a, d]);
+    expect(tapKernel(path, visible(d), 8).path).toEqual([a]);
+    expect(finishRotation(rotated, 8, 1)).toBeGreaterThanOrEqual(0);
+  });
+  it('lets a word continue onto a kernel that becomes selectable after rotation', () => {
+    const front = k('f', 1, 0);
+    const around = k('k', 1, 7);
+    const path = tapKernel([], visible(front), 8).path;
+    expect(tapKernel(path, visible(around), 8).path).toEqual([front, around]);
+  });
+  it('builds SEED from kernels that are not neighbors', () => {
+    const s = k('s', 0, 0);
+    const e1 = k('e1', 2, 4);
+    const e2 = k('e2', 5, 7);
+    const d = k('d', 6, 2);
+    let path = tapKernel([], visible(s), 8).path;
+    path = tapKernel(path, visible(e1), 8).path;
+    path = tapKernel(path, visible(e2), 8).path;
+    path = tapKernel(path, visible(d), 8).path;
+    expect(path.map(kernel => kernel.letter).join('')).toBe('SEED');
+  });
+  it('keeps SEED and appends after a column step brings the next letters into view', () => {
+    const s = k('s', 1, 0);
+    const e1 = k('e1', 1, 1);
+    const e2 = k('e2', 1, 2);
+    const d = k('d', 1, 3);
+    const c = k('c', 1, 4);
+    const o = k('o', 1, 5);
+    let path = tapKernel([], visible(s), 8).path;
+    path = tapKernel(path, visible(e1), 8).path;
+    path = tapKernel(path, visible(e2), 8).path;
+    path = tapKernel(path, visible(d), 8).path;
+    expect(path.map(kernel => kernel.letter).join('')).toBe('SEED');
+    expect(stepRotation(1.5, 8, 1)).toBe(2.5);
+    path = tapKernel(path, visible(c), 8).path;
+    path = tapKernel(path, visible(o), 8).path;
+    expect(path.map(kernel => kernel.letter).join('')).toBe('SEEDCO');
+  });
+  it('rejects taps on selected kernels that have rotated out of view', () => {
+    expect(tapKernel([a, b], { kernel: b, visible: false }, 8)).toMatchObject({ path: [a, b], accepted: false, reason: 'hidden' });
+  });
+  it('ignores taps while selection is locked', () => {
+    expect(tapKernel([a], visible(b), 8, { locked: true })).toMatchObject({ path: [a], accepted: false, reason: 'locked' });
+  });
+});
+
+describe('kernel hit testing', () => {
+  it('prefers the closer center when two tiles overlap', () => {
+    const left = k('w', 0, 0);
+    const right = k('z', 0, 1);
+    const tiles = [
+      { kernel: left, x: 50, y: 50, scaleX: 1, scale: 1, shade: 0 },
+      { kernel: right, x: 70, y: 50, scaleX: 1, scale: 1, shade: 0 },
+    ];
+    expect(hitKernel({ x: 64, y: 50 }, tiles, 40, 1)?.id).toBe('z');
+    expect(hitKernel({ x: 56, y: 50 }, tiles, 40, 1)?.id).toBe('w');
+  });
+  it('uses a tile-sized box so a tap between tiles does not grab the farther letter', () => {
+    const left = k('w', 0, 0);
+    const right = k('z', 0, 1);
+    const tiles = [
+      { kernel: left, x: 40, y: 40, scaleX: 1, scale: 1, shade: 0 },
+      { kernel: right, x: 90, y: 40, scaleX: 1, scale: 1, shade: 0 },
+    ];
+    expect(hitKernel({ x: 65, y: 40 }, tiles, 40, 1)).toBeUndefined();
+  });
+  it('hits a tap on the corner of a tile that a circular radius would miss', () => {
+    const letter = k('a', 0, 0);
+    const tiles = [{ kernel: letter, x: 50, y: 50, scaleX: 1, scale: 1, shade: 0 }];
+    expect(hitKernel({ x: 68, y: 68 }, tiles, 40, 1)?.id).toBe('a');
+  });
+});
+
+describe('tap versus drag', () => {
+  it('treats movement below the threshold as a tap', () => {
+    expect(classifyMovement(12, 4, 18, 'pending')).toBe('pending');
+    expect(resolvePointerRelease('pending', 12, 18)).toBe('tap');
+  });
+  it('starts rotation once horizontal movement crosses the threshold', () => {
+    expect(classifyMovement(18, 2, 18, 'pending')).toBe('rotate');
+    expect(resolvePointerRelease('pending', 18, 18)).toBe('rotate');
+  });
+  it('does not treat a vertical swipe as rotation', () => {
+    expect(classifyMovement(4, 40, 18, 'pending')).toBe('pending');
+    expect(resolvePointerRelease('pending', 4, 18)).toBe('tap');
+  });
+  it('keeps rotating after the threshold even if later movement is small', () => {
+    expect(classifyMovement(2, 0, 18, 'rotate')).toBe('rotate');
+    expect(resolvePointerRelease('rotate', 2, 18)).toBe('rotate');
+  });
+});
+
+describe('word display submission', () => {
+  const c = k('c', 0, 0), o = k('o', 0, 1), r = k('r', 0, 2), n = k('n', 0, 3);
+  const x = k('x', 0, 0), y = k('y', 0, 1), z = k('z', 0, 2);
+
+  it('pressing the word display harvests a valid word', () => {
+    const result = evaluateSubmission([c, o, r, n]);
+    expect(result).toMatchObject({ harvest: true, word: 'CORN' });
+    if (!result.harvest) throw new Error('expected harvest');
+    const next = harvestKernels([c, o, r, n], result.harvestIds);
+    expect(next.filter(kernel => kernel.harvested).map(kernel => kernel.id)).toEqual(['c', 'o', 'r', 'n']);
+  });
+  it('prevents short-word submission', () => {
+    expect(canSubmitSelection([c, o])).toBe(false);
+    expect(evaluateSubmission([c, o])).toMatchObject({ harvest: false, reason: 'too-short', path: [c, o] });
+  });
+  it('rejects invalid words without harvesting', () => {
+    const result = evaluateSubmission([x, y, z]);
+    expect(result).toMatchObject({ harvest: false, path: [x, y, z], reason: 'not-found' });
+    expect([x, y, z].every(kernel => !kernel.harvested)).toBe(true);
+  });
+  it('blocks submit while a harvest is already running', () => {
+    expect(canSubmitSelection([c, o, r, n], { busy: true })).toBe(false);
+    expect(evaluateSubmission([c, o, r, n], undefined, true)).toMatchObject({ harvest: false, reason: 'busy' });
+  });
 });
 
 describe('harvest and layers', () => {
@@ -66,6 +209,18 @@ describe('rotation', () => {
     expect(signedColumnOffset(7, 0, 8)).toBe(-1);
   });
   it('snaps to a usable column', () => expect(snapRotation(2.7, 1)).toBe(3));
+  it('does not wrap while dragging so the cob can spin past the seam', () => {
+    expect(rotationFromDrag(7.6, 40, 0.02)).toBeCloseTo(8.4);
+  });
+  it('animates snap across the seam instead of jumping backward', () => {
+    expect(nearestRotationTarget(7.7, 0, 8)).toBe(8);
+    expect(finishRotation(7.7, 8, 1)).toBe(8);
+  });
+  it('steps one column, which is 360 / columns degrees', () => {
+    expect(degreesPerColumn(8)).toBe(45);
+    expect(stepRotation(1.5, 8, 1)).toBe(2.5);
+    expect(stepRotation(0, 8, -1)).toBe(-1);
+  });
 });
 
 describe('energy and stars', () => {
@@ -101,11 +256,23 @@ describe('levels and powerup search', () => {
     const path = findDiscoverablePath(level.kernels, level.columns, new Set(['SEED', 'CORN']), new Set(['S', 'SE', 'SEE', 'C', 'CO', 'COR']), [], level.hintPaths);
     expect(path?.map(k => k.letter).join('')).toMatch(/SEED|CORN/);
   });
+  it('finds a dictionary word from scrambled letters', () => {
+    const level = LEVELS[0];
+    const scrambled = shuffleExposedLetters(level.kernels, () => 0.2);
+    const path = findDiscoverablePath(scrambled, level.columns, new Set(['SEED', 'CORN', 'HAY']), new Set(), [], []);
+    expect(path?.map(k => k.letter).join('')).toMatch(/SEED|CORN|HAY/);
+  });
   it('shuffles only exposed letters', () => {
     const level = LEVELS[0];
     const shuffled = shuffleExposedLetters(level.kernels, () => 0.2);
     expect(shuffled.map(k => k.id)).toEqual(level.kernels.map(k => k.id));
     expect(kernelId(0, 0, 0)).toBe('0-0-0');
+  });
+  it('scrambles exposed letters when a level is reset', () => {
+    const level = LEVELS[0];
+    const reset = resetLevel(level, () => 0.2);
+    expect(reset.kernels.map(k => k.id)).toEqual(level.kernels.map(k => k.id));
+    expect(reset.kernels.some((kernel, index) => kernel.letter !== level.kernels[index].letter)).toBe(true);
   });
 });
 

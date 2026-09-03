@@ -1,4 +1,3 @@
-import { neighborsOf } from './adjacency';
 import { exposedKernels } from './board';
 import { Kernel } from './types';
 
@@ -17,11 +16,39 @@ export function plantedPathStillOpen(pathIds: string[], kernels: Kernel[], found
   return path;
 }
 
+function letterCounts(kernels: Kernel[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const kernel of kernels) counts.set(kernel.letter, (counts.get(kernel.letter) ?? 0) + 1);
+  return counts;
+}
+
+function canSpell(word: string, counts: Map<string, number>): boolean {
+  const used = new Map<string, number>();
+  for (const letter of word) {
+    const next = (used.get(letter) ?? 0) + 1;
+    if (next > (counts.get(letter) ?? 0)) return false;
+    used.set(letter, next);
+  }
+  return true;
+}
+
+export function pickKernelsForWord(word: string, exposed: Kernel[]): Kernel[] | undefined {
+  const used = new Set<string>();
+  const path: Kernel[] = [];
+  for (const letter of word) {
+    const kernel = exposed.find(item => item.letter === letter && !used.has(item.id));
+    if (!kernel) return undefined;
+    used.add(kernel.id);
+    path.push(kernel);
+  }
+  return path;
+}
+
 export function findDiscoverablePath(
   kernels: Kernel[],
-  columns: number,
+  _columns: number,
   dictionary: Set<string>,
-  prefixes: Set<string>,
+  _prefixes: Set<string>,
   foundWords: string[],
   hintPaths: string[][] = [],
   minLength = 3,
@@ -33,27 +60,17 @@ export function findDiscoverablePath(
   }
 
   const exposed = exposedKernels(kernels);
+  const counts = letterCounts(exposed);
   const found = new Set(foundWords);
   let best: Kernel[] | undefined;
 
-  const walk = (path: Kernel[]) => {
-    if (best && best.length >= 5) return;
-    const word = pathWord(path);
-    if (path.length >= minLength && dictionary.has(word) && !found.has(word)) {
-      if (!best || path.length > best.length) best = [...path];
-    }
-    if (path.length >= maxLength) return;
-    if (!prefixes.has(word) && path.length > 0) return;
-    const used = new Set(path.map(kernel => kernel.id));
-    for (const next of neighborsOf(path[path.length - 1], exposed, columns)) {
-      if (used.has(next.id)) continue;
-      const prefix = word + next.letter;
-      if (prefix.length < minLength && !prefixes.has(prefix) && !dictionary.has(prefix)) continue;
-      if (prefix.length >= minLength && !prefixes.has(prefix) && !dictionary.has(prefix)) continue;
-      walk([...path, next]);
-    }
-  };
-
-  for (const start of exposed) walk([start]);
+  for (const word of dictionary) {
+    if (word.length < minLength || word.length > maxLength) continue;
+    if (found.has(word)) continue;
+    if (best && word.length <= best.length) continue;
+    if (!canSpell(word, counts)) continue;
+    const path = pickKernelsForWord(word, exposed);
+    if (path) best = path;
+  }
   return best;
 }

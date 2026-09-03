@@ -5,32 +5,31 @@ import { Animated, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, u
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CornCob } from '../components/CornCob/CornCob';
-import { CurrentWord } from '../components/CurrentWord';
 import { DebugPanel } from '../components/DebugPanel';
 import { FarmButton, Panel } from '../components/FarmButton';
 import { HarvestMeter } from '../components/HarvestMeter';
 import { Tool, ToolBelt } from '../components/ToolBelt';
+import { WordSubmitButton } from '../components/WordSubmitButton';
 import { levelById } from '../data/levels';
 import { TOOL_INFO } from '../data/shop';
 import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board';
-import { WORD_LIST, validateWord, wordPrefixes } from '../game/dictionary';
-import { areAdjacent } from '../game/adjacency';
+import { WORD_LIST, wordPrefixes } from '../game/dictionary';
 import { harvestKernels, harvestPercent } from '../game/harvest';
 import { findDiscoverablePath } from '../game/powerups';
 import { coinsForWord, completionBonus, starsForLevel } from '../game/scoring';
-import { extendSelection } from '../game/selection';
+import { canSubmitSelection, evaluateSubmission } from '../game/selection';
 import { Kernel, Tuning } from '../game/types';
+import { useCobRotation } from '../hooks/useCobRotation';
+import { useKernelTapSelection } from '../hooks/useKernelTapSelection';
 import { showRewardedAd } from '../monetization/ads';
 import { useGameStore } from '../store/GameStore';
 
 const defaultTuning: Tuning = {
-  kernelSize: 82,
-  touchMultiplier: 1.85,
-  snapSensitivity: 0.75,
-  movementThreshold: 18,
-  directionalBias: 28,
-  rotationSensitivity: 0.016,
-  rotationSnap: 0.85,
+  kernelSize: 64,
+  touchMultiplier: 1,
+  movementThreshold: 28,
+  rotationSensitivity: 0.018,
+  rotationSnap: 0.7,
   visibleColumns: 5,
   harvestTarget: 70,
   haptics: true,
@@ -44,10 +43,7 @@ export function GameScreen() {
   const viewport = useWindowDimensions();
   const store = useGameStore();
   const [level, setLevel] = useState(() => resetLevel(source));
-  const [selected, setSelected] = useState<Kernel[]>([]);
   const [harvestingIds, setHarvestingIds] = useState<string[]>([]);
-  const selectedRef = useRef<Kernel[]>([]);
-  const [rotation, setRotation] = useState(1.5);
   const [status, setStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [activeTool, setActiveTool] = useState<Tool>();
   const [hints, setHints] = useState<string[]>([]);
@@ -62,10 +58,23 @@ export function GameScreen() {
   const [doubled, setDoubled] = useState(false);
   const [powerUpsOpen, setPowerUpsOpen] = useState(false);
   const fly = useRef(new Animated.Value(0)).current;
+  const busyRef = useRef(false);
+  const busy = harvestingIds.length > 0 || status === 'valid' || busyRef.current;
+  const gameWidth = Math.min(viewport.width, 430);
+  const cobHeight = Math.min(viewport.height * 0.82, 650);
+  const cobWidth = Math.min(gameWidth, cobHeight * (1024 / 1536));
+  const cob = useCobRotation(
+    1.5,
+    level.columns,
+    (tuning.visibleColumns / cobWidth) * (tuning.rotationSensitivity / defaultTuning.rotationSensitivity),
+    tuning.rotationSnap,
+  );
+  const selection = useKernelTapSelection(level.columns, busy);
   const prefixes = useMemo(() => wordPrefixes(WORD_LIST), []);
   const percent = harvestPercent(level.kernels);
   const complete = percent >= tuning.harvestTarget;
-  const currentWord = selected.map(k => k.letter).join('');
+  const currentWord = selection.word;
+  const canSubmit = canSubmitSelection(selection.path, { busy });
   const harvestedCount = level.kernels.filter(k => k.harvested).length;
   const longest = foundWords.reduce((a, b) => (a.length >= b.length ? a : b), '—');
   const reward = inCoins + completionBonus(percent, tuning.harvestTarget);
@@ -74,55 +83,44 @@ export function GameScreen() {
   const pulse = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
     if (tuning.haptics && store.save.settings.haptics) Haptics.impactAsync(style).catch(() => {});
   };
+  const warn = () => {
+    if (tuning.haptics && store.save.settings.haptics) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    }
+  };
   const animateHarvest = () => {
     fly.setValue(0);
     Animated.timing(fly, { toValue: 1, duration: 620, useNativeDriver: true }).start();
   };
-  const setPath = (next: Kernel[]) => { selectedRef.current = next; setSelected(next); };
-  
   const handleKernelTap = (kernel: Kernel) => {
-    const current = selectedRef.current;
-    if (current.length === 0) {
-      setHints([]); setPath([kernel]); pulse();
-      return;
-    }
-    const index = current.findIndex(k => k.id === kernel.id);
-    if (index !== -1) {
-      setPath(current.slice(0, index + 1));
-      pulse();
-      return;
-    }
-    const last = current[current.length - 1];
-    if (areAdjacent(last, kernel, level.columns)) {
-      setPath([...current, kernel]);
-      pulse();
-    } else {
-      setHints([]); setPath([kernel]); pulse();
-    }
+    const result = selection.applyTap({ kernel, visible: true });
+    if (result.accepted) pulse();
+    else warn();
   };
   const submit = () => {
-    const path = selectedRef.current;
-    const word = path.map(k => k.letter).join('');
-    const result = validateWord(word);
-    if (result.valid) {
+    const result = evaluateSubmission(selection.pathRef.current, WORD_LIST, busy || busyRef.current);
+    if (result.harvest) {
+      busyRef.current = true;
       setStatus('valid');
-      const ids = path.map(k => k.id);
-      setHarvestingIds(ids);
+      setHarvestingIds(result.harvestIds);
+      pulse(Haptics.ImpactFeedbackStyle.Heavy);
+      animateHarvest();
       setTimeout(() => {
-        setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, ids) }));
+        setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, result.harvestIds) }));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
         setInCoins(v => v + coinsForWord(result.word));
         setHarvestingIds([]);
-      }, 380);
-      pulse(Haptics.ImpactFeedbackStyle.Heavy);
-      animateHarvest();
-    } else if (path.length) {
-      setStatus('invalid');
-      if (tuning.haptics && store.save.settings.haptics) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      }
+        busyRef.current = false;
+        selection.clear();
+        setStatus('idle');
+      }, 620);
+      return;
     }
-    setPath([]);
+    if (!selection.pathRef.current.length) return;
+    setStatus('invalid');
+    if (tuning.haptics && store.save.settings.haptics) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+    }
     setTimeout(() => setStatus('idle'), 480);
   };
   const unusedPath = () => findDiscoverablePath(level.kernels, level.columns, WORD_LIST, prefixes, foundWords, level.hintPaths);
@@ -142,7 +140,7 @@ export function GameScreen() {
     pulse();
   };
   const pick = (kernel: Kernel) => {
-    if (activeTool !== 'cornPicker') return;
+    if (activeTool !== 'cornPicker' || busy || busyRef.current) return;
     if (!store.consumeTool('cornPicker')) return;
     setHarvestingIds([kernel.id]);
     setTimeout(() => {
@@ -156,10 +154,12 @@ export function GameScreen() {
   };
   const resetBoard = () => {
     setLevel(resetLevel(source));
-    setSelected([]); selectedRef.current = [];
+    selection.clear();
+    cob.reset(1.5);
     setFoundWords([]); setInCoins(0); setHints([]);
-    setActiveTool(undefined); setRotation(1.5); setStatus('idle'); setShuffles(1); setDoubled(false);
+    setActiveTool(undefined); setStatus('idle'); setShuffles(1); setDoubled(false);
     setHarvestingIds([]);
+    busyRef.current = false;
   };
   const finish = () => {
     const stars = starsForLevel(percent, tuning.harvestTarget, foundWords.length);
@@ -185,9 +185,11 @@ export function GameScreen() {
     pulse();
   };
 
-  const gameWidth = Math.min(viewport.width, 430);
-  const cobHeight = Math.min(viewport.height * 0.82, 650);
-  const cobWidth = Math.min(gameWidth, cobHeight * (1024 / 1536));
+  const spin = (direction: 1 | -1) => {
+    cob.nudge(direction);
+    pulse();
+  };
+
 
   return (
     <View style={styles.shell}>
@@ -205,33 +207,49 @@ export function GameScreen() {
             <Text style={styles.hintCount}>{store.save.energy || 5}</Text>
           </Pressable>
           <View style={styles.wordOverlay}>
-            <Pressable onPress={() => currentWord.length > 0 && submit()}>
-              <CurrentWord word={activeTool === 'cornPicker' ? 'PICK ONE KERNEL' : currentWord} status={status} />
-            </Pressable>
+            <WordSubmitButton
+              word={currentWord}
+              status={status}
+              canSubmit={canSubmit && activeTool !== 'cornPicker'}
+              pickerMode={activeTool === 'cornPicker'}
+              onSubmit={submit}
+              onClear={selection.clear}
+            />
           </View>
           <View style={styles.cob}>
             <CornCob
               kernels={level.kernels}
               rows={level.rows}
               columns={level.columns}
-              rotation={rotation}
+              rotation={cob.rotation}
               tuning={tuning}
-              selected={selected}
+              selected={selection.path}
               hints={hints}
               harvestingIds={harvestingIds}
               pickerMode={activeTool === 'cornPicker'}
               butterHints={activeTool === 'butterBrush'}
+              rejectedId={selection.rejectedId}
+              faulted={status === 'invalid'}
+              locked={busy}
               onKernelTap={handleKernelTap}
               onPick={pick}
-              onRotation={setRotation}
+              onRotateStart={cob.begin}
+              onRotateMove={cob.move}
+              onRotateEnd={cob.end}
               width={cobWidth}
               height={cobHeight}
             />
             <View style={styles.meter}><HarvestMeter percent={percent} /></View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Rotate cob left" style={styles.rotateLeft} onPress={() => spin(-1)}>
+              <Image source={wordMaizeAssets.ui.btnRotate} style={[styles.rotateIcon, styles.rotateFlip]} />
+            </Pressable>
             <View style={styles.sessionCoins}>
               <Image source={wordMaizeAssets.ui.coin} style={styles.coin} />
               <Text style={styles.sessionText}>{inCoins}</Text>
             </View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Rotate cob right" style={styles.rotateRight} onPress={() => spin(1)}>
+              <Image source={wordMaizeAssets.ui.btnRotate} style={styles.rotateIcon} />
+            </Pressable>
             <Pressable style={[styles.shuffle, !shuffles && styles.shuffleOff]} onPress={shuffle}>
               <Text style={styles.shuffleText}>↻</Text>
             </Pressable>
@@ -263,7 +281,7 @@ export function GameScreen() {
             onToggle={() => setDebugOpen(v => !v)}
             tuning={tuning}
             onChange={setTuning}
-            debug={`IDs: ${selected.map(k => k.id).join(', ') || '—'}\nWord: ${currentWord || '—'}\nRotation: ${rotation.toFixed(2)}\nVisible/exposed: ${exposedKernels(level.kernels).length}`}
+            debug={`IDs: ${selection.path.map(k => k.id).join(', ') || '—'}\nWord: ${currentWord || '—'}\nRotation: ${cob.rotation.toFixed(2)}\nVisible/exposed: ${exposedKernels(level.kernels).length}`}
           />
         </SafeAreaView>
       </ImageBackground>
@@ -352,8 +370,8 @@ export function GameScreen() {
       <Modal visible={tutorial} transparent animationType="fade">
         <View style={styles.modalShade}>
           <Panel>
-            <Text style={styles.modalTitle}>Drag to make a word!</Text>
-            <Text style={styles.stats}>Trace adjacent kernels, swipe empty cob to rotate, and harvest {source.targetHarvestPercent}% to finish.</Text>
+            <Text style={styles.modalTitle}>Hunt letters around the cob!</Text>
+            <Text style={styles.stats}>Tap any visible kernel, rotate to find the next letter, press the word to harvest, and harvest {source.targetHarvestPercent}% to finish. Letters do not need to sit next to each other.</Text>
             <View style={{ height: 12 }} />
             <FarmButton label="LET'S GROW" onPress={() => { store.markTutorialSeen(); setTutorial(false); }} />
           </Panel>
@@ -378,6 +396,10 @@ const styles = StyleSheet.create({
   wordOverlay: { position: 'absolute', zIndex: 18, top: 58, alignSelf: 'center' },
   cob: { flex: 1, justifyContent: 'center', minHeight: 390, width: '100%' },
   meter: { position: 'absolute', zIndex: 10, left: 8, bottom: 18 },
+  rotateLeft: { position: 'absolute', zIndex: 12, left: 98, bottom: 24, width: 52, height: 52, borderRadius: 16, overflow: 'hidden' },
+  rotateRight: { position: 'absolute', zIndex: 12, right: 70, bottom: 24, width: 52, height: 52, borderRadius: 16, overflow: 'hidden' },
+  rotateIcon: { width: 52, height: 52, resizeMode: 'cover' },
+  rotateFlip: { transform: [{ scaleX: -1 }] },
   sessionCoins: { position: 'absolute', zIndex: 10, alignSelf: 'center', bottom: 26, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(47,33,16,0.9)', borderWidth: 2, borderColor: '#e5b72f', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 3 },
   coin: { width: 22, height: 22, resizeMode: 'contain' },
   sessionText: { color: '#fff6c6', fontWeight: '900', fontSize: 16, marginLeft: 4 },

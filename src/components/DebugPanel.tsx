@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Tuning } from '../game/types';
-const numberFields: [keyof Tuning, string, number][] = [['kernelSize','Kernel size',2],['touchMultiplier','Touch area',.1],['snapSensitivity','Snap sensitivity',.05],['movementThreshold','Move threshold',2],['directionalBias','Direction bias',2],['rotationSensitivity','Rotation sensitivity',.01],['rotationSnap','Rotation snap',.1],['visibleColumns','Visible columns',1],['harvestTarget','Harvest goal',5]];
+const numberFields: [keyof Tuning, string, number][] = [['kernelSize','Kernel size',2],['touchMultiplier','Touch area',.1],['movementThreshold','Move threshold',2],['rotationSensitivity','Rotation sensitivity',.01],['rotationSnap','Rotation snap',.1],['visibleColumns','Visible columns',1],['harvestTarget','Harvest goal',5]];
 export function DebugPanel({ open, onToggle, tuning, onChange, debug }: { open: boolean; onToggle: () => void; tuning: Tuning; onChange: (t: Tuning) => void; debug: string }) {
   if (!__DEV__) return null;
   if (!open) return <Pressable accessibilityLabel="Open developer tuning" onPress={onToggle} style={styles.gear}><Text style={styles.gearText}>DEV</Text></Pressable>;

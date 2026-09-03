@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useMemo, useRef } from 'react';
+import { StyleSheet } from 'react-native';
 import { exposedKernels } from '../../game/board';
 import { Kernel, Tuning } from '../../game/types';
 import { KernelTile } from './Kernel';
-import { cobMetrics, layoutKernels } from './layout';
+import { cobMetrics, hitKernel, layoutKernels } from './layout';
+import { TapGestureArbitrator } from './TapGestureArbitrator';
 
 type Props = {
   kernels: Kernel[];
@@ -16,9 +17,14 @@ type Props = {
   harvestingIds?: string[];
   pickerMode: boolean;
   butterHints?: boolean;
+  rejectedId?: string;
+  faulted?: boolean;
+  locked?: boolean;
   onKernelTap: (kernel: Kernel) => void;
   onPick: (kernel: Kernel) => void;
-  onRotation: (value: number) => void;
+  onRotateStart: () => void;
+  onRotateMove: (dx: number) => void;
+  onRotateEnd: () => void;
   width?: number;
   height?: number;
 };
@@ -36,11 +42,45 @@ export function CornCob(props: Props) {
   const selectedIds = new Set(props.selected.map(k => k.id));
   const hintIds = new Set(props.hints);
   const harvestingIds = new Set(props.harvestingIds ?? []);
-  const size = props.tuning.kernelSize;
+  const rowGap = metrics.cobHeight / Math.max(1, props.rows - 1);
+  const size = Math.min(props.tuning.kernelSize, rowGap * 0.84);
+  const layoutRef = useRef(layout);
+  const sizeRef = useRef(size);
+  const lastTap = useRef(0);
+  const rotating = useRef(false);
+  layoutRef.current = layout;
+  sizeRef.current = size;
+
+  const handlePress = (kernel: Kernel) => {
+    if (props.locked || rotating.current) return;
+    const now = Date.now();
+    if (now - lastTap.current < 80) return;
+    lastTap.current = now;
+    if (props.pickerMode) props.onPick(kernel);
+    else props.onKernelTap(kernel);
+  };
+
+  const handleTap = (x: number, y: number) => {
+    if (props.locked || rotating.current) return;
+    const kernel = hitKernel({ x, y }, layoutRef.current.visible, sizeRef.current, 1);
+    if (kernel) handlePress(kernel);
+  };
 
   return (
-    <View style={[styles.frame, { width, height }]}>
-
+    <TapGestureArbitrator
+      style={[styles.frame, { width, height }]}
+      movementThreshold={props.tuning.movementThreshold}
+      onRotateStart={() => {
+        rotating.current = true;
+        props.onRotateStart();
+      }}
+      onRotateMove={props.onRotateMove}
+      onRotateEnd={() => {
+        props.onRotateEnd();
+        setTimeout(() => { rotating.current = false; }, 120);
+      }}
+      onTap={handleTap}
+    >
       {layout.visible.map(item => (
         <KernelTile
           key={item.kernel.id}
@@ -49,13 +89,15 @@ export function CornCob(props: Props) {
           selected={selectedIds.has(item.kernel.id)}
           hinted={hintIds.has(item.kernel.id)}
           harvesting={harvestingIds.has(item.kernel.id)}
-          onPress={() => props.pickerMode ? props.onPick(item.kernel) : props.onKernelTap(item.kernel)}
+          faulted={props.faulted && selectedIds.has(item.kernel.id)}
+          rejected={props.rejectedId === item.kernel.id}
+          onPress={() => handlePress(item.kernel)}
         />
       ))}
-    </View>
+    </TapGestureArbitrator>
   );
 }
 
 const styles = StyleSheet.create({
-  frame: { alignSelf: 'center' },
+  frame: { alignSelf: 'center', position: 'relative' },
 });

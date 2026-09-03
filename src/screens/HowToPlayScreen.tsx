@@ -4,9 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FarmButton } from '../components/FarmButton';
 
 const STEPS = [
-  { title: '1. Drag letters', body: 'Press a kernel and drag through adjacent letters to spell a word.' },
-  { title: '2. Rotate the cob', body: 'Swipe empty cob space left or right. New letters wrap around the ear.' },
-  { title: '3. Use tools', body: 'Scarecrow shows a start, Butter Brush reveals a path, Corn Picker plucks one kernel.' },
+  { title: '1. Tap letters', body: 'Tap any visible kernels in spelling order to build a word, then press the word to harvest it. Letters do not need to sit next to each other.' },
+  { title: '2. Rotate the cob', body: 'Drag left or right, or tap the rotate buttons, to spin the ear and hunt the next letter. Your current word stays selected.' },
+  { title: '3. Use tools', body: 'Scarecrow shows a start letter, Butter Brush highlights the letters of a hidden word around the cob, Corn Picker plucks one kernel.' },
   { title: '4. Hit the harvest goal', body: 'Clear enough kernels to fill the basket and bring in a bumper crop.' },
 ];
 
