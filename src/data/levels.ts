@@ -32,7 +32,7 @@ export const WORLD_NAME = 'Sweet Corn Fields';
 export const NEXT_WORLD_NAME = 'Popcorn Acres';
 
 export const LEVELS: Level[] = [
-  makeLevel(1, 50, [
+  makeLevel(1, 70, [
     'SEEDCORN',
     'HAYFARMR',
     'SUNRAINE',

@@ -10,6 +10,22 @@ export function FarmButton({ label, onPress, dim }: { label: string; onPress: ()
   );
 }
 
+export function PlayButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Play">
+      {({ pressed }) => (
+        <View style={styles.playWrap}>
+          <View style={styles.playBase} />
+          <View style={[styles.playFace, pressed && styles.playPressed]}>
+            <View style={styles.playShine} />
+            <Text style={styles.playLabel}>PLAY</Text>
+          </View>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 export function Panel({ children }: { children: ReactNode }) {
   return <View style={styles.panel}>{children}</View>;
 }
@@ -36,5 +52,52 @@ const styles = StyleSheet.create({
     width: '88%',
     maxWidth: 420,
     overflow: 'hidden',
+  },
+  playWrap: {
+    width: 280,
+    height: 78,
+  },
+  playBase: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#2a6a14',
+  },
+  playFace: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#58c22e',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#7ee04a',
+  },
+  playPressed: { top: 10 },
+  playShine: {
+    position: 'absolute',
+    top: 0,
+    left: 18,
+    right: 18,
+    height: 18,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  playLabel: {
+    color: '#ffffff',
+    fontWeight: '900',
+    fontSize: 34,
+    letterSpacing: 3,
+    textShadowColor: 'rgba(30,80,16,0.45)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 0,
   },
 });

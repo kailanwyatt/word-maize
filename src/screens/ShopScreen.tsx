@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +11,7 @@ import { purchaseProduct } from '../monetization/purchases';
 import { useGameStore } from '../store/GameStore';
 
 export function ShopScreen() {
+  const router = useRouter();
   const store = useGameStore();
   const [detail, setDetail] = useState<ShopProduct | ToolId | undefined>();
   const [confirm, setConfirm] = useState<ShopProduct | undefined>();
@@ -30,7 +32,7 @@ export function ShopScreen() {
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.shopBarn} style={styles.bg} resizeMode="cover">
       <SafeAreaView style={styles.safe}>
-        <CurrencyBar />
+        <CurrencyBar onSettings={() => router.push('/settings')} />
         <Text style={styles.title}>Farm Store</Text>
         <ScrollView contentContainerStyle={styles.list}>
           {SHOP_PRODUCTS.map(product => (

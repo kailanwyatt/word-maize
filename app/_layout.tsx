@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureAds } from '../src/monetization/ads';
 import { configurePurchases, refreshAdFree } from '../src/monetization/purchases';
@@ -35,13 +36,15 @@ function Gate({ children }: { children: ReactNode }) {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <GameStoreProvider>
-        <Gate>
-          <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1a3a18' } }} />
-        </Gate>
-      </GameStoreProvider>
+    <GestureHandlerRootView style={{ flex: 1, alignItems: 'center', backgroundColor: '#061a2e' }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: 430 }}>
+        <GameStoreProvider>
+          <Gate>
+            <StatusBar style="light" />
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1a3a18' } }} />
+          </Gate>
+        </GameStoreProvider>
+      </View>
     </GestureHandlerRootView>
   );
 }

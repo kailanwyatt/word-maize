@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import { wordMaizeAssets } from '../../../assets/word-maize/assets';
 import { KernelLayout } from './layout';
 
 export function KernelTile({
@@ -29,6 +30,7 @@ export function KernelTile({
         },
       ]}
     >
+      <Image source={wordMaizeAssets.kernels.normalV2} style={styles.kernel} />
       {(selected || hinted) && <View style={[styles.glow, selected ? styles.selected : styles.hinted]} />}
       <Text style={[styles.letter, { fontSize: size * 0.46, color: selected ? '#fff8cf' : '#2e1a0c' }]}>{kernel.letter}</Text>
     </View>
@@ -37,13 +39,14 @@ export function KernelTile({
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', zIndex: 5, alignItems: 'center', justifyContent: 'center' },
-  glow: { position: 'absolute', left: '6%', right: '6%', top: '6%', bottom: '6%', borderRadius: 10, borderWidth: 3 },
+  kernel: { position: 'absolute', width: '112%', height: '112%', resizeMode: 'contain' },
+  glow: { position: 'absolute', left: '5%', right: '5%', top: '5%', bottom: '5%', borderRadius: 12, borderWidth: 3 },
   selected: { backgroundColor: 'rgba(44,148,36,0.55)', borderColor: '#d9ff9a' },
   hinted: { backgroundColor: 'rgba(126,190,36,0.4)', borderColor: '#efff71' },
   letter: {
     fontWeight: '900',
-    textShadowColor: 'rgba(255,236,150,0.95)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
+    textShadowColor: 'rgba(255,236,150,0.55)',
+    textShadowOffset: { width: 0, height: 1.5 },
+    textShadowRadius: 1.5,
   },
 });

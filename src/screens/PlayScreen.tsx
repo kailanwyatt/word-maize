@@ -4,7 +4,7 @@ import { Image, ImageBackground, Modal, Pressable, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
-import { FarmButton, Panel } from '../components/FarmButton';
+import { FarmButton, Panel, PlayButton } from '../components/FarmButton';
 import { isLevelUnlocked, LEVELS } from '../data/levels';
 import { showRewardedAd } from '../monetization/ads';
 import { useGameStore } from '../store/GameStore';
@@ -32,19 +32,21 @@ export function PlayScreen() {
   };
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.homeFarm} style={styles.bg} resizeMode="cover">
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <CurrencyBar onSettings={() => router.push('/settings')} />
         <View style={styles.hero}>
-          <Image source={wordMaizeAssets.corn.fullV2} style={styles.logo} />
-          <Text style={styles.title}>WORD MAIZE</Text>
-          <Text style={styles.sub}>Sweet Corn Fields · Level {level.id}</Text>
+          <Image source={wordMaizeAssets.ui.logo} style={styles.logo} />
         </View>
+        <View style={styles.field} />
         <View style={styles.actions}>
+          <View style={styles.levelSign}>
+            <Text style={styles.levelLabel}>LEVEL {level.id}</Text>
+          </View>
           <Pressable style={styles.daily} onPress={() => router.push('/daily-harvest')}>
             <Image source={wordMaizeAssets.props.chest} style={styles.chest} />
             <Text style={styles.dailyText}>{daily.alreadyClaimed ? 'Daily claimed' : `Day ${daily.day} ready`}</Text>
           </Pressable>
-          <FarmButton label={`PLAY LEVEL ${level.id}`} onPress={play} />
+          <PlayButton onPress={play} />
         </View>
       </SafeAreaView>
       <Modal visible={needEnergy} transparent animationType="fade">
@@ -65,14 +67,30 @@ export function PlayScreen() {
 
 const styles = StyleSheet.create({
   bg: { flex: 1 },
-  safe: { flex: 1, justifyContent: 'space-between', paddingBottom: 18 },
-  hero: { alignItems: 'center', marginTop: 24 },
-  logo: { width: 140, height: 140, resizeMode: 'contain' },
-  title: { color: '#fff6c6', fontSize: 34, fontWeight: '900', textShadowColor: '#1d1408', textShadowRadius: 6, letterSpacing: 1 },
-  sub: { color: '#f7dfa0', fontWeight: '800', marginTop: 4 },
-  actions: { alignItems: 'center', gap: 14, paddingBottom: 12 },
-  daily: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(47,33,16,0.9)', borderWidth: 2, borderColor: '#e5b72f', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, gap: 8 },
-  chest: { width: 36, height: 36, resizeMode: 'contain' },
+  safe: { flex: 1 },
+  hero: { alignItems: 'center', marginTop: 10 },
+  logo: { width: 268, height: 178, resizeMode: 'contain' },
+  field: { flex: 1 },
+  actions: { alignItems: 'center', gap: 12, paddingBottom: 16 },
+  levelSign: {
+    backgroundColor: '#3a2410',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderWidth: 2,
+    borderColor: '#6b4522',
+  },
+  levelLabel: { color: '#ffffff', fontWeight: '900', fontSize: 15, letterSpacing: 1.2 },
+  daily: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(58,36,16,0.92)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 8,
+  },
+  chest: { width: 32, height: 32, resizeMode: 'contain' },
   dailyText: { color: '#fff6c6', fontWeight: '800' },
   shade: { flex: 1, backgroundColor: 'rgba(20,40,30,0.68)', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 8 },

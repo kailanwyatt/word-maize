@@ -1,16 +1,11 @@
 import { Tabs } from 'expo-router';
-import { Image, ImageSourcePropType, StyleSheet, Text, View } from 'react-native';
-import { wordMaizeAssets } from '../../assets/word-maize/assets';
+import { StyleSheet, View } from 'react-native';
+import { TabIcon } from '../../src/components/TabIcons';
 
-function TabIcon({ label, focused, image }: { label: string; focused: boolean; image?: ImageSourcePropType }) {
+function TabBarWood() {
   return (
-    <View style={styles.iconWrap}>
-      {image ? (
-        <Image source={image} style={[styles.image, focused && styles.imageOn]} />
-      ) : (
-        <Text style={[styles.glyph, focused && styles.focused]}>{label[0]}</Text>
-      )}
-      <Text style={[styles.caption, focused && styles.focused]}>{label}</Text>
+    <View style={styles.wood}>
+      <View style={styles.woodRim} />
     </View>
   );
 }
@@ -23,35 +18,39 @@ export default function TabLayout() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarItemStyle: { flex: 1 },
+        tabBarBackground: () => <TabBarWood />,
         tabBarStyle: {
-          backgroundColor: '#2f2110',
-          borderTopColor: '#e5b72f',
-          borderTopWidth: 2,
-          height: 70,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          height: 78,
           paddingTop: 8,
-          paddingBottom: 8,
+          paddingBottom: 10,
+          elevation: 0,
         },
       }}
     >
       <Tabs.Screen
         name="map"
         options={{
-          title: 'Map',
-          tabBarIcon: ({ focused }) => <TabIcon label="MAP" focused={focused} />,
+          title: 'Farm',
+          tabBarAccessibilityLabel: 'Farm',
+          tabBarIcon: ({ focused }) => <TabIcon label="FARM" focused={focused} kind="farm" />,
         }}
       />
       <Tabs.Screen
         name="play"
         options={{
           title: 'Play',
-          tabBarIcon: ({ focused }) => <TabIcon label="PLAY" focused={focused} image={wordMaizeAssets.corn.fullV2} />,
+          tabBarAccessibilityLabel: 'Play',
+          tabBarIcon: ({ focused }) => <TabIcon label="PLAY" focused={focused} kind="play" />,
         }}
       />
       <Tabs.Screen
         name="shop"
         options={{
           title: 'Shop',
-          tabBarIcon: ({ focused }) => <TabIcon label="SHOP" focused={focused} />,
+          tabBarAccessibilityLabel: 'Shop',
+          tabBarIcon: ({ focused }) => <TabIcon label="SHOP" focused={focused} kind="shop" />,
         }}
       />
     </Tabs>
@@ -59,10 +58,6 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  iconWrap: { alignItems: 'center', justifyContent: 'center' },
-  glyph: { color: '#c9b48a', fontSize: 15, fontWeight: '900' },
-  caption: { color: '#c9b48a', fontSize: 11, fontWeight: '900', marginTop: 1 },
-  focused: { color: '#ffe676' },
-  image: { width: 22, height: 22, resizeMode: 'contain', opacity: 0.7 },
-  imageOn: { opacity: 1 },
+  wood: { flex: 1, backgroundColor: '#3b2410' },
+  woodRim: { height: 5, backgroundColor: '#5c3a18' },
 });

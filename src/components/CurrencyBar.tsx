@@ -1,75 +1,80 @@
+import { useRouter } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useState } from 'react';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
-import { msUntilNextEnergy } from '../game/energy';
-import { ENERGY_MAX } from '../game/types';
+import { totalStars } from '../game/scoring';
 import { useGameStore } from '../store/GameStore';
-
-function formatMs(ms: number) {
-  const total = Math.ceil(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
+import { GearIcon } from './GearIcon';
 
 export function CurrencyBar({ onSettings }: { onSettings?: () => void }) {
-  const { save, energyNow } = useGameStore();
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick(value => value + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const energy = energyNow();
-  const wait = msUntilNextEnergy(energy.energy, energy.energyUpdatedAt);
+  const router = useRouter();
+  const { save } = useGameStore();
+  const stars = totalStars(save.levels);
+  const openSettings = onSettings ?? (() => router.push('/settings'));
   return (
-    <View style={styles.wrap}>
-      <View style={styles.row}>
-        <View style={styles.chip}>
-          <Image source={wordMaizeAssets.ui.coin} style={styles.icon} />
-          <Text style={styles.value}>{save.coins}</Text>
+    <View style={styles.row}>
+      <Pressable style={styles.coinPill} onPress={() => router.push('/(tabs)/shop')}>
+        <Image source={wordMaizeAssets.ui.coin} style={styles.coin} />
+        <Text style={styles.value}>{save.coins.toLocaleString('en-US')}</Text>
+        <View style={styles.plus}>
+          <Text style={styles.plusText}>+</Text>
         </View>
-        <View style={styles.chip}>
-          <Image source={wordMaizeAssets.ui.energy} style={styles.icon} />
-          <Text style={styles.value}>{energy.energy}/{ENERGY_MAX}</Text>
-          {energy.energy < ENERGY_MAX ? <Text style={styles.wait}>{formatMs(wait)}</Text> : null}
-        </View>
-        {onSettings ? (
-          <Pressable onPress={onSettings} style={styles.gear}><Text style={styles.gearText}>⚙</Text></Pressable>
-        ) : <View style={styles.gearSpacer} />}
+      </Pressable>
+      <View style={styles.starPill}>
+        <Text style={styles.star}>★</Text>
+        <Text style={styles.value}>{stars}</Text>
       </View>
+      <View style={styles.spacer} />
+      <Pressable onPress={openSettings} style={styles.gear} accessibilityLabel="Settings">
+        <GearIcon color="#ffffff" size={20} />
+      </Pressable>
     </View>
   );
 }
 
+const pill = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  backgroundColor: '#3a2410',
+  borderRadius: 22,
+  paddingVertical: 5,
+  paddingLeft: 6,
+  paddingRight: 6,
+  gap: 6,
+  shadowColor: '#000',
+  shadowOpacity: 0.28,
+  shadowOffset: { width: 0, height: 2 },
+  shadowRadius: 3,
+  elevation: 3,
+};
+
 const styles = StyleSheet.create({
-  wrap: { width: '100%' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 },
-  chip: {
-    flexDirection: 'row',
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 8 },
+  coinPill: { ...pill, paddingRight: 5 },
+  starPill: { ...pill, paddingHorizontal: 10 },
+  spacer: { flex: 1 },
+  coin: { width: 28, height: 28, resizeMode: 'contain' },
+  value: { color: '#ffffff', fontWeight: '900', fontSize: 17, minWidth: 18 },
+  plus: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: '#58c22e',
     alignItems: 'center',
-    gap: 6,
-    flex: 1,
-    backgroundColor: 'rgba(47,33,16,0.9)',
-    borderWidth: 2,
-    borderColor: '#e5b72f',
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    overflow: 'hidden',
+    justifyContent: 'center',
   },
-  icon: { width: 22, height: 22, resizeMode: 'contain' },
-  value: { color: '#fff6c6', fontWeight: '900', fontSize: 16 },
-  wait: { color: '#f7dfa0', fontWeight: '800', fontSize: 11 },
+  plusText: { color: '#ffffff', fontWeight: '900', fontSize: 18, marginTop: -1 },
+  star: { color: '#ffd24a', fontSize: 18, fontWeight: '900' },
   gear: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#4c3515',
-    borderWidth: 3,
-    borderColor: '#e5b72f',
+    backgroundColor: '#3a2410',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 3,
+    elevation: 3,
   },
-  gearSpacer: { width: 42, height: 42 },
-  gearText: { color: '#ffe676', fontSize: 20, fontWeight: '900' },
 });
