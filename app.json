@@ -40,12 +40,6 @@
       "expo-web-browser",
       "expo-dev-client",
       [
-        "expo-notifications",
-        {
-          "sounds": []
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "ios": {

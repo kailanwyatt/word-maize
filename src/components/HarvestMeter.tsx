@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  basket: { width: 50, height: 40, resizeMode: 'contain' as const, marginTop: -8 },
-  percent: { color: '#fff6c6', fontSize: 17, fontWeight: '900', marginTop: -4 },
+  basket: { width: 68, height: 52, resizeMode: 'contain' as const, marginTop: -11 },
+  percent: { color: '#fff6c6', fontSize: 17, fontWeight: '900', marginTop: -7 },
   label: { color: '#fff6c6', fontSize: 7, fontWeight: '900' },
 });

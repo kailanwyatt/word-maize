@@ -19,7 +19,7 @@ export function WordSelectionPath({ path, centers }: { path: Kernel[]; centers: 
               styles.line,
               {
                 left: from.x,
-                top: from.y - 4,
+                top: from.y - 6,
                 width: length,
                 transform: [{ rotate: `${Math.atan2(dy, dx)}rad` }],
               },
@@ -35,10 +35,15 @@ const styles = StyleSheet.create({
   line: {
     position: 'absolute',
     zIndex: 4,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(199,255,133,0.92)',
-    borderWidth: 1,
-    borderColor: '#fff7c2',
+    height: 12, // Thicker line
+    borderRadius: 6,
+    backgroundColor: '#4d8a28', // Solid dark green
+    borderWidth: 2,
+    borderColor: '#dfffad', // Light green / whiteish border
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 2,
+    elevation: 3,
   },
 });

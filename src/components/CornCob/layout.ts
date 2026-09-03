@@ -24,9 +24,9 @@ export function cobMetrics(width: number, height: number): CobMetrics {
   return {
     width,
     height,
-    radius: width * 0.168,
-    top: height * 0.168,
-    cobHeight: height * 0.5,
+    radius: width * 0.32,
+    top: height * 0.16,
+    cobHeight: height * 0.65,
   };
 }
 

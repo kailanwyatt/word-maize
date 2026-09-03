@@ -1,8 +1,9 @@
-import { ADMOB_REWARDED_UNIT_ID } from './config';
+import { ADMOB_REWARDED_UNIT_ID, isExpoGo } from './config';
 
 type RewardKind = 'energy' | 'double_coins' | 'tool';
 
 function loadAds(): typeof import('react-native-google-mobile-ads') | null {
+  if (isExpoGo) return null;
   try {
     return require('react-native-google-mobile-ads');
   } catch {

@@ -12,15 +12,20 @@ export function CurrentWord({ word, status }: { word: string; status: 'idle' | '
 const styles = StyleSheet.create({
   wrap: {
     minWidth: 168,
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,248,218,0.96)',
+    paddingHorizontal: 22,
+    paddingVertical: 8,
+    borderRadius: 24,
+    backgroundColor: '#3f7c19', // Default to the nice green from the design
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#8b562c',
+    borderColor: '#b2d973',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 4,
+    elevation: 5,
   },
-  word: { color: '#4b2d18', fontSize: 20, fontWeight: '900', letterSpacing: 1.6 },
-  valid: { backgroundColor: '#dfffad', borderColor: '#4d8a28' },
-  invalid: { backgroundColor: '#ffd2bd', borderColor: '#c45a32' },
+  word: { color: '#ffffff', fontSize: 24, fontWeight: '900', letterSpacing: 3, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 3 },
+  valid: { backgroundColor: '#4d8a28', borderColor: '#dfffad' }, // Optional highlight when valid
+  invalid: { backgroundColor: '#c45a32', borderColor: '#ffd2bd' },
 });

@@ -1,16 +1,16 @@
 import 'react-native-gesture-handler';
-import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureAds } from '../src/monetization/ads';
+import { isExpoGo } from '../src/monetization/config';
 import { configurePurchases, refreshAdFree } from '../src/monetization/purchases';
 import { SplashView } from '../src/screens/SplashView';
 import { GameStoreProvider, useGameStore } from '../src/store/GameStore';
 
-const nativeStores = Constants.appOwnership !== 'expo';
+const nativeStores = !isExpoGo;
 
 function Gate({ children }: { children: ReactNode }) {
   const { ready, setAdFree } = useGameStore();

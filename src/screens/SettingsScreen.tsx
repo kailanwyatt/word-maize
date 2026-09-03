@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Alert, Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
 import { FarmButton } from '../components/FarmButton';
 import { PRIVACY_POLICY_URL, TERMS_URL } from '../monetization/config';
 import { restorePurchases } from '../monetization/purchases';
@@ -10,16 +9,6 @@ import { useGameStore } from '../store/GameStore';
 export function SettingsScreen() {
   const router = useRouter();
   const { save, setSetting, setAdFree } = useGameStore();
-  const toggleNotes = async (value: boolean) => {
-    if (value) {
-      const permission = await Notifications.requestPermissionsAsync();
-      if (permission.status !== 'granted') {
-        Alert.alert('Notifications', 'Permission was not granted.');
-        return;
-      }
-    }
-    setSetting('notifications', value);
-  };
   const restore = async () => {
     const result = await restorePurchases();
     if (result.adFree) setAdFree(true);
@@ -38,10 +27,7 @@ export function SettingsScreen() {
           <Switch value={save.settings[key]} onValueChange={value => setSetting(key, value)} />
         </View>
       ))}
-      <View style={styles.row}>
-        <Text style={styles.label}>Notifications</Text>
-        <Switch value={save.settings.notifications} onValueChange={toggleNotes} />
-      </View>
+
       <View style={styles.row}><Text style={styles.label}>Language</Text><Text style={styles.value}>English</Text></View>
       <View style={{ height: 16 }} />
       <FarmButton label="RESTORE PURCHASES" onPress={restore} />

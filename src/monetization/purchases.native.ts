@@ -1,12 +1,13 @@
 import { SHOP_PRODUCTS, ShopProduct } from '../data/shop';
 import { Inventory } from '../game/types';
-import { AD_FREE_ENTITLEMENT, REVENUECAT_API_KEY } from './config';
+import { AD_FREE_ENTITLEMENT, REVENUECAT_API_KEY, isExpoGo } from './config';
 
 type PurchaseResult = { ok: boolean; adFree?: boolean; tools?: Partial<Inventory>; message?: string };
 
 let configured = false;
 
 function loadPurchases(): typeof import('react-native-purchases').default | null {
+  if (isExpoGo) return null;
   try {
     return require('react-native-purchases').default;
   } catch {

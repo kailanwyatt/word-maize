@@ -1,4 +1,4 @@
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 
 const extra = (Constants.expoConfig?.extra ?? {}) as {
@@ -9,6 +9,10 @@ const extra = (Constants.expoConfig?.extra ?? {}) as {
   admobRewardedUnitIdIos?: string;
   admobRewardedUnitIdAndroid?: string;
 };
+
+export const isExpoGo =
+  Constants.appOwnership === 'expo'
+  || Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 export const REVENUECAT_API_KEY = Platform.OS === 'ios' ? extra.revenueCatIosKey ?? '' : extra.revenueCatAndroidKey ?? '';
 export const PRIVACY_POLICY_URL = extra.privacyPolicyUrl ?? 'https://example.com/word-maize/privacy';
