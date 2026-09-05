@@ -23,9 +23,10 @@ The MVP is a polished, installable portrait mobile game with one complete ten-le
 - Integration and organization of final artwork supplied by ChatGPT/Codex
 - Cob/kernel/socket visual integration using approved assets
 - Screen-by-screen responsive visual polish
-- Character, map, completion, tool, shop, daily, icon, and splash art
+- Code integration of supplied character, map, completion, tool, shop, daily, icon, and splash artwork
 - Animation timing and visual effects, without changing game rules
 - Physical-device visual QA across supported sizes
+- Missing-art documentation for Codex; Cursor does not generate, redraw, retouch, or replace artwork
 
 ## Remaining production sequence
 

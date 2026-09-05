@@ -1,6 +1,8 @@
 # Cursor prompt — integrate Word Maize Blender assets
 
-Inspect the current project first and preserve all functional gameplay. Players tap visible kernels in spelling order; letters do not need to be adjacent; the word display submits; horizontal drag rotates; levels have 7 rows and 8–10 columns; rotation uses column units; harvested kernels reveal sockets. Do not restore drag tracing, adjacency restrictions, or release-to-submit.
+Cursor only implements and integrates supplied assets. It must not create, generate, model, texture, render, redraw, retouch, or repair artwork. ChatGPT/Codex owns all art production. If a required GLB, texture, sprite, pose, angle, or state is missing, record the exact requirement in `docs/CURSOR_MISSING_ART.md` and continue with other implementation work.
+
+Inspect the current project first and preserve all functional gameplay. Players tap visible kernels in spelling order; letters do not need to be adjacent; the word display submits; horizontal drag rotates; board dimensions come from each level definition; rotation uses column units; harvested kernels reveal sockets. Do not restore drag tracing, adjacency restrictions, or release-to-submit.
 
 Use the modular files in `assets/word-maize/models/` and treat `word-maize-models.json` as the geometry contract. Keep HUD, word button, basket, meter, and tools as React Native UI.
 
