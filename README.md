@@ -2,6 +2,8 @@
 
 Portrait Expo/React Native word game: hunt letters on a rotating 2.5D corn cob, harvest the cob, and work through Sweet Corn Fields.
 
+The authoritative product direction, campaign story, obstacle system, progression, monetization boundaries, and art requirements are defined in [docs/GAME_VISION_STORY_SPEC.md](docs/GAME_VISION_STORY_SPEC.md).
+
 ## Run it
 
 Gameplay UI runs in Expo Go. **In-app purchases and AdMob require a development build.**
@@ -56,3 +58,5 @@ npm test
 - `src/store` — local AsyncStorage progress
 - `src/monetization` — RevenueCat + rewarded AdMob wrappers
 - `app/` — Expo Router screens (Map / Play / Shop)
+
+The authoritative product direction, campaign story, obstacle system, progression, monetization boundaries, and art requirements are defined in [docs/GAME_VISION_STORY_SPEC.md](docs/GAME_VISION_STORY_SPEC.md).
