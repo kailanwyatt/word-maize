@@ -3,6 +3,7 @@ import { createContext, PropsWithChildren, useCallback, useContext, useEffect, u
 import { DAILY_REWARDS } from '../data/shop';
 import { LEVELS } from '../data/levels';
 import { replenishEnergy } from '../game/energy';
+import { clampInventoryAmount } from '../game/economy';
 import { ENERGY_MAX, Inventory, LevelProgress, ToolId } from '../game/types';
 import { ActiveLevelRun, defaultSave, GameSave, localDateString, migrateSave, nextDailyDay, SAVE_KEY } from './types';
 
@@ -91,9 +92,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
     patch(prev => ({
       ...prev,
       inventory: {
-        scarecrow: prev.inventory.scarecrow + (tools.scarecrow ?? 0),
-        butterBrush: prev.inventory.butterBrush + (tools.butterBrush ?? 0),
-        cornPicker: prev.inventory.cornPicker + (tools.cornPicker ?? 0),
+        scarecrow: clampInventoryAmount(prev.inventory.scarecrow + (tools.scarecrow ?? 0)),
+        butterBrush: clampInventoryAmount(prev.inventory.butterBrush + (tools.butterBrush ?? 0)),
+        cornPicker: clampInventoryAmount(prev.inventory.cornPicker + (tools.cornPicker ?? 0)),
       },
     }));
   }, [patch]);
@@ -175,9 +176,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
         ...prev,
         coins: prev.coins + (grant.coins ?? 0),
         inventory: {
-          scarecrow: prev.inventory.scarecrow + (grant.tools?.scarecrow ?? 0),
-          butterBrush: prev.inventory.butterBrush + (grant.tools?.butterBrush ?? 0),
-          cornPicker: prev.inventory.cornPicker + (grant.tools?.cornPicker ?? 0),
+          scarecrow: clampInventoryAmount(prev.inventory.scarecrow + (grant.tools?.scarecrow ?? 0)),
+          butterBrush: clampInventoryAmount(prev.inventory.butterBrush + (grant.tools?.butterBrush ?? 0)),
+          cornPicker: clampInventoryAmount(prev.inventory.cornPicker + (grant.tools?.cornPicker ?? 0)),
         },
         daily: { lastClaimDate: today, claimedDay: status.day },
       };

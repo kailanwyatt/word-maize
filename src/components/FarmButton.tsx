@@ -4,7 +4,7 @@ import { palette } from '../theme';
 
 export function FarmButton({ label, onPress, dim }: { label: string; onPress: () => void; dim?: boolean }) {
   return (
-    <Pressable onPress={onPress} style={[styles.btn, dim && styles.dim]}>
+    <Pressable accessibilityRole="button" disabled={dim} onPress={onPress} style={[styles.btn, dim && styles.dim]}>
       <Text style={styles.label}>{label}</Text>
     </Pressable>
   );

@@ -3,6 +3,7 @@ import { areAdjacent } from '../adjacency';
 import { exposedKernels, kernelId, resetLevel, shuffleExposedLetters } from '../board';
 import { validateWord, WORD_LIST } from '../dictionary';
 import { canSpendEnergy, replenishEnergy } from '../energy';
+import { clampInventoryAmount, completionReward } from '../economy';
 import { hitKernel } from '../../components/CornCob/layout';
 import { classifyMovement, resolvePointerRelease } from '../gestures';
 import { harvestKernels, harvestPercent } from '../harvest';
@@ -263,6 +264,25 @@ describe('energy and stars', () => {
   it('pays more coins for longer words', () => {
     expect(coinsForWord('HAY')).toBe(30);
     expect(coinsForWord('HARVEST')).toBeGreaterThan(coinsForWord('CORN'));
+  });
+});
+
+describe('economy policy', () => {
+  it('awards authored and performance bonuses only on the first clear', () => {
+    const first = completionReward({ wordCoins: 90, levelReward: 100, harvestPercent: 55, harvestTarget: 45, firstClear: true });
+    const replay = completionReward({ wordCoins: 90, levelReward: 100, harvestPercent: 55, harvestTarget: 45, firstClear: false });
+    expect(first).toMatchObject({ wordCoins: 90, firstClearCoins: 100, performanceCoins: 120, total: 310 });
+    expect(replay).toMatchObject({ wordCoins: 90, firstClearCoins: 0, performanceCoins: 0, total: 90 });
+  });
+
+  it('doubles the eligible payout exactly once', () => {
+    expect(completionReward({ wordCoins: 40, levelReward: 100, harvestPercent: 45, harvestTarget: 45, firstClear: true, doubled: true }).total).toBe(440);
+  });
+
+  it('keeps inventory grants within safe integer bounds', () => {
+    expect(clampInventoryAmount(-3)).toBe(0);
+    expect(clampInventoryAmount(1200)).toBe(999);
+    expect(clampInventoryAmount(Number.NaN)).toBe(0);
   });
 });
 

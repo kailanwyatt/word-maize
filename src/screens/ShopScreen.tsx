@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Image, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
@@ -15,7 +15,12 @@ export function ShopScreen() {
   const store = useGameStore();
   const [detail, setDetail] = useState<ShopProduct | ToolId | undefined>();
   const [confirm, setConfirm] = useState<ShopProduct | undefined>();
+  const [purchasing, setPurchasing] = useState(false);
+  const purchaseBusy = useRef(false);
   const buy = async (product: ShopProduct) => {
+    if (purchaseBusy.current) return;
+    purchaseBusy.current = true;
+    setPurchasing(true);
     const result = await purchaseProduct(product);
     if (result.ok) {
       if (result.adFree) store.setAdFree(true);
@@ -26,6 +31,8 @@ export function ShopScreen() {
     } else {
       Alert.alert('Purchase', result.message ?? 'Could not complete that purchase.');
     }
+    purchaseBusy.current = false;
+    setPurchasing(false);
   };
   const productDetail = typeof detail === 'object' ? detail : undefined;
   const toolDetail = typeof detail === 'string' ? detail : undefined;
@@ -81,7 +88,7 @@ export function ShopScreen() {
             <Text style={styles.modalTitle}>Confirm Purchase</Text>
             <Text style={styles.body}>{confirm?.title} for {confirm?.displayPrice}?</Text>
             <View style={{ height: 12 }} />
-            <FarmButton label="BUY NOW" onPress={() => confirm && buy(confirm)} />
+            <FarmButton label={purchasing ? 'PURCHASING…' : 'BUY NOW'} onPress={() => confirm && buy(confirm)} dim={purchasing} />
             <View style={{ height: 10 }} />
             <FarmButton label="CANCEL" onPress={() => setConfirm(undefined)} />
           </Panel>

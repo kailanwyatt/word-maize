@@ -14,9 +14,10 @@ import { levelById } from '../data/levels';
 import { TOOL_INFO } from '../data/shop';
 import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board';
 import { WORD_LIST, wordPrefixes } from '../game/dictionary';
+import { completionReward } from '../game/economy';
 import { harvestKernels, harvestPercent } from '../game/harvest';
 import { findDiscoverablePath } from '../game/powerups';
-import { coinsForWord, completionBonus, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
+import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
 import { canSubmitSelection, evaluateSubmission } from '../game/selection';
 import { Kernel, Tuning } from '../game/types';
 import { useCobRotation } from '../hooks/useCobRotation';
@@ -91,8 +92,16 @@ export function GameScreen() {
   const canSubmit = canSubmitSelection(selection.path, { busy });
   const harvestedCount = level.kernels.filter(k => k.harvested).length;
   const longest = foundWords.reduce((a, b) => (a.length >= b.length ? a : b), '—');
-  const reward = inCoins + source.rewardCoins + completionBonus(percent, tuning.harvestTarget);
-  const payout = doubled ? reward * 2 : reward;
+  const firstClear = !store.save.levels[levelId]?.completed;
+  const reward = completionReward({
+    wordCoins: inCoins,
+    levelReward: source.rewardCoins,
+    harvestPercent: percent,
+    harvestTarget: tuning.harvestTarget,
+    firstClear,
+    doubled,
+  });
+  const payout = reward.total;
 
   useEffect(() => {
     if (!store.ready || hydratedRef.current) return;
@@ -379,6 +388,10 @@ export function GameScreen() {
                 <Image source={wordMaizeAssets.ui.coin} style={styles.coinIcon} />
                 <Text style={styles.rewardText}>+{payout}</Text>
               </View>
+              <Text style={styles.rewardDetail}>
+                {firstClear ? `Words ${reward.wordCoins} · First clear ${reward.firstClearCoins} · Bonus ${reward.performanceCoins}` : `Replay word coins ${reward.wordCoins}`}
+                {doubled ? ' · ×2' : ''}
+              </Text>
               {source.starGoals.map(goal => (
                 <Text key={goal.id} style={styles.goalResult}>
                   {starGoalComplete(goal, runStats) ? '★' : '☆'} {goal.label}
@@ -488,6 +501,7 @@ const styles = StyleSheet.create({
   rewardBox: { flexDirection: 'row', backgroundColor: '#6e431f', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 8, borderWidth: 2, borderColor: '#a86f37' },
   coinIcon: { width: 28, height: 28, resizeMode: 'contain', marginRight: 8 },
   rewardText: { color: '#ffffff', fontSize: 24, fontWeight: '900' },
+  rewardDetail: { color: '#684525', fontSize: 11, fontWeight: '700', textAlign: 'center' },
   
   bumperBasket: { position: 'absolute', bottom: -15, left: -40, width: 140, height: 110, resizeMode: 'contain', zIndex: 30 },
   bumperTractor: { position: 'absolute', bottom: 20, right: -40, width: 130, height: 100, resizeMode: 'contain', zIndex: 30 },
