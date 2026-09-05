@@ -27,7 +27,7 @@ export const wordMaizeAssets = {
   },
   props: {
     harvestBasket: require('./props/harvest-basket-v2.png'),
-    tractor: require('./props/tractor-mascot.png'),
+    tractor: require('./props/tractor-mascot-v2.png'),
     chest: require('./props/golden-chest.png'),
   },
   characters: {
