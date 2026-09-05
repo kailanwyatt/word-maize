@@ -38,9 +38,10 @@ function layout(rotation: number): LayoutCell[] {
       y: 142 + cell.row * 68,
       scaleX: 1 - edge * 0.44,
       scale: 1 - edge * 0.08,
-      // Left and right columns lean away from the straight, readable center.
+      // Each outer edge follows the vertical oval: inward at the top,
+      // straight at mid-height, then outward at the bottom. The right mirrors left.
       tilt: edge > 0.36
-        ? (offset / front) * 11 * Math.pow((edge - 0.36) / 0.64, 1.15)
+        ? -Math.sign(offset) * (0.5 - rowT) * 24 * Math.pow((edge - 0.36) / 0.64, 1.15)
         : 0,
       shade: edge,
       visible,
