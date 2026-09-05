@@ -226,6 +226,10 @@ describe('dictionary', () => {
     expect(validateWord('corn').valid).toBe(true);
     expect(validateWord('harvest').valid).toBe(true);
     expect(WORD_LIST.has('MAIZE')).toBe(true);
+    expect(validateWord('barley').valid).toBe(true);
+    expect(validateWord('oats').valid).toBe(true);
+    expect(validateWord('rye').valid).toBe(true);
+    expect(validateWord('popcorn').valid).toBe(true);
   });
   it('rejects unknown and short words', () => {
     expect(validateWord('xyz')).toMatchObject({ valid: false, reason: 'not-found' });

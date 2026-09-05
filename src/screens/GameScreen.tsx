@@ -410,6 +410,7 @@ export function GameScreen() {
       <Modal visible={complete} transparent animationType="fade">
         <View style={styles.modalShade}>
           <ScrollView contentContainerStyle={styles.modalScroll} bounces={false}>
+          <View style={styles.bumperWrap}>
           <View style={styles.bumperPanel}>
             <View style={styles.bumperHeader}>
               <Text style={styles.bumperTitle}>BUMPER CROP!</Text>
@@ -462,6 +463,7 @@ export function GameScreen() {
             ) : null}
             <View style={{ height: 15 }} />
             <FarmButton label="CONTINUE" onPress={finish} />
+          </View>
           </View>
           </ScrollView>
         </View>
@@ -530,7 +532,7 @@ const styles = StyleSheet.create({
   shuffleOff: { opacity: 0.4 },
   shuffleText: { color: '#ffe676', fontSize: 22, fontWeight: '900' },
   modalShade: { flex: 1, backgroundColor: 'rgba(10,25,18,0.85)', alignItems: 'center', justifyContent: 'center' },
-  modalScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 24, paddingHorizontal: 8 },
+  modalScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40, paddingBottom: 28, paddingHorizontal: 8 },
   modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 12 },
   stats: { fontSize: 16, lineHeight: 25, textAlign: 'center', color: '#51351f', fontWeight: '700' },
   storySpeaker: { color: '#98702c', fontWeight: '900', fontSize: 12, letterSpacing: 1.5, textAlign: 'center', marginBottom: 4 },
@@ -540,9 +542,10 @@ const styles = StyleSheet.create({
   goalHeading: { color: '#5d8b31', fontWeight: '900', fontSize: 13, letterSpacing: 1.5, textAlign: 'center', marginTop: 8 },
   goalResult: { color: '#51351f', fontWeight: '800', fontSize: 13 },
   
-  bumperPanel: { backgroundColor: '#fdf1cd', borderWidth: 4, borderColor: '#73441f', borderRadius: 22, padding: 22, paddingTop: 48, paddingBottom: 20, width: '92%', maxWidth: 380, alignItems: 'center', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 8, zIndex: 10 },
-  bumperHeader: { position: 'absolute', top: -18, backgroundColor: '#58c22e', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 30, borderWidth: 4, borderColor: '#7ee04a', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 5, zIndex: 20 },
-  bumperTitle: { fontSize: 26, fontWeight: '900', color: '#ffffff', letterSpacing: 1.2, textShadowColor: 'rgba(40,100,20,0.6)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 2, transform: [{ rotate: '-2deg' }] },
+  bumperWrap: { width: '92%', maxWidth: 380, paddingTop: 22, alignItems: 'center' },
+  bumperPanel: { backgroundColor: '#fdf1cd', borderWidth: 4, borderColor: '#73441f', borderRadius: 22, padding: 22, paddingTop: 36, paddingBottom: 20, width: '100%', alignItems: 'center', overflow: 'visible', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 8, zIndex: 10 },
+  bumperHeader: { position: 'absolute', top: -22, backgroundColor: '#58c22e', paddingHorizontal: 22, paddingTop: 10, paddingBottom: 10, borderRadius: 28, borderWidth: 4, borderColor: '#7ee04a', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 5, zIndex: 20 },
+  bumperTitle: { fontSize: 24, lineHeight: 28, fontWeight: '900', color: '#ffffff', letterSpacing: 1, textShadowColor: 'rgba(40,100,20,0.6)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 2 },
   bumperSubHeader: { backgroundColor: '#38220f', paddingHorizontal: 20, paddingVertical: 6, borderRadius: 16, marginBottom: 20, marginTop: -15, borderWidth: 2, borderColor: '#e4bb40' },
   bumperSubTitle: { fontSize: 16, fontWeight: '800', color: '#ffffff' },
   
