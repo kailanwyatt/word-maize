@@ -8,6 +8,8 @@ export const wordMaizeAssets = {
     huskBottom: require('./corn/husk-bottom.png'),
   },
   kernels: {
+    approvedNormal: require('./corn/asset-set-v1/kernel-full.png'),
+    approvedSocket: require('./corn/asset-set-v1/kernel-empty-socket.png'),
     normal: [
       require('./kernels/yellow/kernel-normal-01.png'),
       require('./kernels/yellow/kernel-normal-02.png'),

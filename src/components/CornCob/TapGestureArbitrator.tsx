@@ -6,7 +6,7 @@ type Props = {
   movementThreshold: number;
   onRotateStart: () => void;
   onRotateMove: (dx: number) => void;
-  onRotateEnd: () => void;
+  onRotateEnd: (velocityX: number) => void;
   onTap: (x: number, y: number) => void;
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
@@ -42,6 +42,9 @@ export function TapGestureArbitrator({
   const modeRef = useRef<GestureMode>('pending');
   const startPageX = useRef(0);
   const startLocal = useRef({ x: 0, y: 0 });
+  const lastPageX = useRef(0);
+  const lastTime = useRef(0);
+  const velocityX = useRef(0);
   const nodeRef = useRef<View>(null);
   const callbacks = useRef({ onRotateStart, onRotateMove, onRotateEnd, onTap, movementThreshold });
   callbacks.current = { onRotateStart, onRotateMove, onRotateEnd, onTap, movementThreshold };
@@ -49,11 +52,20 @@ export function TapGestureArbitrator({
   const onTouchStart = (event: GestureResponderEvent) => {
     modeRef.current = 'pending';
     startPageX.current = event.nativeEvent.pageX;
+    lastPageX.current = event.nativeEvent.pageX;
+    lastTime.current = Date.now();
+    velocityX.current = 0;
     startLocal.current = cobLocalPoint(event, nodeRef.current as MeasurableNode | null);
   };
 
   const onTouchMove = (event: GestureResponderEvent) => {
     const dx = event.nativeEvent.pageX - startPageX.current;
+    const now = Date.now();
+    const elapsed = Math.max(1, now - lastTime.current);
+    const instant = ((event.nativeEvent.pageX - lastPageX.current) / elapsed) * 1000;
+    velocityX.current = velocityX.current * 0.58 + instant * 0.42;
+    lastPageX.current = event.nativeEvent.pageX;
+    lastTime.current = now;
     const next = classifyMovement(dx, 0, callbacks.current.movementThreshold, modeRef.current);
     if (next === 'rotate' && modeRef.current !== 'rotate') callbacks.current.onRotateStart();
     modeRef.current = next;
@@ -65,7 +77,7 @@ export function TapGestureArbitrator({
     const resolved = resolvePointerRelease(modeRef.current, dx, callbacks.current.movementThreshold);
     modeRef.current = 'pending';
     if (resolved === 'rotate') {
-      callbacks.current.onRotateEnd();
+      callbacks.current.onRotateEnd(velocityX.current);
       return;
     }
     const point = cobLocalPoint(event, nodeRef.current as MeasurableNode | null);
@@ -77,7 +89,7 @@ export function TapGestureArbitrator({
   const onTouchCancel = () => {
     const wasRotate = modeRef.current === 'rotate';
     modeRef.current = 'pending';
-    if (wasRotate) callbacks.current.onRotateEnd();
+    if (wasRotate) callbacks.current.onRotateEnd(velocityX.current);
   };
 
   return (

@@ -55,13 +55,31 @@ export function useCobRotation(initial: number, columns: number, sensitivity: nu
     });
   }, [commit, sensitivity]);
 
-  const end = useCallback(() => {
+  const end = useCallback((velocityX = 0) => {
     if (pending.current !== undefined) commit(pending.current);
     pending.current = undefined;
     if (frame.current !== undefined) cancelAnimationFrame(frame.current);
     frame.current = undefined;
-    animateTo(finishRotation(rotationRef.current, columns, snap), 280);
-  }, [animateTo, columns, commit, snap]);
+    let velocity = -velocityX * sensitivity;
+    let previous = Date.now();
+    const coast = () => {
+      const now = Date.now();
+      const dt = Math.min((now - previous) / 1000, 0.032);
+      previous = now;
+      commit(rotationRef.current + velocity * dt);
+      velocity *= Math.exp(-6.2 * dt);
+      if (Math.abs(velocity) < 0.22) {
+        animateTo(finishRotation(rotationRef.current, columns, snap), 300);
+        return;
+      }
+      frame.current = requestAnimationFrame(coast);
+    };
+    if (Math.abs(velocity) >= 0.22) {
+      frame.current = requestAnimationFrame(coast);
+      return;
+    }
+    animateTo(finishRotation(rotationRef.current, columns, snap), 300);
+  }, [animateTo, columns, commit, sensitivity, snap]);
 
   const nudge = useCallback((direction: 1 | -1) => {
     cancelMotion();

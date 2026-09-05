@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import { exposedKernels } from '../../game/board';
+import { positionKey } from '../../game/board';
 import { Kernel, Tuning } from '../../game/types';
 import { KernelTile } from './Kernel';
 import { cobMetrics, hitKernel, layoutKernels } from './layout';
@@ -33,7 +33,17 @@ export function CornCob(props: Props) {
   const width = props.width ?? 360;
   const height = props.height ?? 520;
   const metrics = cobMetrics(width, height);
-  const available = useMemo(() => exposedKernels(props.kernels), [props.kernels]);
+  const available = useMemo(() => {
+    const stacks = new Map<string, Kernel[]>();
+    props.kernels.forEach(kernel => {
+      const key = positionKey(kernel);
+      stacks.set(key, [...(stacks.get(key) ?? []), kernel]);
+    });
+    return [...stacks.values()].map(stack => {
+      const ordered = stack.sort((a, b) => a.layer - b.layer);
+      return ordered.find(kernel => !kernel.harvested) ?? ordered[ordered.length - 1];
+    });
+  }, [props.kernels]);
   const layout = useMemo(
     () => layoutKernels(available, props.columns, props.rows, props.rotation, props.tuning, metrics),
     [available, props.columns, props.rows, props.rotation, props.tuning, metrics.width, metrics.height],
@@ -43,7 +53,7 @@ export function CornCob(props: Props) {
   const hintIds = new Set(props.hints);
   const harvestingIds = new Set(props.harvestingIds ?? []);
   const rowGap = metrics.cobHeight / Math.max(1, props.rows - 1);
-  const size = Math.min(props.tuning.kernelSize, rowGap * 0.84);
+  const size = Math.min(props.tuning.kernelSize, rowGap);
   const layoutRef = useRef(layout);
   const sizeRef = useRef(size);
   const lastTap = useRef(0);
@@ -89,6 +99,8 @@ export function CornCob(props: Props) {
           selected={selectedIds.has(item.kernel.id)}
           hinted={hintIds.has(item.kernel.id)}
           harvesting={harvestingIds.has(item.kernel.id)}
+          harvestIndex={Math.max(0, (props.harvestingIds ?? []).indexOf(item.kernel.id))}
+          harvestTarget={{ x: 42, y: height - 42 }}
           faulted={props.faulted && selectedIds.has(item.kernel.id)}
           rejected={props.rejectedId === item.kernel.id}
           onPress={() => handlePress(item.kernel)}

@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { Animated, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CornCob } from '../components/CornCob/CornCob';
@@ -25,12 +25,12 @@ import { showRewardedAd } from '../monetization/ads';
 import { useGameStore } from '../store/GameStore';
 
 const defaultTuning: Tuning = {
-  kernelSize: 64,
+  kernelSize: 78,
   touchMultiplier: 1,
   movementThreshold: 28,
   rotationSensitivity: 0.018,
   rotationSnap: 0.7,
-  visibleColumns: 5,
+  visibleColumns: 6.2,
   harvestTarget: 70,
   haptics: true,
 };
@@ -57,7 +57,6 @@ export function GameScreen() {
   const [tutorial, setTutorial] = useState(levelId === 1 && !store.save.seenTutorial);
   const [doubled, setDoubled] = useState(false);
   const [powerUpsOpen, setPowerUpsOpen] = useState(false);
-  const fly = useRef(new Animated.Value(0)).current;
   const busyRef = useRef(false);
   const busy = harvestingIds.length > 0 || status === 'valid' || busyRef.current;
   const gameWidth = Math.min(viewport.width, 430);
@@ -88,10 +87,6 @@ export function GameScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     }
   };
-  const animateHarvest = () => {
-    fly.setValue(0);
-    Animated.timing(fly, { toValue: 1, duration: 620, useNativeDriver: true }).start();
-  };
   const handleKernelTap = (kernel: Kernel) => {
     const result = selection.applyTap({ kernel, visible: true });
     if (result.accepted) pulse();
@@ -104,7 +99,7 @@ export function GameScreen() {
       setStatus('valid');
       setHarvestingIds(result.harvestIds);
       pulse(Haptics.ImpactFeedbackStyle.Heavy);
-      animateHarvest();
+      const harvestDuration = 720 + Math.max(0, result.harvestIds.length - 1) * 70;
       setTimeout(() => {
         setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, result.harvestIds) }));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
@@ -113,7 +108,7 @@ export function GameScreen() {
         busyRef.current = false;
         selection.clear();
         setStatus('idle');
-      }, 620);
+      }, harvestDuration);
       return;
     }
     if (!selection.pathRef.current.length) return;
@@ -149,7 +144,6 @@ export function GameScreen() {
       setHarvestingIds([]);
     }, 380);
     setActiveTool(undefined);
-    animateHarvest();
     pulse(Haptics.ImpactFeedbackStyle.Heavy);
   };
   const resetBoard = () => {
@@ -263,19 +257,6 @@ export function GameScreen() {
               </View>
             </View>
           </Modal>
-          <View pointerEvents="none" style={styles.flyLayer}>
-            <Animated.Image
-              source={wordMaizeAssets.kernels.flying}
-              style={[styles.flying, {
-                opacity: fly.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 0] }),
-                transform: [
-                  { translateY: fly.interpolate({ inputRange: [0, 1], outputRange: [0, 450] }) },
-                  { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '300deg'] }) },
-                  { scale: fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0.3] }) },
-                ],
-              }]}
-            />
-          </View>
           <DebugPanel
             open={debugOpen}
             onToggle={() => setDebugOpen(v => !v)}
@@ -406,8 +387,6 @@ const styles = StyleSheet.create({
   shuffle: { position: 'absolute', zIndex: 10, right: 10, bottom: 18, width: 54, height: 54, borderRadius: 27, backgroundColor: '#4c3515', borderWidth: 3, borderColor: '#e5b72f', alignItems: 'center', justifyContent: 'center' },
   shuffleOff: { opacity: 0.4 },
   shuffleText: { color: '#ffe676', fontSize: 26, fontWeight: '900' },
-  flying: { position: 'absolute', zIndex: 30, width: 58, height: 58, top: '48%', left: '45%', resizeMode: 'contain' },
-  flyLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   modalShade: { flex: 1, backgroundColor: 'rgba(10,25,18,0.85)', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 12 },
   stats: { fontSize: 16, lineHeight: 25, textAlign: 'center', color: '#51351f', fontWeight: '700' },
