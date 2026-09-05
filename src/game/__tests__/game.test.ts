@@ -12,7 +12,7 @@ import { coinsForWord, starsForLevel } from '../scoring';
 import { canSubmitSelection, evaluateSubmission, tapKernel } from '../selection';
 import { ENERGY_REGEN_MS, Kernel } from '../types';
 import { LEVELS } from '../../data/levels';
-import { nextDailyDay } from '../../store/types';
+import { migrateSave, nextDailyDay, SAVE_VERSION } from '../../store/types';
 import { validateLevels } from '../levelValidation';
 import { evaluateLevelStars, objectiveComplete } from '../scoring';
 
@@ -306,5 +306,23 @@ describe('daily harvest calendar', () => {
     expect(nextDailyDay({ lastClaimDate: '2026-09-02', claimedDay: 1 }, '2026-09-02').alreadyClaimed).toBe(true);
     expect(nextDailyDay({ lastClaimDate: '2026-09-02', claimedDay: 1 }, '2026-09-03')).toEqual({ day: 2, alreadyClaimed: false });
     expect(nextDailyDay({ lastClaimDate: '2026-09-01', claimedDay: 3 }, '2026-09-03')).toEqual({ day: 1, alreadyClaimed: false });
+  });
+});
+
+describe('save migration', () => {
+  it('preserves progress while filling fields introduced by newer builds', () => {
+    const migrated = migrateSave({ coins: 275, currentLevelId: 4, inventory: { scarecrow: 9 } });
+    expect(migrated.version).toBe(SAVE_VERSION);
+    expect(migrated.coins).toBe(275);
+    expect(migrated.currentLevelId).toBe(4);
+    expect(migrated.inventory).toEqual({ scarecrow: 9, butterBrush: 2, cornPicker: 3 });
+    expect(migrated.seenLevelIntros).toEqual([]);
+  });
+
+  it('recovers safely from unusable save data', () => {
+    const migrated = migrateSave('damaged');
+    expect(migrated.version).toBe(SAVE_VERSION);
+    expect(migrated.currentLevelId).toBe(1);
+    expect(migrated.levels).toEqual({});
   });
 });

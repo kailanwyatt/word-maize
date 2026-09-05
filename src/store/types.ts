@@ -13,6 +13,7 @@ export type DailyState = {
 };
 
 export type GameSave = {
+  version: number;
   coins: number;
   energy: number;
   energyUpdatedAt: number;
@@ -27,8 +28,10 @@ export type GameSave = {
 };
 
 export const SAVE_KEY = 'word-maize.save.v1';
+export const SAVE_VERSION = 2;
 
 export const defaultSave = (): GameSave => ({
+  version: SAVE_VERSION,
   coins: 0,
   energy: 5,
   energyUpdatedAt: Date.now(),
@@ -41,6 +44,22 @@ export const defaultSave = (): GameSave => ({
   seenLevelIntros: [],
   adFree: false,
 });
+
+export function migrateSave(value: unknown): GameSave {
+  const fallback = defaultSave();
+  if (!value || typeof value !== 'object') return fallback;
+  const saved = value as Partial<GameSave>;
+  return {
+    ...fallback,
+    ...saved,
+    version: SAVE_VERSION,
+    inventory: { ...fallback.inventory, ...(saved.inventory ?? {}) },
+    settings: { ...fallback.settings, ...(saved.settings ?? {}) },
+    daily: { ...fallback.daily, ...(saved.daily ?? {}) },
+    levels: saved.levels && typeof saved.levels === 'object' ? saved.levels : {},
+    seenLevelIntros: Array.isArray(saved.seenLevelIntros) ? saved.seenLevelIntros.filter(Number.isFinite) : [],
+  };
+}
 
 export function localDateString(now = new Date()): string {
   const y = now.getFullYear();

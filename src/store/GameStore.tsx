@@ -4,7 +4,7 @@ import { DAILY_REWARDS } from '../data/shop';
 import { LEVELS } from '../data/levels';
 import { replenishEnergy } from '../game/energy';
 import { ENERGY_MAX, Inventory, LevelProgress, ToolId } from '../game/types';
-import { defaultSave, GameSave, localDateString, nextDailyDay, SAVE_KEY } from './types';
+import { defaultSave, GameSave, localDateString, migrateSave, nextDailyDay, SAVE_KEY } from './types';
 
 type GameStoreValue = {
   ready: boolean;
@@ -34,7 +34,7 @@ async function readSave(): Promise<GameSave> {
   try {
     const raw = await AsyncStorage.getItem(SAVE_KEY);
     if (!raw) return defaultSave();
-    return { ...defaultSave(), ...JSON.parse(raw) as GameSave };
+    return migrateSave(JSON.parse(raw));
   } catch {
     return defaultSave();
   }
