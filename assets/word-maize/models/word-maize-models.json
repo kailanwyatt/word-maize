@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "units": "meters",
+  "coordinateSystem": {
+    "up": "+Z",
+    "kernelFront": "-Y",
+    "cobRotationAxis": "+Z"
+  },
+  "referenceGrid": {
+    "rows": 7,
+    "columns": 10
+  },
+  "supportedLevelColumns": [
+    8,
+    9,
+    10
+  ],
+  "kernel": {
+    "width": 0.64,
+    "height": 0.58,
+    "depth": 0.26,
+    "node": "Kernel_Source",
+    "letterAnchorNode": "LetterAnchor"
+  },
+  "socket": {
+    "depth": 0.15,
+    "node": "Socket_Source"
+  },
+  "cob": {
+    "height": 5.4,
+    "baseRadius": 1.2,
+    "topRadius": 0.94,
+    "playableHeight": 3.95
+  },
+  "placement": {
+    "theta": "2 * PI * column / columns",
+    "z": "-playableHeight/2 + row * playableHeight/(rows-1)",
+    "appRotationUnits": "columns",
+    "degreesPerColumn": "360 / columns"
+  },
+  "files": {
+    "kernel": "kernel.glb",
+    "socket": "socket.glb",
+    "cobBody": "cob-body.glb",
+    "decoration": "cob-decoration.glb"
+  }
+}
