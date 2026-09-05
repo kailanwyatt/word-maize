@@ -20,6 +20,7 @@ type Props = {
   rejectedId?: string;
   faulted?: boolean;
   locked?: boolean;
+  reducedMotion?: boolean;
   onKernelTap: (kernel: Kernel) => void;
   onPick: (kernel: Kernel) => void;
   onRotateStart: () => void;
@@ -103,6 +104,7 @@ export function CornCob(props: Props) {
           harvestTarget={{ x: 42, y: height - 42 }}
           faulted={props.faulted && selectedIds.has(item.kernel.id)}
           rejected={props.rejectedId === item.kernel.id}
+          reducedMotion={props.reducedMotion}
           onPress={() => handlePress(item.kernel)}
         />
       ))}

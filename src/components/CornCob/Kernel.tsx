@@ -14,6 +14,7 @@ export function KernelTile({
   faulted,
   rejected,
   onPress,
+  reducedMotion = false,
 }: {
   layout: KernelLayout;
   size: number;
@@ -25,6 +26,7 @@ export function KernelTile({
   faulted?: boolean;
   rejected?: boolean;
   onPress?: () => void;
+  reducedMotion?: boolean;
 }) {
   const { kernel, x, y, scaleX, scale, shade } = layout;
   const harvest = useRef(new Animated.Value(0)).current;
@@ -35,23 +37,28 @@ export function KernelTile({
       harvest.setValue(0);
       return;
     }
+    if (reducedMotion) {
+      harvest.setValue(1);
+      return;
+    }
     Animated.sequence([
       Animated.delay(harvestIndex * 70),
       Animated.spring(harvest, { toValue: 0.18, speed: 28, bounciness: 12, useNativeDriver: true }),
       Animated.timing(harvest, { toValue: 1, duration: 500, useNativeDriver: true }),
     ]).start();
-  }, [harvesting, harvest, harvestIndex]);
+  }, [harvesting, harvest, harvestIndex, reducedMotion]);
 
   useEffect(() => {
     if (!rejected) {
       reject.setValue(0);
       return;
     }
+    if (reducedMotion) return;
     Animated.sequence([
       Animated.timing(reject, { toValue: 1, duration: 70, useNativeDriver: true }),
       Animated.timing(reject, { toValue: 0, duration: 110, useNativeDriver: true }),
     ]).start();
-  }, [rejected, reject]);
+  }, [rejected, reject, reducedMotion]);
 
   return (
     <Pressable

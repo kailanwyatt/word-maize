@@ -10,6 +10,7 @@ export function WordSubmitButton({
   pickerMode,
   onSubmit,
   onClear,
+  reducedMotion = false,
 }: {
   word: string;
   status: 'idle' | 'valid' | 'invalid';
@@ -17,6 +18,7 @@ export function WordSubmitButton({
   pickerMode?: boolean;
   onSubmit: () => void;
   onClear?: () => void;
+  reducedMotion?: boolean;
 }) {
   const shake = useRef(new Animated.Value(0)).current;
   const label = pickerMode ? 'PICK ONE KERNEL' : word || IDLE;
@@ -28,6 +30,7 @@ export function WordSubmitButton({
       return;
     }
     shake.setValue(0);
+    if (reducedMotion) return;
     Animated.sequence([
       Animated.timing(shake, { toValue: 1, duration: 45, useNativeDriver: true }),
       Animated.timing(shake, { toValue: -1, duration: 45, useNativeDriver: true }),
@@ -35,7 +38,7 @@ export function WordSubmitButton({
       Animated.timing(shake, { toValue: -1, duration: 45, useNativeDriver: true }),
       Animated.timing(shake, { toValue: 0, duration: 45, useNativeDriver: true }),
     ]).start();
-  }, [status, shake]);
+  }, [status, shake, reducedMotion]);
 
   return (
     <View style={styles.row}>

@@ -5,6 +5,7 @@ export type Settings = {
   sfx: boolean;
   haptics: boolean;
   notifications: boolean;
+  reducedMotion: boolean;
 };
 
 export type DailyState = {
@@ -48,7 +49,7 @@ export const defaultSave = (): GameSave => ({
   inventory: { scarecrow: 3, butterBrush: 2, cornPicker: 3 },
   currentLevelId: 1,
   levels: {},
-  settings: { music: true, sfx: true, haptics: true, notifications: false },
+  settings: { music: true, sfx: true, haptics: true, notifications: false, reducedMotion: false },
   daily: { lastClaimDate: null, claimedDay: 0 },
   seenTutorial: false,
   seenLevelIntros: [],

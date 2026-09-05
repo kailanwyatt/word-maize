@@ -21,6 +21,7 @@ export function SettingsScreen() {
         ['music', 'Music'],
         ['sfx', 'Sound Effects'],
         ['haptics', 'Haptics'],
+        ['reducedMotion', 'Reduced Motion'],
       ] as const).map(([key, label]) => (
         <View key={key} style={styles.row}>
           <Text style={styles.label}>{label}</Text>

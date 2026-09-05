@@ -76,6 +76,7 @@ export function GameScreen() {
     level.columns,
     (tuning.visibleColumns / cobWidth) * (tuning.rotationSensitivity / defaultTuning.rotationSensitivity),
     tuning.rotationSnap,
+    store.save.settings.reducedMotion,
   );
   const selection = useKernelTapSelection(level.columns, busy);
   const prefixes = useMemo(() => wordPrefixes(WORD_LIST), []);
@@ -147,7 +148,7 @@ export function GameScreen() {
       setStatus('valid');
       setHarvestingIds(result.harvestIds);
       pulse(Haptics.ImpactFeedbackStyle.Heavy);
-      const harvestDuration = 720 + Math.max(0, result.harvestIds.length - 1) * 70;
+      const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, result.harvestIds.length - 1) * 70;
       setTimeout(() => {
         setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, result.harvestIds) }));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
@@ -164,7 +165,7 @@ export function GameScreen() {
     if (tuning.haptics && store.save.settings.haptics) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     }
-    setTimeout(() => setStatus('idle'), 480);
+    setTimeout(() => setStatus('idle'), store.save.settings.reducedMotion ? 120 : 480);
   };
   const unusedPath = () => findDiscoverablePath(level.kernels, level.columns, WORD_LIST, prefixes, foundWords, level.hintPaths);
   const useTool = (tool: Tool) => {
@@ -270,6 +271,7 @@ export function GameScreen() {
               pickerMode={activeTool === 'cornPicker'}
               onSubmit={submit}
               onClear={selection.clear}
+              reducedMotion={store.save.settings.reducedMotion}
             />
           </View>
           <View style={styles.cob}>
@@ -287,6 +289,7 @@ export function GameScreen() {
               rejectedId={selection.rejectedId}
               faulted={status === 'invalid'}
               locked={busy}
+              reducedMotion={store.save.settings.reducedMotion}
               onKernelTap={handleKernelTap}
               onPick={pick}
               onRotateStart={cob.begin}

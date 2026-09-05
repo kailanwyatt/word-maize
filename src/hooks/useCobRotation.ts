@@ -3,7 +3,7 @@ import { finishRotation, rotationFromDrag, stepRotation, wrapOffset } from '../g
 
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 
-export function useCobRotation(initial: number, columns: number, sensitivity: number, snap: number) {
+export function useCobRotation(initial: number, columns: number, sensitivity: number, snap: number, reducedMotion = false) {
   const [rotation, setRotation] = useState(initial);
   const rotationRef = useRef(initial);
   const dragStart = useRef(initial);
@@ -24,6 +24,10 @@ export function useCobRotation(initial: number, columns: number, sensitivity: nu
 
   const animateTo = useCallback((target: number, duration = 260) => {
     cancelMotion();
+    if (reducedMotion) {
+      commit(target, true);
+      return;
+    }
     const from = rotationRef.current;
     const started = Date.now();
     const tick = () => {
@@ -37,7 +41,7 @@ export function useCobRotation(initial: number, columns: number, sensitivity: nu
       frame.current = undefined;
     };
     frame.current = requestAnimationFrame(tick);
-  }, [cancelMotion, commit]);
+  }, [cancelMotion, commit, reducedMotion]);
 
   const begin = useCallback(() => {
     cancelMotion();
@@ -74,12 +78,12 @@ export function useCobRotation(initial: number, columns: number, sensitivity: nu
       }
       frame.current = requestAnimationFrame(coast);
     };
-    if (Math.abs(velocity) >= 0.22) {
+    if (!reducedMotion && Math.abs(velocity) >= 0.22) {
       frame.current = requestAnimationFrame(coast);
       return;
     }
     animateTo(finishRotation(rotationRef.current, columns, snap), 300);
-  }, [animateTo, columns, commit, sensitivity, snap]);
+  }, [animateTo, columns, commit, reducedMotion, sensitivity, snap]);
 
   const nudge = useCallback((direction: 1 | -1) => {
     cancelMotion();
