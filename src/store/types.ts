@@ -22,6 +22,7 @@ export type GameSave = {
   settings: Settings;
   daily: DailyState;
   seenTutorial: boolean;
+  seenLevelIntros: number[];
   adFree: boolean;
 };
 
@@ -37,6 +38,7 @@ export const defaultSave = (): GameSave => ({
   settings: { music: true, sfx: true, haptics: true, notifications: false },
   daily: { lastClaimDate: null, claimedDay: 0 },
   seenTutorial: false,
+  seenLevelIntros: [],
   adFree: false,
 });
 

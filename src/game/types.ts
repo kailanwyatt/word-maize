@@ -14,6 +14,20 @@ export type Kernel = {
 
 export type Point = { x: number; y: number };
 
+export type LevelObjective = {
+  harvestPercent: number;
+  minWords?: number;
+  minLongestWord?: number;
+  minLayersRevealed?: number;
+};
+
+export type StarGoal =
+  | { id: string; kind: 'longestWord'; value: number; label: string }
+  | { id: string; kind: 'maxWords'; value: number; label: string }
+  | { id: string; kind: 'noTools'; label: string }
+  | { id: string; kind: 'layersRevealed'; value: number; label: string }
+  | { id: string; kind: 'harvestPercent'; value: number; label: string };
+
 export type Level = {
   id: number;
   world: string;
@@ -22,6 +36,13 @@ export type Level = {
   columns: number;
   kernels: Kernel[];
   targetHarvestPercent: number;
+  objective: LevelObjective;
+  starGoals: [StarGoal, StarGoal];
+  rewardCoins: number;
+  guaranteedWords: string[];
+  tutorial: string[];
+  story?: { speaker: string; title: string; text: string };
+  shuffleOnStart: boolean;
   rotationEnabled: boolean;
   hintPaths: string[][];
 };
@@ -43,6 +64,9 @@ export type LevelProgress = {
   stars: 0 | 1 | 2 | 3;
   completed: boolean;
   bestPercent: number;
+  bestWordsFound?: number;
+  bestLongestWord?: string;
+  completedGoalIds?: string[];
 };
 
 export const ENERGY_MAX = 5;

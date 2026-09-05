@@ -13,7 +13,7 @@ export function exposedKernels(kernels: Kernel[]): Kernel[] {
 
 export function resetLevel(level: Level, rng: () => number = Math.random): Level {
   const restored = level.kernels.map(k => ({ ...k, harvested: false }));
-  return { ...level, kernels: shuffleExposedLetters(restored, rng) };
+  return { ...level, kernels: level.shuffleOnStart ? shuffleExposedLetters(restored, rng) : restored };
 }
 
 export function kernelsFromRows(rows: string[], variety: Kernel['variety'] = 'yellow'): Kernel[] {

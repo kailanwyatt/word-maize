@@ -13,6 +13,8 @@ import { canSubmitSelection, evaluateSubmission, tapKernel } from '../selection'
 import { ENERGY_REGEN_MS, Kernel } from '../types';
 import { LEVELS } from '../../data/levels';
 import { nextDailyDay } from '../../store/types';
+import { validateLevels } from '../levelValidation';
+import { evaluateLevelStars, objectiveComplete } from '../scoring';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
   id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'yellow',
@@ -105,6 +107,28 @@ describe('tap selection', () => {
   });
   it('ignores taps while selection is locked', () => {
     expect(tapKernel([a], visible(b), 8, { locked: true })).toMatchObject({ path: [a], accepted: false, reason: 'locked' });
+  });
+});
+
+describe('Sweet Corn Fields progression', () => {
+  it('keeps all ten authored boards deterministic and valid', () => {
+    const chapter = LEVELS.slice(0, 10);
+    expect(chapter).toHaveLength(10);
+    expect(chapter.every(level => !level.shuffleOnStart)).toBe(true);
+    expect(validateLevels(chapter)).toEqual([]);
+  });
+
+  it('requires the primary objective before awarding stars', () => {
+    const level = LEVELS[6];
+    const incomplete = { percent: level.targetHarvestPercent, words: ['FIELD'], toolsUsed: 0, layersRevealed: 0 };
+    expect(objectiveComplete(level, incomplete)).toBe(false);
+    expect(evaluateLevelStars(level, incomplete).stars).toBe(0);
+  });
+
+  it('awards the completion star plus optional objective stars', () => {
+    const level = LEVELS[0];
+    const result = evaluateLevelStars(level, { percent: 65, words: ['SEED', 'CORN'], toolsUsed: 0, layersRevealed: 0 });
+    expect(result).toEqual({ stars: 3, completedGoalIds: ['long-word-4', 'harvest-60'] });
   });
 });
 
@@ -270,7 +294,7 @@ describe('levels and powerup search', () => {
   });
   it('scrambles exposed letters when a level is reset', () => {
     const level = LEVELS[0];
-    const reset = resetLevel(level, () => 0.2);
+    const reset = resetLevel({ ...level, shuffleOnStart: true }, () => 0.2);
     expect(reset.kernels.map(k => k.id)).toEqual(level.kernels.map(k => k.id));
     expect(reset.kernels.some((kernel, index) => kernel.letter !== level.kernels[index].letter)).toBe(true);
   });

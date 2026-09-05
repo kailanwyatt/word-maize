@@ -24,6 +24,7 @@ export function MapScreen() {
   const store = useGameStore();
   const [needEnergy, setNeedEnergy] = useState(false);
   const stars = totalStars(store.save.levels);
+  const currentLevel = LEVELS.find(level => level.id === store.currentLevelId) ?? LEVELS[0];
   const play = (id: number) => {
     if (!isLevelUnlocked(id, store.completedIds)) return;
     const { energy } = store.energyNow();
@@ -64,6 +65,18 @@ export function MapScreen() {
             );
           })}
         </View>
+        <View style={styles.levelCard}>
+          <View>
+            <Text style={styles.levelCardTitle}>LEVEL {currentLevel.id} · {currentLevel.name}</Text>
+            <Text style={styles.levelCardGoal}>
+              Harvest {currentLevel.objective.harvestPercent}%
+              {currentLevel.objective.minWords ? ` · ${currentLevel.objective.minWords} words` : ''}
+              {currentLevel.objective.minLongestWord ? ` · ${currentLevel.objective.minLongestWord}-letter word` : ''}
+              {currentLevel.objective.minLayersRevealed ? ` · reveal ${currentLevel.objective.minLayersRevealed}` : ''}
+            </Text>
+          </View>
+          <Text style={styles.levelReward}>+{currentLevel.rewardCoins}</Text>
+        </View>
         <View style={styles.gate}>
           <Text style={styles.gateText}>{NEXT_WORLD_NAME} · {stars}/{STAR_GATE} stars</Text>
           <View style={styles.bar}><View style={[styles.fill, { width: `${Math.min(100, (stars / STAR_GATE) * 100)}%` }]} /></View>
@@ -91,6 +104,10 @@ const styles = StyleSheet.create({
   node: { position: 'absolute', width: 54, height: 54, borderRadius: 27, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   nodeText: { color: 'white', fontWeight: '900', fontSize: 16 },
   stars: { position: 'absolute', bottom: -14, color: '#ffe676', fontSize: 11, fontWeight: '900' },
+  levelCard: { marginHorizontal: 16, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 2, borderColor: '#c99032', backgroundColor: 'rgba(55,34,14,0.93)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  levelCardTitle: { color: '#fff6c6', fontWeight: '900', fontSize: 14 },
+  levelCardGoal: { color: '#e9d49c', fontWeight: '700', fontSize: 11, marginTop: 3 },
+  levelReward: { color: '#ffe066', fontWeight: '900', fontSize: 18, marginLeft: 10 },
   gate: { padding: 16, paddingBottom: 10 },
   gateText: { color: '#fff6c6', fontWeight: '800', textAlign: 'center', marginBottom: 6 },
   bar: { height: 10, borderRadius: 6, backgroundColor: 'rgba(40,28,12,0.7)', overflow: 'hidden' },

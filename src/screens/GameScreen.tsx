@@ -16,7 +16,7 @@ import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board
 import { WORD_LIST, wordPrefixes } from '../game/dictionary';
 import { harvestKernels, harvestPercent } from '../game/harvest';
 import { findDiscoverablePath } from '../game/powerups';
-import { coinsForWord, completionBonus, starsForLevel } from '../game/scoring';
+import { coinsForWord, completionBonus, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
 import { canSubmitSelection, evaluateSubmission } from '../game/selection';
 import { Kernel, Tuning } from '../game/types';
 import { useCobRotation } from '../hooks/useCobRotation';
@@ -54,7 +54,8 @@ export function GameScreen() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [paused, setPaused] = useState(false);
   const [outOf, setOutOf] = useState<Tool | 'energy' | undefined>();
-  const [tutorial, setTutorial] = useState(levelId === 1 && !store.save.seenTutorial);
+  const [introOpen, setIntroOpen] = useState(!store.save.seenLevelIntros.includes(levelId) && (!!source.story || source.tutorial.length > 0));
+  const [toolsUsed, setToolsUsed] = useState(0);
   const [doubled, setDoubled] = useState(false);
   const [powerUpsOpen, setPowerUpsOpen] = useState(false);
   const busyRef = useRef(false);
@@ -71,12 +72,19 @@ export function GameScreen() {
   const selection = useKernelTapSelection(level.columns, busy);
   const prefixes = useMemo(() => wordPrefixes(WORD_LIST), []);
   const percent = harvestPercent(level.kernels);
-  const complete = percent >= tuning.harvestTarget;
+  const layersRevealed = new Set(level.kernels.filter(kernel =>
+    kernel.layer > 0 && level.kernels.some(other =>
+      other.row === kernel.row && other.column === kernel.column && other.layer < kernel.layer && other.harvested,
+    ),
+  ).map(kernel => `${kernel.row}:${kernel.column}`)).size;
+  const runStats = { percent, words: foundWords, toolsUsed, layersRevealed };
+  const effectiveLevel = { ...source, objective: { ...source.objective, harvestPercent: tuning.harvestTarget } };
+  const complete = objectiveComplete(effectiveLevel, runStats);
   const currentWord = selection.word;
   const canSubmit = canSubmitSelection(selection.path, { busy });
   const harvestedCount = level.kernels.filter(k => k.harvested).length;
   const longest = foundWords.reduce((a, b) => (a.length >= b.length ? a : b), '—');
-  const reward = inCoins + completionBonus(percent, tuning.harvestTarget);
+  const reward = inCoins + source.rewardCoins + completionBonus(percent, tuning.harvestTarget);
   const payout = doubled ? reward * 2 : reward;
 
   const pulse = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
@@ -130,6 +138,7 @@ export function GameScreen() {
     const path = unusedPath();
     if (!path) return;
     if (!store.consumeTool(tool)) return;
+    setToolsUsed(value => value + 1);
     setHints(tool === 'scarecrow' ? [path[0].id] : path.map(k => k.id));
     setActiveTool(tool);
     pulse();
@@ -137,6 +146,7 @@ export function GameScreen() {
   const pick = (kernel: Kernel) => {
     if (activeTool !== 'cornPicker' || busy || busyRef.current) return;
     if (!store.consumeTool('cornPicker')) return;
+    setToolsUsed(value => value + 1);
     setHarvestingIds([kernel.id]);
     setTimeout(() => {
       setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, [kernel.id]) }));
@@ -152,12 +162,16 @@ export function GameScreen() {
     cob.reset(1.5);
     setFoundWords([]); setInCoins(0); setHints([]);
     setActiveTool(undefined); setStatus('idle'); setShuffles(1); setDoubled(false);
-    setHarvestingIds([]);
+    setHarvestingIds([]); setToolsUsed(0);
     busyRef.current = false;
   };
   const finish = () => {
-    const stars = starsForLevel(percent, tuning.harvestTarget, foundWords.length);
-    store.completeLevel(levelId, stars, percent, payout);
+    const result = evaluateLevelStars(effectiveLevel, runStats);
+    store.completeLevel(levelId, result.stars, percent, payout, {
+      wordsFound: foundWords.length,
+      longestWord: longest === '—' ? '' : longest,
+      completedGoalIds: result.completedGoalIds,
+    });
     router.replace('/(tabs)/map');
   };
   const doubleReward = async () => {
@@ -194,7 +208,12 @@ export function GameScreen() {
           </Pressable>
           <View style={styles.sign}>
             <Text style={styles.level}>LEVEL {levelId}</Text>
-            <Text style={styles.objective}>HARVEST {tuning.harvestTarget}% OF THE COB</Text>
+            <Text style={styles.objective}>
+              HARVEST {tuning.harvestTarget}%
+              {source.objective.minWords ? ` · ${source.objective.minWords} WORDS` : ''}
+              {source.objective.minLongestWord ? ` · ${source.objective.minLongestWord}+ LETTER WORD` : ''}
+              {source.objective.minLayersRevealed ? ` · REVEAL ${source.objective.minLayersRevealed}` : ''}
+            </Text>
           </View>
           <Pressable style={styles.hintButton} onPress={() => setPowerUpsOpen(true)}>
             <Image source={wordMaizeAssets.ui.btnHeart} style={{ width: 44, height: 44, borderRadius: 12, resizeMode: 'cover' }} />
@@ -315,6 +334,11 @@ export function GameScreen() {
                 <Image source={wordMaizeAssets.ui.coin} style={styles.coinIcon} />
                 <Text style={styles.rewardText}>+{payout}</Text>
               </View>
+              {source.starGoals.map(goal => (
+                <Text key={goal.id} style={styles.goalResult}>
+                  {starGoalComplete(goal, runStats) ? '★' : '☆'} {goal.label}
+                </Text>
+              ))}
             </View>
             
             <Image source={wordMaizeAssets.props.harvestBasket} style={styles.bumperBasket} />
@@ -348,13 +372,17 @@ export function GameScreen() {
         </View>
       </Modal>
 
-      <Modal visible={tutorial} transparent animationType="fade">
+      <Modal visible={introOpen} transparent animationType="fade">
         <View style={styles.modalShade}>
           <Panel>
-            <Text style={styles.modalTitle}>Hunt letters around the cob!</Text>
-            <Text style={styles.stats}>Tap any visible kernel, rotate to find the next letter, press the word to harvest, and harvest {source.targetHarvestPercent}% to finish. Letters do not need to sit next to each other.</Text>
+            <Text style={styles.storySpeaker}>{source.story?.speaker ?? 'PATCH'}</Text>
+            <Text style={styles.modalTitle}>{source.story?.title ?? `Level ${levelId}`}</Text>
+            {source.story ? <Text style={styles.storyText}>{source.story.text}</Text> : null}
+            {source.tutorial.map((line, index) => <Text key={line} style={styles.tutorialLine}>{index + 1}. {line}</Text>)}
+            <Text style={styles.goalHeading}>GOAL</Text>
+            <Text style={styles.stats}>Harvest {source.objective.harvestPercent}%{source.objective.minWords ? ` and find ${source.objective.minWords} words` : ''}{source.objective.minLongestWord ? ` with a ${source.objective.minLongestWord}-letter word` : ''}{source.objective.minLayersRevealed ? ` and reveal ${source.objective.minLayersRevealed} hidden kernel${source.objective.minLayersRevealed > 1 ? 's' : ''}` : ''}.</Text>
             <View style={{ height: 12 }} />
-            <FarmButton label="LET'S GROW" onPress={() => { store.markTutorialSeen(); setTutorial(false); }} />
+            <FarmButton label="LET'S GROW" onPress={() => { if (levelId === 1) store.markTutorialSeen(); store.markLevelIntroSeen(levelId); setIntroOpen(false); }} />
           </Panel>
         </View>
       </Modal>
@@ -390,6 +418,11 @@ const styles = StyleSheet.create({
   modalShade: { flex: 1, backgroundColor: 'rgba(10,25,18,0.85)', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 12 },
   stats: { fontSize: 16, lineHeight: 25, textAlign: 'center', color: '#51351f', fontWeight: '700' },
+  storySpeaker: { color: '#98702c', fontWeight: '900', fontSize: 12, letterSpacing: 1.5, textAlign: 'center', marginBottom: 4 },
+  storyText: { color: '#51351f', fontWeight: '700', fontSize: 16, lineHeight: 23, textAlign: 'center', marginBottom: 12 },
+  tutorialLine: { color: '#51351f', fontWeight: '700', fontSize: 14, lineHeight: 21, marginBottom: 5 },
+  goalHeading: { color: '#5d8b31', fontWeight: '900', fontSize: 13, letterSpacing: 1.5, textAlign: 'center', marginTop: 8 },
+  goalResult: { color: '#51351f', fontWeight: '800', fontSize: 13 },
   
   bumperPanel: { backgroundColor: '#fdf1cd', borderWidth: 4, borderColor: '#73441f', borderRadius: 22, padding: 22, paddingTop: 60, paddingBottom: 25, width: '85%', maxWidth: 380, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 8, zIndex: 10 },
   bumperHeader: { position: 'absolute', top: -30, backgroundColor: '#58c22e', paddingHorizontal: 28, paddingVertical: 10, borderRadius: 30, borderWidth: 4, borderColor: '#7ee04a', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 5, zIndex: 20 },

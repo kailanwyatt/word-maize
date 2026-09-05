@@ -15,11 +15,12 @@ type GameStoreValue = {
   addCoins: (amount: number) => void;
   addTools: (tools: Partial<Inventory>) => void;
   consumeTool: (tool: ToolId) => boolean;
-  completeLevel: (id: number, stars: 0 | 1 | 2 | 3, percent: number, coins: number) => void;
+  completeLevel: (id: number, stars: 0 | 1 | 2 | 3, percent: number, coins: number, result?: { wordsFound: number; longestWord: string; completedGoalIds: string[] }) => void;
   setCurrentLevel: (id: number) => void;
   setSetting: <K extends keyof GameSave['settings']>(key: K, value: GameSave['settings'][K]) => void;
   claimDaily: () => { ok: boolean; day: number };
   markTutorialSeen: () => void;
+  markLevelIntroSeen: (id: number) => void;
   setAdFree: (value: boolean) => void;
   completedIds: number[];
   currentLevelId: number;
@@ -102,7 +103,7 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
     return true;
   }, [save.inventory]);
 
-  const completeLevel = useCallback((id: number, stars: 0 | 1 | 2 | 3, percent: number, coins: number) => {
+  const completeLevel = useCallback((id: number, stars: 0 | 1 | 2 | 3, percent: number, coins: number, result?: { wordsFound: number; longestWord: string; completedGoalIds: string[] }) => {
     patch(prev => {
       const existing: LevelProgress = prev.levels[id] ?? { stars: 0, completed: false, bestPercent: 0 };
       const nextStars = Math.max(existing.stars, stars) as 0 | 1 | 2 | 3;
@@ -117,6 +118,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
             stars: nextStars,
             completed: existing.completed || stars > 0,
             bestPercent: Math.max(existing.bestPercent, percent),
+            bestWordsFound: Math.max(existing.bestWordsFound ?? 0, result?.wordsFound ?? 0),
+            bestLongestWord: (existing.bestLongestWord?.length ?? 0) >= (result?.longestWord.length ?? 0) ? existing.bestLongestWord : result?.longestWord,
+            completedGoalIds: [...new Set([...(existing.completedGoalIds ?? []), ...(result?.completedGoalIds ?? [])])],
           },
         },
       };
@@ -128,6 +132,10 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
     patch(prev => ({ ...prev, settings: { ...prev.settings, [key]: value } }));
   }, [patch]);
   const markTutorialSeen = useCallback(() => patch(prev => ({ ...prev, seenTutorial: true })), [patch]);
+  const markLevelIntroSeen = useCallback((id: number) => patch(prev => ({
+    ...prev,
+    seenLevelIntros: prev.seenLevelIntros.includes(id) ? prev.seenLevelIntros : [...prev.seenLevelIntros, id],
+  })), [patch]);
   const setAdFree = useCallback((value: boolean) => patch(prev => ({ ...prev, adFree: value })), [patch]);
 
   const claimDaily = useCallback(() => {
@@ -160,9 +168,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<GameStoreValue>(() => ({
     ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool,
-    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, setAdFree,
+    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, setAdFree,
     completedIds, currentLevelId: save.currentLevelId,
-  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, setAdFree, completedIds]);
+  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, setAdFree, completedIds]);
 
   return <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>;
 }
