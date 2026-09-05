@@ -38,6 +38,12 @@ export const wordMaizeAssets = {
     butterBrush: require('./powerups/butter-brush.png'),
     cornPicker: require('./powerups/corn-picker.png'),
   },
+  obstacles: {
+    caterpillar: require('./obstacles/caterpillar-v1.png'),
+    crow: require('./obstacles/crow-v1.png'),
+    squirrel: require('./obstacles/squirrel-v1.png'),
+    weed: require('./obstacles/weed-v1.png'),
+  },
   backgrounds: {
     gameplayFarm: require('./backgrounds/gameplay-farm.png'),
     gameplayFarmV2: require('./backgrounds/gameplay-farm-v2.png'),

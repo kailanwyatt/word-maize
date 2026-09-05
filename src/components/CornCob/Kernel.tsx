@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Image, Pressable, StyleSheet, Text } from 'react-native';
+import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { wordMaizeAssets } from '../../../assets/word-maize/assets';
 import { KernelLayout } from './layout';
+import { ObstacleState } from '../../game/obstacles';
 
 export function KernelTile({
   layout,
@@ -15,6 +16,9 @@ export function KernelTile({
   rejected,
   onPress,
   reducedMotion = false,
+  obstacle,
+  blocked = false,
+  pickerMode = false,
 }: {
   layout: KernelLayout;
   size: number;
@@ -27,6 +31,9 @@ export function KernelTile({
   rejected?: boolean;
   onPress?: () => void;
   reducedMotion?: boolean;
+  obstacle?: ObstacleState;
+  blocked?: boolean;
+  pickerMode?: boolean;
 }) {
   const { kernel, x, y, scaleX, scale, shade } = layout;
   const harvest = useRef(new Animated.Value(0)).current;
@@ -64,9 +71,9 @@ export function KernelTile({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Letter ${kernel.letter}, row ${kernel.row + 1}, column ${kernel.column + 1}`}
-      accessibilityState={{ selected, disabled: kernel.harvested || (layout.opacity ?? 1) < 0.35 }}
-      disabled={kernel.harvested || (layout.opacity ?? 1) < 0.35}
+      accessibilityLabel={`Letter ${kernel.letter}, row ${kernel.row + 1}, column ${kernel.column + 1}${obstacle && obstacle.status !== 'cleared' ? `, ${obstacle.kind} obstacle` : ''}`}
+      accessibilityState={{ selected, disabled: kernel.harvested || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35 }}
+      disabled={kernel.harvested || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35}
       style={[
         styles.wrap,
         {
@@ -109,6 +116,10 @@ export function KernelTile({
         <Text style={[styles.letter, { fontSize: size * 0.42 }, faulted && styles.letterFaulted]}>
           {kernel.letter}
         </Text>
+        {obstacle && obstacle.status !== 'cleared' ? <View style={styles.obstacleWrap}>
+          <Image source={wordMaizeAssets.obstacles[obstacle.kind]} style={styles.obstacle} />
+          {obstacle.turnsRemaining > 0 ? <Text style={styles.countdown}>{obstacle.turnsRemaining}</Text> : null}
+        </View> : null}
       </Animated.View> : null}
     </Pressable>
   );
@@ -120,6 +131,9 @@ const styles = StyleSheet.create({
   fullKernel: { position: 'absolute', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   kernelGlow: { position: 'absolute', width: '164%', height: '164%', resizeMode: 'contain', tintColor: '#fffdf0', opacity: 0.9 },
   hintGlow: { tintColor: '#fff07a', opacity: 0.72 },
+  obstacleWrap: { position: 'absolute', right: '-28%', top: '-48%', width: '84%', height: '84%', zIndex: 8 },
+  obstacle: { width: '100%', height: '100%', resizeMode: 'contain' },
+  countdown: { position: 'absolute', right: 0, top: 0, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: '#b43b24', color: 'white', textAlign: 'center', fontWeight: '900', fontSize: 11, overflow: 'hidden' },
   kernel: { position: 'absolute', width: '154%', height: '154%', resizeMode: 'contain' },
   kernelFaulted: { tintColor: '#c45a32' },
   letter: {

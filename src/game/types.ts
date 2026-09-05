@@ -1,6 +1,8 @@
 export type CornVariety = 'yellow' | 'red' | 'white' | 'purple' | 'glass_gem';
 
 export type ToolId = 'scarecrow' | 'butterBrush' | 'cornPicker';
+export type ObstacleKind = 'caterpillar' | 'crow' | 'squirrel' | 'weed';
+export type LevelObstacle = { id: string; kind: ObstacleKind; kernelId: string; countdown: number };
 
 export type Kernel = {
   id: string;
@@ -45,6 +47,7 @@ export type Level = {
   shuffleOnStart: boolean;
   rotationEnabled: boolean;
   hintPaths: string[][];
+  obstacles: LevelObstacle[];
 };
 
 export type Tuning = {

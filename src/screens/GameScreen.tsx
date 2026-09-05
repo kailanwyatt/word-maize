@@ -16,6 +16,7 @@ import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board
 import { WORD_LIST, wordPrefixes } from '../game/dictionary';
 import { completionReward } from '../game/economy';
 import { harvestKernels, harvestPercent } from '../game/harvest';
+import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../game/obstacles';
 import { findDiscoverablePath } from '../game/powerups';
 import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
 import { canSubmitSelection, evaluateSubmission } from '../game/selection';
@@ -64,6 +65,7 @@ export function GameScreen() {
   const [toolsUsed, setToolsUsed] = useState(savedRun?.toolsUsed ?? 0);
   const [doubled, setDoubled] = useState(false);
   const [powerUpsOpen, setPowerUpsOpen] = useState(false);
+  const [obstacles, setObstacles] = useState(() => savedRun?.obstacles ?? initializeObstacles(source.obstacles));
   const busyRef = useRef(false);
   const finishingRef = useRef(false);
   const hydratedRef = useRef(store.ready);
@@ -103,6 +105,7 @@ export function GameScreen() {
     doubled,
   });
   const payout = reward.total;
+  const blockedIds = blockedKernelIds(obstacles);
   const gameplayBackground = source.world === 'Crow Creek' ? wordMaizeAssets.backgrounds.gameplayCrowCreek
     : source.world === 'Orchard Hollow' ? wordMaizeAssets.backgrounds.gameplayOrchardHollow
     : source.world === 'Moonlight Maize' ? wordMaizeAssets.backgrounds.gameplayMoonlightMaize
@@ -118,6 +121,7 @@ export function GameScreen() {
     setFoundWords(run.foundWords);
     setInCoins(run.earnedCoins);
     setToolsUsed(run.toolsUsed);
+    setObstacles(run.obstacles ?? initializeObstacles(source.obstacles));
   }, [levelId, source, store.ready, store.save.activeLevelRun]);
 
   useEffect(() => {
@@ -128,9 +132,10 @@ export function GameScreen() {
       foundWords,
       earnedCoins: inCoins,
       toolsUsed,
+      obstacles,
       updatedAt: Date.now(),
     });
-  }, [foundWords, inCoins, level.kernels, levelId, store.ready, store.saveLevelRun, toolsUsed]);
+  }, [foundWords, inCoins, level.kernels, levelId, obstacles, store.ready, store.saveLevelRun, toolsUsed]);
 
   const pulse = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
     if (tuning.haptics && store.save.settings.haptics) Haptics.impactAsync(style).catch(() => {});
@@ -141,6 +146,7 @@ export function GameScreen() {
     }
   };
   const handleKernelTap = (kernel: Kernel) => {
+    if (blockedIds.has(kernel.id)) { warn(); return; }
     const result = selection.applyTap({ kernel, visible: true });
     if (result.accepted) pulse();
     else warn();
@@ -155,6 +161,7 @@ export function GameScreen() {
       const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, result.harvestIds.length - 1) * 70;
       setTimeout(() => {
         setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, result.harvestIds) }));
+        setObstacles(prev => advanceObstacles(prev, result.harvestIds));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
         setInCoins(v => v + coinsForWord(result.word));
         setHarvestingIds([]);
@@ -180,6 +187,16 @@ export function GameScreen() {
       return;
     }
     if (!store.save.inventory[tool]) { setOutOf(tool); return; }
+    const countered = obstacles.find(obstacle => obstacle.status !== 'cleared' && (
+      (tool === 'scarecrow' && obstacle.kind === 'crow')
+      || (tool === 'butterBrush' && (obstacle.kind === 'weed' || obstacle.kind === 'caterpillar'))
+    ));
+    if (countered && store.consumeTool(tool)) {
+      setToolsUsed(value => value + 1);
+      setObstacles(value => clearObstacle(value, countered.kernelId));
+      pulse();
+      return;
+    }
     const path = unusedPath();
     if (!path) return;
     if (!store.consumeTool(tool)) return;
@@ -193,6 +210,7 @@ export function GameScreen() {
     if (!store.consumeTool('cornPicker')) return;
     setToolsUsed(value => value + 1);
     setHarvestingIds([kernel.id]);
+    setObstacles(value => clearObstacle(value, kernel.id));
     setTimeout(() => {
       setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, [kernel.id]) }));
       setInCoins(v => v + 8);
@@ -209,6 +227,7 @@ export function GameScreen() {
     setFoundWords([]); setInCoins(0); setHints([]);
     setActiveTool(undefined); setStatus('idle'); setShuffles(1); setDoubled(false);
     setHarvestingIds([]); setToolsUsed(0);
+    setObstacles(initializeObstacles(source.obstacles));
     busyRef.current = false;
   };
   const finish = () => {
@@ -294,6 +313,8 @@ export function GameScreen() {
               faulted={status === 'invalid'}
               locked={busy}
               reducedMotion={store.save.settings.reducedMotion}
+              obstacles={obstacles}
+              blockedKernelIds={blockedIds}
               onKernelTap={handleKernelTap}
               onPick={pick}
               onRotateStart={cob.begin}

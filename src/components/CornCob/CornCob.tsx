@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { positionKey } from '../../game/board';
 import { Kernel, Tuning } from '../../game/types';
 import { KernelTile } from './Kernel';
+import { ObstacleState } from '../../game/obstacles';
 import { cobMetrics, hitKernel, layoutKernels } from './layout';
 import { TapGestureArbitrator } from './TapGestureArbitrator';
 
@@ -21,6 +22,8 @@ type Props = {
   faulted?: boolean;
   locked?: boolean;
   reducedMotion?: boolean;
+  obstacles?: ObstacleState[];
+  blockedKernelIds?: Set<string>;
   onKernelTap: (kernel: Kernel) => void;
   onPick: (kernel: Kernel) => void;
   onRotateStart: () => void;
@@ -105,6 +108,9 @@ export function CornCob(props: Props) {
           faulted={props.faulted && selectedIds.has(item.kernel.id)}
           rejected={props.rejectedId === item.kernel.id}
           reducedMotion={props.reducedMotion}
+          obstacle={props.obstacles?.find(obstacle => obstacle.kernelId === item.kernel.id)}
+          blocked={props.blockedKernelIds?.has(item.kernel.id)}
+          pickerMode={props.pickerMode}
           onPress={() => handlePress(item.kernel)}
         />
       ))}

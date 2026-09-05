@@ -66,8 +66,10 @@ function lateProgression(id: number) {
         ? { id: 'no-tools', kind: 'noTools' as const, label: 'Finish without a tool' }
         : { id: `harvest-${Math.min(90, target + 10)}`, kind: 'harvestPercent' as const, value: Math.min(90, target + 10), label: `Harvest ${Math.min(90, target + 10)}%` },
     ],
-    tutorial: id === 16 ? ['Crow Creek begins here. Longer words and careful rotation now matter more.']
-      : id === 31 ? ['Orchard Hollow asks for longer words and efficient harvests.']
+    tutorial: id === 11 ? ['Caterpillars count down after each valid word. Harvest their kernel or use the Butter Brush before they settle in.']
+      : id === 16 ? ['Crows swoop in after two valid words. The Scarecrow clears one before it blocks a letter.']
+      : id === 20 ? ['Squirrels guard a kernel immediately. Use a Corn Picker to remove it.']
+      : id === 31 ? ['Weeds lock a kernel in place. The Butter Brush clears them without harvesting the letter.']
       : id === 46 ? ['Moonlight Maize combines every skill from the valley.'] : [],
     story,
   };
@@ -200,6 +202,11 @@ function makeLevel(
 ): Level {
   const columns = rows[0].length;
   const config = progression(id, targetHarvestPercent);
+  const obstacleKind = id >= 11 && id <= 15 ? 'caterpillar'
+    : id >= 16 && id <= 25 ? (id % 4 === 0 ? 'squirrel' : 'crow')
+    : id >= 26 && id <= 30 ? 'squirrel'
+    : id >= 31 && id <= 45 ? 'weed' : undefined;
+  const obstacleCount = obstacleKind ? (id % 5 === 0 ? 2 : 1) : 0;
   return {
     id,
     world: worldForLevel(id),
@@ -219,6 +226,12 @@ function makeLevel(
     hintPaths: planted
       .map(coords => pathIds(coords.filter(([row, column]) => row < rows.length && column < columns)))
       .filter(path => path.length >= 3),
+    obstacles: Array.from({ length: obstacleCount }, (_, index) => ({
+      id: `${obstacleKind}-${id}-${index}`,
+      kind: obstacleKind!,
+      kernelId: `${1 + index}-${index === 0 ? 2 % columns : 1 % columns}-0`,
+      countdown: obstacleKind === 'caterpillar' ? 3 : obstacleKind === 'crow' ? 2 : 0,
+    })),
   };
 }
 

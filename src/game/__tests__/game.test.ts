@@ -16,6 +16,7 @@ import { LEVELS } from '../../data/levels';
 import { migrateSave, nextDailyDay, SAVE_VERSION } from '../../store/types';
 import { validateLevels } from '../levelValidation';
 import { evaluateLevelStars, objectiveComplete } from '../scoring';
+import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
   id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'yellow',
@@ -322,6 +323,28 @@ describe('levels and powerup search', () => {
     const reset = resetLevel({ ...level, shuffleOnStart: true }, () => 0.2);
     expect(reset.kernels.map(k => k.id)).toEqual(level.kernels.map(k => k.id));
     expect(reset.kernels.some((kernel, index) => kernel.letter !== level.kernels[index].letter)).toBe(true);
+  });
+});
+
+describe('farm obstacles', () => {
+  it('counts down moving pests and blocks their kernel when they trigger', () => {
+    let states = initializeObstacles([{ id: 'bug-1', kind: 'caterpillar', kernelId: '0-0-0', countdown: 2 }]);
+    states = advanceObstacles(states, []);
+    expect(states[0]).toMatchObject({ turnsRemaining: 1, status: 'active' });
+    states = advanceObstacles(states, []);
+    expect(states[0]).toMatchObject({ turnsRemaining: 0, status: 'triggered' });
+    expect(blockedKernelIds(states).has('0-0-0')).toBe(true);
+  });
+
+  it('clears an obstacle when its kernel is harvested', () => {
+    const states = initializeObstacles([{ id: 'crow-1', kind: 'crow', kernelId: '1-2-0', countdown: 2 }]);
+    expect(advanceObstacles(states, ['1-2-0'])[0].status).toBe('cleared');
+  });
+
+  it('blocks static obstacles until the matching tool clears them', () => {
+    const states = initializeObstacles([{ id: 'weed-1', kind: 'weed', kernelId: '2-1-0', countdown: 0 }]);
+    expect(blockedKernelIds(states).has('2-1-0')).toBe(true);
+    expect(blockedKernelIds(clearObstacle(states, '2-1-0')).has('2-1-0')).toBe(false);
   });
 });
 

@@ -1,4 +1,5 @@
 import { Inventory, LevelProgress } from '../game/types';
+import type { ObstacleState } from '../game/obstacles';
 
 export type Settings = {
   music: boolean;
@@ -19,6 +20,7 @@ export type ActiveLevelRun = {
   foundWords: string[];
   earnedCoins: number;
   toolsUsed: number;
+  obstacles?: ObstacleState[];
   updatedAt: number;
 };
 
