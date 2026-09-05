@@ -74,11 +74,11 @@ export function WordSubmitButton({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' },
   wrap: {
     minWidth: 168,
-    maxWidth: 320,
-    paddingHorizontal: 22,
+    maxWidth: '100%',
+    paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 24,
     backgroundColor: '#3f7c19',
@@ -97,6 +97,6 @@ const styles = StyleSheet.create({
   idleText: { fontSize: 12, letterSpacing: 0.6 },
   valid: { backgroundColor: '#4d8a28', borderColor: '#dfffad' },
   invalid: { backgroundColor: '#c45a32', borderColor: '#ffd2bd' },
-  clear: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#38220f', borderWidth: 2, borderColor: '#e4bb40', alignItems: 'center', justifyContent: 'center' },
+  clear: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#38220f', borderWidth: 2, borderColor: '#e4bb40', alignItems: 'center', justifyContent: 'center' },
   clearText: { color: '#fff6c6', fontSize: 22, fontWeight: '900', marginTop: -2 },
 });

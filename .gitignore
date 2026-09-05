@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local QA captures (large PNGs; keep on disk, do not commit)
+docs/captures/
+

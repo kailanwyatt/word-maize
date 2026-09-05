@@ -1,30 +1,41 @@
 import { useRouter } from 'expo-router';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
+import { ENERGY_MAX } from '../game/types';
 import { totalStars } from '../game/scoring';
 import { useGameStore } from '../store/GameStore';
 import { GearIcon } from './GearIcon';
 
 export function CurrencyBar({ onSettings }: { onSettings?: () => void }) {
   const router = useRouter();
-  const { save } = useGameStore();
+  const { save, energyNow } = useGameStore();
   const stars = totalStars(save.levels);
+  const { energy } = energyNow();
   const openSettings = onSettings ?? (() => router.push('/settings'));
   return (
     <View style={styles.row}>
-      <Pressable style={styles.coinPill} onPress={() => router.push('/(tabs)/shop')}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${save.coins} coins, open shop`}
+        style={styles.coinPill}
+        onPress={() => router.push('/(tabs)/shop')}
+      >
         <Image source={wordMaizeAssets.ui.coin} style={styles.coin} />
         <Text style={styles.value}>{save.coins.toLocaleString('en-US')}</Text>
         <View style={styles.plus}>
           <Text style={styles.plusText}>+</Text>
         </View>
       </Pressable>
-      <View style={styles.starPill}>
+      <View accessibilityLabel={`${energy} of ${ENERGY_MAX} energy`} style={styles.energyPill}>
+        <Image source={wordMaizeAssets.ui.energy} style={styles.energy} />
+        <Text style={styles.value}>{energy}</Text>
+      </View>
+      <View accessibilityLabel={`${stars} stars`} style={styles.starPill}>
         <Text style={styles.star}>★</Text>
         <Text style={styles.value}>{stars}</Text>
       </View>
       <View style={styles.spacer} />
-      <Pressable onPress={openSettings} style={styles.gear} accessibilityLabel="Settings">
+      <Pressable accessibilityRole="button" onPress={openSettings} style={styles.gear} accessibilityLabel="Settings">
         <GearIcon color="#ffffff" size={20} />
       </Pressable>
     </View>
@@ -48,12 +59,14 @@ const pill = {
 };
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 6 },
   coinPill: { ...pill, paddingRight: 5 },
+  energyPill: { ...pill, paddingHorizontal: 8 },
   starPill: { ...pill, paddingHorizontal: 10 },
   spacer: { flex: 1 },
   coin: { width: 28, height: 28, resizeMode: 'contain' },
-  value: { color: '#ffffff', fontWeight: '900', fontSize: 17, minWidth: 18 },
+  energy: { width: 26, height: 26, resizeMode: 'contain' },
+  value: { color: '#ffffff', fontWeight: '900', fontSize: 15, minWidth: 12 },
   plus: {
     width: 26,
     height: 26,

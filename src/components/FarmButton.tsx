@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { palette } from '../theme';
 
 export function FarmButton({ label, onPress, dim }: { label: string; onPress: () => void; dim?: boolean }) {
@@ -12,7 +12,7 @@ export function FarmButton({ label, onPress, dim }: { label: string; onPress: ()
 
 export function PlayButton({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Play">
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Play" style={styles.playPress}>
       {({ pressed }) => (
         <View style={styles.playWrap}>
           <View style={styles.playBase} />
@@ -27,7 +27,14 @@ export function PlayButton({ onPress }: { onPress: () => void }) {
 }
 
 export function Panel({ children }: { children: ReactNode }) {
-  return <View style={styles.panel}>{children}</View>;
+  const { height } = useWindowDimensions();
+  return (
+    <View style={[styles.panel, { maxHeight: Math.min(height * 0.86, 640) }]}>
+      <ScrollView bounces={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.panelBody}>
+        {children}
+      </ScrollView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -47,14 +54,14 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#73441f',
     borderRadius: 22,
-    padding: 22,
-    paddingBottom: 18,
     width: '88%',
     maxWidth: 420,
     overflow: 'hidden',
   },
+  panelBody: { padding: 22, paddingBottom: 18 },
+  playPress: { width: '86%', maxWidth: 280, alignSelf: 'center' },
   playWrap: {
-    width: 280,
+    width: '100%',
     height: 78,
   },
   playBase: {

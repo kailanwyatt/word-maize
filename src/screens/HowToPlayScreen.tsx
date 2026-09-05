@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { FarmButton } from '../components/FarmButton';
 
 const STEPS = [
@@ -13,22 +14,28 @@ const STEPS = [
 export function HowToPlayScreen() {
   const router = useRouter();
   return (
-    <SafeAreaView style={styles.safe}>
-      <Text style={styles.title}>How to Play</Text>
-      {STEPS.map(step => (
-        <View key={step.title} style={styles.card}>
-          <Text style={styles.heading}>{step.title}</Text>
-          <Text style={styles.body}>{step.body}</Text>
-        </View>
-      ))}
-      <FarmButton label="BACK" onPress={() => router.back()} />
-    </SafeAreaView>
+    <ImageBackground source={wordMaizeAssets.backgrounds.homeFarm} style={styles.bg} resizeMode="cover">
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>How to Play</Text>
+          {STEPS.map(step => (
+            <View key={step.title} style={styles.card}>
+              <Text style={styles.heading}>{step.title}</Text>
+              <Text style={styles.body}>{step.body}</Text>
+            </View>
+          ))}
+          <FarmButton label="BACK" onPress={() => router.back()} />
+        </ScrollView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#1a3a18', padding: 20, gap: 10 },
-  title: { color: '#fff6c6', fontSize: 28, fontWeight: '900', textAlign: 'center', marginBottom: 8 },
+  bg: { flex: 1, backgroundColor: '#1a3a18' },
+  safe: { flex: 1 },
+  scroll: { padding: 20, gap: 10, paddingBottom: 32 },
+  title: { color: '#fff6c6', fontSize: 28, fontWeight: '900', textAlign: 'center', marginBottom: 8, textShadowColor: '#1d1408', textShadowRadius: 6 },
   card: { backgroundColor: 'rgba(255,242,189,0.94)', borderRadius: 14, borderWidth: 2, borderColor: '#73441f', padding: 12 },
   heading: { fontWeight: '900', color: '#406f20', fontSize: 16 },
   body: { color: '#51351f', fontWeight: '700', marginTop: 4 },

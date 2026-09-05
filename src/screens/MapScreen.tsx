@@ -102,8 +102,8 @@ export function MapScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <CurrencyBar onSettings={() => router.push('/settings')} />
-          <Text style={styles.world}>{CAMPAIGN_WORLDS[chapter]}</Text>
-          <Text style={styles.dragHint}>SCROLL THE CHAPTER · LEVELS {chapter * 15 + 1}–{chapter * 15 + 15}</Text>
+          <Text style={styles.world} numberOfLines={1}>{CAMPAIGN_WORLDS[chapter]}</Text>
+          <Text style={styles.dragHint}>SCROLL · LEVELS {chapter * 15 + 1}–{chapter * 15 + 15}</Text>
         </View>
         <ScrollView ref={scrollRef} style={styles.scroller} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces>
           <View style={styles.mapCanvas}>
@@ -158,7 +158,8 @@ export function MapScreen() {
             </Text>
           </View>
           <Pressable disabled={!selectedUnlocked} onPress={() => play(selectedLevel.id)} style={[styles.playButton, !selectedUnlocked && styles.playButtonLocked]}>
-            <Text style={styles.playText}>{selectedUnlocked ? `PLAY  +${selectedLevel.rewardCoins}` : 'LOCKED'}</Text>
+            <Text style={styles.playText}>{selectedUnlocked ? 'PLAY' : 'LOCKED'}</Text>
+            {selectedUnlocked ? <Text style={styles.playReward}>+{selectedLevel.rewardCoins}</Text> : null}
           </Pressable>
         </View>
       </SafeAreaView>
@@ -179,8 +180,8 @@ export function MapScreen() {
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: '#071d2d' },
   safe: { flex: 1 },
-  header: { backgroundColor: '#092236', paddingBottom: 8, zIndex: 4 },
-  world: { textAlign: 'center', color: '#fff6c6', fontWeight: '900', fontSize: 24, textShadowColor: '#1d1408', textShadowRadius: 4 },
+  header: { backgroundColor: 'rgba(9,34,54,0.88)', paddingBottom: 8, zIndex: 4 },
+  world: { textAlign: 'center', color: '#fff6c6', fontWeight: '900', fontSize: 22, textShadowColor: '#1d1408', textShadowRadius: 4 },
   dragHint: { textAlign: 'center', color: '#f6d66c', fontWeight: '900', fontSize: 10, letterSpacing: 1.2, marginTop: 2 },
   scroller: { flex: 1 },
   scrollContent: { minHeight: MAP_HEIGHT },
@@ -208,9 +209,10 @@ const styles = StyleSheet.create({
   levelCopy: { flex: 1 },
   levelCardTitle: { color: '#fff6c6', fontWeight: '900', fontSize: 13 },
   levelCardGoal: { color: '#e9d49c', fontWeight: '700', fontSize: 10, marginTop: 3 },
-  playButton: { minWidth: 104, paddingHorizontal: 10, paddingVertical: 13, borderRadius: 13, borderWidth: 2, borderColor: '#b9e875', backgroundColor: '#5cae31', alignItems: 'center' },
+  playButton: { minWidth: 96, minHeight: 48, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 13, borderWidth: 2, borderColor: '#b9e875', backgroundColor: '#5cae31', alignItems: 'center', justifyContent: 'center' },
   playButtonLocked: { backgroundColor: '#655944', borderColor: '#9f8e65' },
-  playText: { color: 'white', fontWeight: '900', fontSize: 12 },
+  playText: { color: 'white', fontWeight: '900', fontSize: 14 },
+  playReward: { color: '#e8ff9a', fontWeight: '800', fontSize: 11, marginTop: 1 },
   shade: { flex: 1, backgroundColor: 'rgba(20,40,30,0.68)', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 22, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 12 },
 });

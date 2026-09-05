@@ -38,7 +38,7 @@ export function ShopScreen() {
   const toolDetail = typeof detail === 'string' ? detail : undefined;
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.shopBarn} style={styles.bg} resizeMode="cover">
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <CurrencyBar onSettings={() => router.push('/settings')} />
         <View style={styles.titleBoard}>
           <Text style={styles.eyebrow}>FARMER MAY'S</Text>
@@ -59,8 +59,8 @@ export function ShopScreen() {
               </View>
               <View style={styles.productCopy}>
                 <Text style={styles.cardTitle}>{product.title}</Text>
-                <Text style={styles.blurb} numberOfLines={2}>{product.blurb}</Text>
-                {product.tools ? <Text style={styles.contents}>
+                <Text style={styles.blurb}>{product.blurb}</Text>
+                {product.tools && !product.blurb.includes('Scarecrows') ? <Text style={styles.contents}>
                   {product.tools.scarecrow ?? 0} Scarecrows · {product.tools.butterBrush ?? 0} Brushes · {product.tools.cornPicker ?? 0} Pickers
                 </Text> : null}
               </View>
@@ -126,8 +126,8 @@ const styles = StyleSheet.create({
   eyebrow: { color: '#e9c968', fontWeight: '900', fontSize: 9, letterSpacing: 2 },
   title: { color: '#fff6c6', fontWeight: '900', fontSize: 27, lineHeight: 31, textShadowColor: '#1d1408', textShadowRadius: 4 },
   subtitle: { color: '#ead9a7', fontWeight: '700', fontSize: 11 },
-  list: { padding: 12, paddingBottom: 40, gap: 10 },
-  card: { minHeight: 112, backgroundColor: 'rgba(255,242,189,0.96)', borderWidth: 3, borderColor: '#73441f', borderRadius: 18, padding: 10, flexDirection: 'row', alignItems: 'center', shadowColor: '#201007', shadowOpacity: 0.34, shadowRadius: 4, shadowOffset: { width: 0, height: 3 } },
+  list: { padding: 12, paddingBottom: 28, gap: 10 },
+  card: { minHeight: 104, backgroundColor: 'rgba(255,242,189,0.96)', borderWidth: 3, borderColor: '#73441f', borderRadius: 18, padding: 10, flexDirection: 'row', alignItems: 'center', shadowColor: '#201007', shadowOpacity: 0.34, shadowRadius: 4, shadowOffset: { width: 0, height: 3 } },
   productArt: { width: 76, height: 82, borderRadius: 14, borderWidth: 2, borderColor: '#d3a24d', backgroundColor: '#f0c75d', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   bundleArt: { width: 74, height: 74, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   bundleIcon: { width: 30, height: 46, resizeMode: 'contain', marginHorizontal: -6 },
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontWeight: '900', fontSize: 17, color: '#51351f' },
   blurb: { color: '#6a4522', fontWeight: '700', fontSize: 12, lineHeight: 16, marginTop: 3 },
   contents: { color: '#477126', fontWeight: '900', fontSize: 9, marginTop: 5 },
-  priceButton: { backgroundColor: '#5b9f2c', borderWidth: 2, borderColor: '#386b19', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8 },
+  priceButton: { backgroundColor: '#5b9f2c', borderWidth: 2, borderColor: '#386b19', borderRadius: 12, minWidth: 72, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 8 },
   price: { color: 'white', fontWeight: '900', fontSize: 14 },
   sectionBoard: { alignSelf: 'center', marginTop: 8, backgroundColor: 'rgba(68,36,15,0.94)', borderRadius: 12, borderWidth: 2, borderColor: '#c78a32', paddingHorizontal: 22, paddingVertical: 7 },
   section: { color: '#fff6c6', fontWeight: '900', letterSpacing: 1.2 },

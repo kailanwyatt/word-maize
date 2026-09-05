@@ -13,8 +13,8 @@ export function HarvestMeter({ percent }: { percent: number; target?: number }) 
 
 const styles = StyleSheet.create({
   row: {
-    width: 84,
-    height: 82,
+    width: 76,
+    height: 74,
     borderRadius: 14,
     backgroundColor: 'rgba(46,35,17,0.92)',
     borderWidth: 2,
@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  basket: { width: 68, height: 52, resizeMode: 'contain' as const, marginTop: -11 },
-  percent: { color: '#fff6c6', fontSize: 17, fontWeight: '900', marginTop: -7 },
+  basket: { width: 58, height: 44, resizeMode: 'contain' as const, marginTop: -8 },
+  percent: { color: '#fff6c6', fontSize: 15, fontWeight: '900', marginTop: -5 },
   label: { color: '#fff6c6', fontSize: 7, fontWeight: '900' },
 });

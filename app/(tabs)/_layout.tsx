@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabIcon } from '../../src/components/TabIcons';
 
 function TabBarWood() {
@@ -11,6 +12,8 @@ function TabBarWood() {
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const padBottom = Math.max(insets.bottom, 8);
   return (
     <Tabs
       initialRouteName="play"
@@ -22,9 +25,9 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
-          height: 78,
-          paddingTop: 8,
-          paddingBottom: 10,
+          height: 62 + padBottom,
+          paddingTop: 6,
+          paddingBottom: padBottom,
           elevation: 0,
         },
       }}

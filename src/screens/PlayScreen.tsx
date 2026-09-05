@@ -38,12 +38,14 @@ export function PlayScreen() {
         <View style={styles.hero}>
           <Image source={wordMaizeAssets.ui.logo} style={styles.logo} />
         </View>
-        <View style={styles.field} />
+        <View style={styles.field}>
+          <Image source={wordMaizeAssets.props.tractor} style={styles.tractor} />
+        </View>
         <View style={styles.actions}>
           <View style={styles.levelSign}>
             <Text style={styles.levelLabel}>LEVEL {level.id}</Text>
           </View>
-          <Pressable style={styles.daily} onPress={() => router.push('/daily-harvest')}>
+          <Pressable accessibilityRole="button" accessibilityLabel={daily.alreadyClaimed ? 'Daily harvest already claimed' : `Daily harvest, day ${daily.day} ready`} style={styles.daily} onPress={() => router.push('/daily-harvest')}>
             <Image source={wordMaizeAssets.props.chest} style={styles.chest} />
             <Text style={styles.dailyText}>{daily.alreadyClaimed ? 'Daily claimed' : `Day ${daily.day} ready`}</Text>
           </Pressable>
@@ -69,10 +71,11 @@ export function PlayScreen() {
 const styles = StyleSheet.create({
   bg: { flex: 1 },
   safe: { flex: 1 },
-  hero: { alignItems: 'center', marginTop: 10 },
-  logo: { width: 268, height: 178, resizeMode: 'contain' },
-  field: { flex: 1 },
-  actions: { alignItems: 'center', gap: 12, paddingBottom: 16 },
+  hero: { alignItems: 'center', marginTop: 6 },
+  logo: { width: '72%', maxWidth: 268, aspectRatio: 268 / 178, height: undefined, resizeMode: 'contain' },
+  field: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  tractor: { width: 168, height: 128, resizeMode: 'contain', marginBottom: 4 },
+  actions: { alignItems: 'center', gap: 12, paddingBottom: 12, width: '100%' },
   levelSign: {
     backgroundColor: '#3a2410',
     borderRadius: 10,

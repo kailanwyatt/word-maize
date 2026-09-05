@@ -37,7 +37,7 @@ export function DebugPanel({ open, onToggle, tuning, onChange, debug, actions = 
 }
 
 const styles = StyleSheet.create({
-  gear: { position: 'absolute', zIndex: 20, bottom: 8, right: 8, width: 34, height: 22, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(20,35,24,.75)', borderWidth: 1, borderColor: '#d9c783' },
+  gear: { position: 'absolute', zIndex: 20, bottom: 90, left: 8, width: 34, height: 22, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(20,35,24,.75)', borderWidth: 1, borderColor: '#d9c783' },
   gearText: { fontSize: 9, fontWeight: '900', color: '#fff2ae' }, panel: { position: 'absolute', zIndex: 20, top: 52, right: 10, width: 270, borderRadius: 14, padding: 10, borderWidth: 2, borderColor: '#ecd580', backgroundColor: 'rgba(25,42,29,.97)' },
   title: { color: '#f7dc80', fontWeight: '900', textAlign: 'right' }, scroll: { maxHeight: 480, marginTop: 6 },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }, action: { backgroundColor: '#527f2d', borderRadius: 7, paddingHorizontal: 9, paddingVertical: 7, borderWidth: 1, borderColor: '#a9d56a' }, danger: { backgroundColor: '#7b3429', borderColor: '#e2947f' }, actionText: { color: 'white', fontSize: 10, fontWeight: '900' },
