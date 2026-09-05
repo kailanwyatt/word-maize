@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CornCob } from '../components/CornCob/CornCob';
@@ -281,6 +281,17 @@ export function GameScreen() {
             onToggle={() => setDebugOpen(v => !v)}
             tuning={tuning}
             onChange={setTuning}
+            actions={[
+              { label: 'PREVIOUS', onPress: () => router.replace(`/game/${Math.max(1, levelId - 1)}`) },
+              { label: 'NEXT', onPress: () => router.replace(`/game/${Math.min(10, levelId + 1)}`) },
+              { label: 'TOOLS +10', onPress: () => store.addTools({ scarecrow: 10, butterBrush: 10, cornPicker: 10 }) },
+              { label: 'UNLOCK 1–10', onPress: store.unlockChapterOne },
+              { label: 'REPLAY INTRO', onPress: () => setIntroOpen(true) },
+              { label: 'RESET SAVE', onPress: () => Alert.alert('Reset playtest save?', 'This clears coins, stars, tools, and chapter progress.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Reset', style: 'destructive', onPress: () => { store.resetProgress(); router.replace('/game/1'); } },
+              ]), danger: true },
+            ]}
             debug={`IDs: ${selection.path.map(k => k.id).join(', ') || '—'}\nWord: ${currentWord || '—'}\nRotation: ${cob.rotation.toFixed(2)}\nVisible/exposed: ${exposedKernels(level.kernels).length}`}
           />
         </SafeAreaView>

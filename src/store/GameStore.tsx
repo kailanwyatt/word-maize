@@ -21,6 +21,8 @@ type GameStoreValue = {
   claimDaily: () => { ok: boolean; day: number };
   markTutorialSeen: () => void;
   markLevelIntroSeen: (id: number) => void;
+  resetProgress: () => void;
+  unlockChapterOne: () => void;
   setAdFree: (value: boolean) => void;
   completedIds: number[];
   currentLevelId: number;
@@ -137,6 +139,23 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
     seenLevelIntros: prev.seenLevelIntros.includes(id) ? prev.seenLevelIntros : [...prev.seenLevelIntros, id],
   })), [patch]);
   const setAdFree = useCallback((value: boolean) => patch(prev => ({ ...prev, adFree: value })), [patch]);
+  const resetProgress = useCallback(() => setSave(defaultSave()), []);
+  const unlockChapterOne = useCallback(() => patch(prev => ({
+    ...prev,
+    currentLevelId: 10,
+    levels: {
+      ...prev.levels,
+      ...Object.fromEntries(LEVELS.slice(0, 9).map(level => [level.id, {
+        stars: 3 as const,
+        completed: true,
+        bestPercent: 100,
+        bestWordsFound: level.objective.minWords ?? 1,
+        bestLongestWord: level.guaranteedWords.reduce((best, word) => word.length > best.length ? word : best, ''),
+        completedGoalIds: level.starGoals.map(goal => goal.id),
+      }])),
+    },
+    seenLevelIntros: LEVELS.slice(0, 10).map(level => level.id),
+  })), [patch]);
 
   const claimDaily = useCallback(() => {
     const today = localDateString();
@@ -168,9 +187,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<GameStoreValue>(() => ({
     ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool,
-    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, setAdFree,
+    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockChapterOne, setAdFree,
     completedIds, currentLevelId: save.currentLevelId,
-  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, setAdFree, completedIds]);
+  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockChapterOne, setAdFree, completedIds]);
 
   return <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>;
 }
