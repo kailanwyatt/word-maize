@@ -11,7 +11,7 @@ const VISIBLE_COLUMNS = 6.2;
 const INITIAL_REMOVED = new Set(['0-3', '2-1', '3-6', '5-4']);
 
 type Cell = { id: string; row: number; column: number; letter: string };
-type LayoutCell = Cell & { x: number; y: number; scaleX: number; scale: number; shade: number; visible: boolean };
+type LayoutCell = Cell & { x: number; y: number; scaleX: number; scale: number; tilt: number; shade: number; visible: boolean };
 
 const cells: Cell[] = ROWS.flatMap((letters, row) =>
   [...letters].map((letter, column) => ({ id: `${row}-${column}`, row, column, letter })),
@@ -30,7 +30,8 @@ function layout(rotation: number): LayoutCell[] {
     const visible = Math.abs(offset) <= front + 0.22;
     const angle = (offset / VISIBLE_COLUMNS) * Math.PI;
     const rowT = cell.row / (ROWS.length - 1);
-    const radius = 178 * (0.88 + 0.12 * Math.sin(Math.PI * rowT));
+    // Pull the upper and lower rows inward to form an ear-shaped silhouette.
+    const radius = 178 * (0.7 + 0.3 * Math.sin(Math.PI * rowT));
     const edge = Math.min(1, Math.abs(offset) / front);
     return {
       ...cell,
@@ -38,6 +39,8 @@ function layout(rotation: number): LayoutCell[] {
       y: 142 + cell.row * 68,
       scaleX: 1 - edge * 0.44,
       scale: 1 - edge * 0.08,
+      // Side kernels follow the oval contour while the readable center stays level.
+      tilt: Math.sign(offset) * (0.5 - rowT) * 18 * Math.pow(edge, 1.7),
       shade: edge,
       visible,
     };
@@ -95,9 +98,6 @@ function App() {
             {Array.from({ length: 15 }, (_, index) => <i key={index} style={{ '--strand': index } as React.CSSProperties} />)}
           </div>
           <div className="core" />
-          <img className="husk left" src="/assets/husk-left.png" />
-          <img className="husk right" src="/assets/husk-right.png" />
-          <img className="husk bottom" src="/assets/husk-bottom.png" />
           {board.map(cell => {
             const isSelected = selected.includes(cell.id);
             const isRemoved = removed.has(cell.id);
@@ -109,7 +109,7 @@ function App() {
                   left: cell.x, top: cell.y,
                   opacity: 1 - cell.shade * .22,
                   zIndex: Math.round((1 - cell.shade) * 100),
-                  transform: `translate(-50%,-50%) scale(${cell.scale}) scaleX(${cell.scaleX})`,
+                  transform: `translate(-50%,-50%) rotate(${cell.tilt}deg) scale(${cell.scale}) scaleX(${cell.scaleX})`,
                   filter: `brightness(${1 - cell.shade * .22})`,
                 }}
                 onPointerDown={event => event.stopPropagation()}
