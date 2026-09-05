@@ -17,10 +17,11 @@ export function PlayScreen() {
   const level = LEVELS.find(item => item.id === store.currentLevelId) ?? LEVELS[0];
   const daily = nextDailyDay(store.save.daily);
   const play = () => {
+    const continuing = store.save.activeLevelRun?.levelId === level.id;
     const { energy } = store.energyNow();
-    if (energy < 1) { setNeedEnergy(true); return; }
+    if (!continuing && energy < 1) { setNeedEnergy(true); return; }
     if (!isLevelUnlocked(level.id, store.completedIds) && level.id !== 1) return;
-    store.spendEnergy();
+    if (!continuing) store.spendEnergy();
     router.push(`/game/${level.id}`);
   };
   const refill = async () => {

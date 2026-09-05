@@ -12,6 +12,15 @@ export type DailyState = {
   claimedDay: number;
 };
 
+export type ActiveLevelRun = {
+  levelId: number;
+  harvestedIds: string[];
+  foundWords: string[];
+  earnedCoins: number;
+  toolsUsed: number;
+  updatedAt: number;
+};
+
 export type GameSave = {
   version: number;
   coins: number;
@@ -24,11 +33,12 @@ export type GameSave = {
   daily: DailyState;
   seenTutorial: boolean;
   seenLevelIntros: number[];
+  activeLevelRun: ActiveLevelRun | null;
   adFree: boolean;
 };
 
 export const SAVE_KEY = 'word-maize.save.v1';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export const defaultSave = (): GameSave => ({
   version: SAVE_VERSION,
@@ -42,6 +52,7 @@ export const defaultSave = (): GameSave => ({
   daily: { lastClaimDate: null, claimedDay: 0 },
   seenTutorial: false,
   seenLevelIntros: [],
+  activeLevelRun: null,
   adFree: false,
 });
 
@@ -58,6 +69,7 @@ export function migrateSave(value: unknown): GameSave {
     daily: { ...fallback.daily, ...(saved.daily ?? {}) },
     levels: saved.levels && typeof saved.levels === 'object' ? saved.levels : {},
     seenLevelIntros: Array.isArray(saved.seenLevelIntros) ? saved.seenLevelIntros.filter(Number.isFinite) : [],
+    activeLevelRun: saved.activeLevelRun && typeof saved.activeLevelRun === 'object' ? saved.activeLevelRun : null,
   };
 }
 

@@ -27,9 +27,10 @@ export function MapScreen() {
   const currentLevel = LEVELS.find(level => level.id === store.currentLevelId) ?? LEVELS[0];
   const play = (id: number) => {
     if (!isLevelUnlocked(id, store.completedIds)) return;
+    const continuing = store.save.activeLevelRun?.levelId === id;
     const { energy } = store.energyNow();
-    if (energy < 1) { setNeedEnergy(true); return; }
-    store.spendEnergy();
+    if (!continuing && energy < 1) { setNeedEnergy(true); return; }
+    if (!continuing) store.spendEnergy();
     store.setCurrentLevel(id);
     router.push(`/game/${id}`);
   };

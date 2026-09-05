@@ -16,11 +16,12 @@ The MVP is a polished, installable portrait mobile game with one complete ten-le
 - RevenueCat and AdMob wiring/configuration
 - Unit/integration tests and release checks
 - Performance diagnostics and production build configuration
+- Final raster artwork, asset variants, and visual reference sheets
 
 ### Cursor
 
-- Final artwork creation/refinement and asset organization
-- Cob/kernel/socket visual integration
+- Integration and organization of final artwork supplied by ChatGPT/Codex
+- Cob/kernel/socket visual integration using approved assets
 - Screen-by-screen responsive visual polish
 - Character, map, completion, tool, shop, daily, icon, and splash art
 - Animation timing and visual effects, without changing game rules

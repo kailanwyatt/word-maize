@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
@@ -42,23 +42,30 @@ export function GameScreen() {
   const router = useRouter();
   const viewport = useWindowDimensions();
   const store = useGameStore();
-  const [level, setLevel] = useState(() => resetLevel(source));
+  const savedRun = store.save.activeLevelRun?.levelId === levelId ? store.save.activeLevelRun : null;
+  const restoredLevel = () => {
+    const fresh = resetLevel(source);
+    return savedRun ? { ...fresh, kernels: harvestKernels(fresh.kernels, savedRun.harvestedIds) } : fresh;
+  };
+  const [level, setLevel] = useState(restoredLevel);
   const [harvestingIds, setHarvestingIds] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [activeTool, setActiveTool] = useState<Tool>();
   const [hints, setHints] = useState<string[]>([]);
-  const [foundWords, setFoundWords] = useState<string[]>([]);
-  const [inCoins, setInCoins] = useState(0);
+  const [foundWords, setFoundWords] = useState<string[]>(savedRun?.foundWords ?? []);
+  const [inCoins, setInCoins] = useState(savedRun?.earnedCoins ?? 0);
   const [shuffles, setShuffles] = useState(1);
   const [tuning, setTuning] = useState({ ...defaultTuning, harvestTarget: source.targetHarvestPercent, haptics: store.save.settings.haptics });
   const [debugOpen, setDebugOpen] = useState(false);
   const [paused, setPaused] = useState(false);
   const [outOf, setOutOf] = useState<Tool | 'energy' | undefined>();
   const [introOpen, setIntroOpen] = useState(!store.save.seenLevelIntros.includes(levelId) && (!!source.story || source.tutorial.length > 0));
-  const [toolsUsed, setToolsUsed] = useState(0);
+  const [toolsUsed, setToolsUsed] = useState(savedRun?.toolsUsed ?? 0);
   const [doubled, setDoubled] = useState(false);
   const [powerUpsOpen, setPowerUpsOpen] = useState(false);
   const busyRef = useRef(false);
+  const finishingRef = useRef(false);
+  const hydratedRef = useRef(store.ready);
   const busy = harvestingIds.length > 0 || status === 'valid' || busyRef.current;
   const gameWidth = Math.min(viewport.width, 430);
   const cobHeight = Math.min(viewport.height * 0.82, 650);
@@ -86,6 +93,30 @@ export function GameScreen() {
   const longest = foundWords.reduce((a, b) => (a.length >= b.length ? a : b), '—');
   const reward = inCoins + source.rewardCoins + completionBonus(percent, tuning.harvestTarget);
   const payout = doubled ? reward * 2 : reward;
+
+  useEffect(() => {
+    if (!store.ready || hydratedRef.current) return;
+    hydratedRef.current = true;
+    const run = store.save.activeLevelRun;
+    if (!run || run.levelId !== levelId) return;
+    const fresh = resetLevel(source);
+    setLevel({ ...fresh, kernels: harvestKernels(fresh.kernels, run.harvestedIds) });
+    setFoundWords(run.foundWords);
+    setInCoins(run.earnedCoins);
+    setToolsUsed(run.toolsUsed);
+  }, [levelId, source, store.ready, store.save.activeLevelRun]);
+
+  useEffect(() => {
+    if (!store.ready || !hydratedRef.current || finishingRef.current) return;
+    store.saveLevelRun({
+      levelId,
+      harvestedIds: level.kernels.filter(kernel => kernel.harvested).map(kernel => kernel.id),
+      foundWords,
+      earnedCoins: inCoins,
+      toolsUsed,
+      updatedAt: Date.now(),
+    });
+  }, [foundWords, inCoins, level.kernels, levelId, store.ready, store.saveLevelRun, toolsUsed]);
 
   const pulse = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
     if (tuning.haptics && store.save.settings.haptics) Haptics.impactAsync(style).catch(() => {});
@@ -157,6 +188,7 @@ export function GameScreen() {
     pulse(Haptics.ImpactFeedbackStyle.Heavy);
   };
   const resetBoard = () => {
+    store.clearLevelRun();
     setLevel(resetLevel(source));
     selection.clear();
     cob.reset(1.5);
@@ -166,6 +198,8 @@ export function GameScreen() {
     busyRef.current = false;
   };
   const finish = () => {
+    if (finishingRef.current) return;
+    finishingRef.current = true;
     const result = evaluateLevelStars(effectiveLevel, runStats);
     store.completeLevel(levelId, result.stars, percent, payout, {
       wordsFound: foundWords.length,

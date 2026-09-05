@@ -4,7 +4,7 @@ You are working in the existing Expo + TypeScript project at `/Users/kurt/Docume
 
 ## Mission
 
-Bring the approved Word Maize MVP to production-quality visual polish without rewriting its working game rules, progression, or persistence. Your primary responsibility is artwork, visual integration, responsive layout, and animation polish. Preserve the current playable cob interaction unless a visual change requires a small isolated renderer adjustment.
+Bring the approved Word Maize MVP to production-quality visual polish without rewriting its working game rules, progression, or persistence. ChatGPT/Codex supplies approved final raster artwork and visual references. Your primary responsibility is integrating those assets, responsive layout, and animation polish. Do not independently regenerate or replace approved art unless the user explicitly asks. Preserve the current playable cob interaction unless a visual change requires a small isolated renderer adjustment.
 
 ## Non-negotiable gameplay contract
 
