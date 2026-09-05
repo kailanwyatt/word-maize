@@ -12,6 +12,7 @@ const INITIAL_REMOVED = new Set(['0-3', '2-1', '3-6', '5-4']);
 
 type Cell = { id: string; row: number; column: number; letter: string };
 type LayoutCell = Cell & { x: number; y: number; scaleX: number; scale: number; tilt: number; shade: number; opacity: number };
+type FlyingKernel = { id: string; letter: string; left: number; top: number; width: number; height: number; dx: number; dy: number; delay: number };
 
 const cells: Cell[] = ROWS.flatMap((letters, row) =>
   [...letters].map((letter, column) => ({ id: `${row}-${column}`, row, column, letter })),
@@ -54,6 +55,10 @@ function App() {
   const [rotation, setRotation] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [removed, setRemoved] = useState(INITIAL_REMOVED);
+  const [departing, setDeparting] = useState<Set<string>>(new Set());
+  const [flying, setFlying] = useState<FlyingKernel[]>([]);
+  const phoneRef = useRef<HTMLElement | null>(null);
+  const basketRef = useRef<HTMLDivElement | null>(null);
   const rotationRef = useRef(0);
   const animation = useRef<number | null>(null);
   const pointer = useRef<{ x: number; rotation: number; moved: boolean; lastX: number; lastTime: number; velocity: number } | null>(null);
@@ -110,7 +115,7 @@ function App() {
   };
 
   const tapCell = (id: string) => {
-    if (removed.has(id) || pointer.current?.moved) return;
+    if (removed.has(id) || departing.has(id) || pointer.current?.moved || flying.length > 0) return;
     setSelected(current => {
       const at = current.indexOf(id);
       if (at >= 0) return current.slice(0, at);
@@ -143,14 +148,48 @@ function App() {
   };
 
   const submit = () => {
-    if (selected.length < 3) return;
-    setRemoved(current => new Set([...current, ...selected]));
+    if (selected.length < 3 || flying.length > 0 || !phoneRef.current || !basketRef.current) return;
+    const phoneRect = phoneRef.current.getBoundingClientRect();
+    const basketRect = basketRef.current.getBoundingClientRect();
+    const targetX = basketRect.left - phoneRect.left + basketRect.width * 0.5;
+    const targetY = basketRect.top - phoneRect.top + 25;
+    const flights = selected.flatMap((id, index) => {
+      const source = phoneRef.current?.querySelector<HTMLElement>(`[data-cell-id="${id}"]`);
+      const cell = cells.find(item => item.id === id);
+      if (!source || !cell) return [];
+      const rect = source.getBoundingClientRect();
+      const left = rect.left - phoneRect.left;
+      const top = rect.top - phoneRect.top;
+      return [{
+        id,
+        letter: cell.letter,
+        left,
+        top,
+        width: rect.width,
+        height: rect.height,
+        dx: targetX - (left + rect.width * 0.5),
+        dy: targetY - (top + rect.height * 0.5),
+        delay: index * 70,
+      }];
+    });
+    const leavingIds = [...selected];
+    setDeparting(new Set(leavingIds));
+    setFlying(flights);
     setSelected([]);
+    leavingIds.forEach((id, index) => {
+      window.setTimeout(() => {
+        setRemoved(current => new Set([...current, id]));
+      }, 610 + index * 70);
+    });
+    window.setTimeout(() => {
+      setFlying([]);
+      setDeparting(new Set());
+    }, 780 + Math.max(0, leavingIds.length - 1) * 70);
   };
 
   return (
     <main className="stage">
-      <section className="phone">
+      <section className="phone" ref={phoneRef}>
         <div className="vignette" />
         <header className="topbar"><button>⌂</button><div><strong>LEVEL 1</strong><span>HARVEST 70% OF THE COB</span></div><button>♥<small>4</small></button></header>
         <button className={`word ${word ? 'active' : ''}`} onClick={submit}>{word || 'TAP KERNELS TO BUILD A WORD'}</button>
@@ -166,6 +205,7 @@ function App() {
               <button
                 key={cell.id}
                 className={`cell ${isSelected ? 'selected' : ''}`}
+                data-cell-id={cell.id}
                 style={{
                   opacity: cell.opacity * (1 - cell.shade * .18),
                   zIndex: Math.round((1 - cell.shade) * 100),
@@ -178,18 +218,37 @@ function App() {
                 aria-label={`${cell.letter}, row ${cell.row + 1}, column ${cell.column + 1}`}
               >
                 <img className="socket" src="/assets/kernel-empty-socket.png" />
-                {!isRemoved && <><img className="kernel" src="/assets/kernel-normal.png" /><span>{cell.letter}</span></>}
+                {!isRemoved && !departing.has(cell.id) && <><img className="kernel" src="/assets/kernel-normal.png" /><span>{cell.letter}</span></>}
               </button>
             );
           })}
         </div>
 
+        {flying.map(kernel => (
+          <div
+            className="flying-kernel"
+            key={kernel.id}
+            style={{
+              left: kernel.left,
+              top: kernel.top,
+              width: kernel.width,
+              height: kernel.height,
+              '--fly-x': `${kernel.dx}px`,
+              '--fly-y': `${kernel.dy}px`,
+              '--fly-delay': `${kernel.delay}ms`,
+            } as React.CSSProperties}
+          >
+            <img src="/assets/kernel-normal.png" />
+            <span>{kernel.letter}</span>
+          </div>
+        ))}
+
         <footer>
-          <div className="basket"><img src="/assets/harvest-basket.png"/><strong>{Math.round(removed.size / cells.length * 100)}%</strong><span>HARVESTED</span></div>
+          <div className="basket" ref={basketRef}><img src="/assets/harvest-basket.png"/><strong>{Math.round(removed.size / cells.length * 100)}%</strong><span>HARVESTED</span></div>
           <button className="turn" onClick={() => springTo(Math.round(rotationRef.current) - 1)}>↻</button>
           <div className="coins">◉ <strong>30</strong></div>
           <button className="turn" onClick={() => springTo(Math.round(rotationRef.current) + 1)}>↺</button>
-          <button className="reset" onClick={() => { setRemoved(new Set(INITIAL_REMOVED)); setSelected([]); }}>RESET</button>
+          <button className="reset" onClick={() => { setRemoved(new Set(INITIAL_REMOVED)); setSelected([]); setDeparting(new Set()); setFlying([]); }}>RESET</button>
         </footer>
       </section>
       <aside>

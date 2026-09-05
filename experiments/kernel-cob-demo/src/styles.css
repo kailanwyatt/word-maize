@@ -22,6 +22,15 @@ button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-c
 .cell .kernel { transform:scale(1.54); filter:drop-shadow(0 4px 3px #3b1508cc); transition:filter .12s ease,transform .12s ease; }
 .cell span { position:absolute; z-index:4; inset:0; display:grid; place-items:center; color:#321606; font-weight:1000; font-size:31px; line-height:1; padding-bottom:1px; text-shadow:0 1px 0 #ffe28899; pointer-events:none; }
 .cell.selected .kernel { transform:scale(1.54); filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 3px #fff) drop-shadow(0 0 8px #fff7bc) drop-shadow(0 0 13px #ffd84d) drop-shadow(0 4px 3px #3b1508cc); }
+.flying-kernel { position:absolute; z-index:700; pointer-events:none; transform-origin:center; animation:kernel-to-basket 720ms cubic-bezier(.2,.72,.22,1) var(--fly-delay) both; will-change:transform,opacity,filter; }
+.flying-kernel img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; transform:scale(1.54); filter:drop-shadow(0 0 3px #fff) drop-shadow(0 0 10px #ffd84d) drop-shadow(0 5px 4px #3b1508cc); }
+.flying-kernel span { position:absolute; z-index:2; inset:0; display:grid; place-items:center; color:#321606; font-weight:1000; font-size:31px; text-shadow:0 1px 0 #ffe28899; }
+@keyframes kernel-to-basket {
+  0% { transform:translate3d(0,0,0) rotate(0deg) scale(.92); opacity:1; }
+  18% { transform:translate3d(0,-18px,0) rotate(35deg) scale(1.22); opacity:1; }
+  82% { opacity:1; }
+  100% { transform:translate3d(var(--fly-x),var(--fly-y),0) rotate(620deg) scale(.13); opacity:0; }
+}
 footer { position:absolute; z-index:500; left:10px; right:10px; bottom:12px; height:88px; display:grid; grid-template-columns:84px 48px 1fr 48px 56px; gap:8px; align-items:end; }
 footer button,.coins { height:48px; border:2px solid #d4a43d; border-radius:15px; background:#402917e8; display:grid; place-items:center; box-shadow:0 4px 6px #0008; }
 .basket { position:relative; height:88px; border:2px solid #d4a43d; border-radius:16px; background:#3a2414ee; text-align:center; overflow:hidden; padding-top:38px; }
