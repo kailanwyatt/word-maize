@@ -21,9 +21,7 @@ button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-c
 .cell .socket { transform:scale(1.48); filter:drop-shadow(0 2px 2px #1d0608); }
 .cell .kernel { transform:scale(1.54); filter:drop-shadow(0 4px 3px #3b1508cc); transition:filter .12s ease,transform .12s ease; }
 .cell span { position:absolute; z-index:4; inset:0; display:grid; place-items:center; color:#321606; font-weight:1000; font-size:31px; line-height:1; padding-bottom:1px; text-shadow:0 1px 0 #ffe28899; pointer-events:none; }
-.cell.selected .kernel { transform:scale(1.54); filter:drop-shadow(0 0 3px #efff9e) drop-shadow(0 0 7px #67ef2c) drop-shadow(0 4px 3px #183807); }
-.cell.selected::after { content:''; position:absolute; z-index:3; inset:7px; border:3px solid #8cff49; border-radius:22%; box-shadow:inset 0 0 8px #39a716,0 0 8px #bdff78; pointer-events:none; }
-.cell.selected span { color:#17320a; text-shadow:0 1px 0 #ebffc7; }
+.cell.selected .kernel { transform:scale(1.54); filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 3px #fff) drop-shadow(0 0 8px #fff7bc) drop-shadow(0 0 13px #ffd84d) drop-shadow(0 4px 3px #3b1508cc); }
 footer { position:absolute; z-index:500; left:10px; right:10px; bottom:12px; height:88px; display:grid; grid-template-columns:84px 48px 1fr 48px 56px; gap:8px; align-items:end; }
 footer button,.coins { height:48px; border:2px solid #d4a43d; border-radius:15px; background:#402917e8; display:grid; place-items:center; box-shadow:0 4px 6px #0008; }
 .basket { position:relative; height:88px; border:2px solid #d4a43d; border-radius:16px; background:#3a2414ee; text-align:center; overflow:hidden; padding-top:38px; }
