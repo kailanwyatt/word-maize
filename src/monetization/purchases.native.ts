@@ -5,6 +5,7 @@ import { AD_FREE_ENTITLEMENT, REVENUECAT_API_KEY, isExpoGo } from './config';
 type PurchaseResult = { ok: boolean; adFree?: boolean; tools?: Partial<Inventory>; message?: string };
 
 let configured = false;
+let configuring: Promise<void> | null = null;
 
 function loadPurchases(): typeof import('react-native-purchases').default | null {
   if (isExpoGo) return null;
@@ -17,14 +18,15 @@ function loadPurchases(): typeof import('react-native-purchases').default | null
 
 export async function configurePurchases(): Promise<void> {
   if (configured) return;
-  const Purchases = loadPurchases();
-  if (!Purchases || !REVENUECAT_API_KEY) return;
-  try {
+  if (configuring) return configuring;
+  const task = (async () => {
+    const Purchases = loadPurchases();
+    if (!Purchases || !REVENUECAT_API_KEY) return;
     Purchases.configure({ apiKey: REVENUECAT_API_KEY });
     configured = true;
-  } catch {
-    configured = false;
-  }
+  })();
+  configuring = task.finally(() => { configuring = null; });
+  return configuring;
 }
 
 export async function refreshAdFree(): Promise<boolean> {

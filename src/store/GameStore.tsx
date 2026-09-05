@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { DAILY_REWARDS } from '../data/shop';
 import { LEVELS } from '../data/levels';
 import { replenishEnergy } from '../game/energy';
@@ -46,6 +47,8 @@ async function readSave(): Promise<GameSave> {
 export function GameStoreProvider({ children }: PropsWithChildren) {
   const [save, setSave] = useState<GameSave>(defaultSave);
   const [ready, setReady] = useState(false);
+  const saveRef = useRef(save);
+  saveRef.current = save;
 
   useEffect(() => {
     readSave().then(loaded => {
@@ -59,6 +62,13 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
     if (!ready) return;
     AsyncStorage.setItem(SAVE_KEY, JSON.stringify(save)).catch(() => {});
   }, [ready, save]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (ready && state !== 'active') AsyncStorage.setItem(SAVE_KEY, JSON.stringify(saveRef.current)).catch(() => {});
+    });
+    return () => subscription.remove();
+  }, [ready]);
 
   const patch = useCallback((updater: (prev: GameSave) => GameSave) => {
     setSave(prev => {

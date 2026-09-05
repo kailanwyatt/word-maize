@@ -4,10 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { configureAds } from '../src/monetization/ads';
 import { isExpoGo } from '../src/monetization/config';
 import { configurePurchases, refreshAdFree } from '../src/monetization/purchases';
 import { SplashView } from '../src/screens/SplashView';
+import { RuntimeBridge } from '../src/components/RuntimeBridge';
 import { GameStoreProvider, useGameStore } from '../src/store/GameStore';
 
 const nativeStores = !isExpoGo;
@@ -25,7 +25,6 @@ function Gate({ children }: { children: ReactNode }) {
         .then(refreshAdFree)
         .then(adFree => { if (adFree) setAdFree(true); })
         .catch(() => {});
-      configureAds().catch(() => {});
     }
     return () => { clearInterval(tick); clearTimeout(wait); };
   }, [setAdFree]);
@@ -39,6 +38,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, alignItems: 'center', backgroundColor: '#061a2e' }}>
       <View style={{ flex: 1, width: '100%', maxWidth: 430 }}>
         <GameStoreProvider>
+          <RuntimeBridge />
           <Gate>
             <StatusBar style="light" />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1a3a18' } }} />

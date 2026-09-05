@@ -12,16 +12,19 @@ function loadAds(): typeof import('react-native-google-mobile-ads') | null {
 }
 
 let adsReady = false;
+let configuring: Promise<void> | null = null;
 
 export async function configureAds(): Promise<void> {
-  const ads = loadAds();
-  if (!ads || adsReady) return;
-  try {
+  if (adsReady) return;
+  if (configuring) return configuring;
+  const task = (async () => {
+    const ads = loadAds();
+    if (!ads) return;
     await ads.default().initialize();
     adsReady = true;
-  } catch {
-    adsReady = false;
-  }
+  })();
+  configuring = task.finally(() => { configuring = null; });
+  return configuring;
 }
 
 export async function showRewardedAd(kind: RewardKind, adFree: boolean): Promise<{ rewarded: boolean; message?: string }> {
