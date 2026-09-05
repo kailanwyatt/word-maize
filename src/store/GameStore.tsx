@@ -24,7 +24,7 @@ type GameStoreValue = {
   markTutorialSeen: () => void;
   markLevelIntroSeen: (id: number) => void;
   resetProgress: () => void;
-  unlockChapterOne: () => void;
+  unlockCampaign: () => void;
   saveLevelRun: (run: ActiveLevelRun) => void;
   clearLevelRun: () => void;
   setAdFree: (value: boolean) => void;
@@ -154,12 +154,12 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
   })), [patch]);
   const setAdFree = useCallback((value: boolean) => patch(prev => ({ ...prev, adFree: value })), [patch]);
   const resetProgress = useCallback(() => setSave(defaultSave()), []);
-  const unlockChapterOne = useCallback(() => patch(prev => ({
+  const unlockCampaign = useCallback(() => patch(prev => ({
     ...prev,
-    currentLevelId: 10,
+    currentLevelId: 60,
     levels: {
       ...prev.levels,
-      ...Object.fromEntries(LEVELS.slice(0, 9).map(level => [level.id, {
+      ...Object.fromEntries(LEVELS.slice(0, 59).map(level => [level.id, {
         stars: 3 as const,
         completed: true,
         bestPercent: 100,
@@ -168,7 +168,7 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
         completedGoalIds: level.starGoals.map(goal => goal.id),
       }])),
     },
-    seenLevelIntros: LEVELS.slice(0, 10).map(level => level.id),
+    seenLevelIntros: LEVELS.map(level => level.id),
   })), [patch]);
   const saveLevelRun = useCallback((run: ActiveLevelRun) => patch(prev => ({ ...prev, activeLevelRun: run })), [patch]);
   const clearLevelRun = useCallback(() => patch(prev => ({ ...prev, activeLevelRun: null })), [patch]);
@@ -203,9 +203,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<GameStoreValue>(() => ({
     ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool,
-    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockChapterOne, saveLevelRun, clearLevelRun, setAdFree,
+    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree,
     completedIds, currentLevelId: save.currentLevelId,
-  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockChapterOne, saveLevelRun, clearLevelRun, setAdFree, completedIds]);
+  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, completedIds]);
 
   return <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>;
 }

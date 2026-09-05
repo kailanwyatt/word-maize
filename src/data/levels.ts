@@ -12,7 +12,66 @@ const LEVEL_NAMES = [
   'Garden Layers',
   'Honey Harvest',
   'Bumper Crop',
+  'Millstone Morning', 'Market Day', 'Lantern Rows', 'Autumn Maze', 'First Farm Restored',
+  'Crows at the Creek', 'Feathered Thieves', 'Scarecrow Post', 'Bridge Watch', 'Two Troubles',
+  'Creekside Rescue', 'Squirrel Stash', 'High Branches', 'Old Mill Crossing', 'Patch Stands Guard',
+  'Crow Council', 'Riverbank Rush', 'Protected Harvest', 'Bridge Builders', 'Crow Creek Restored',
+  'Overgrown Gate', 'Apple Lane', 'Tangled Vines', 'Mill Garden', 'Golden Orchard',
+  'Root Cellar', 'Drought Day', 'Rain Barrel', 'Locked Grove', 'Garden Rescue',
+  'Cider Press', 'Golden Kernels', 'Orchard Challenge', 'Festival Supplies', 'Orchard Restored',
+  'Twilight Fields', 'Rising Wind', 'Lantern Trail', 'Storm Watch', 'Night Harvest',
+  'Moonlit Rows', 'Festival Wagons', 'Wind and Rain', 'Golden Night', 'Patch’s Promise',
+  'Valley Together', 'Final Supplies', 'Before the Storm', 'Festival Harvest', 'Moonlight Maize',
 ];
+
+const LATE_CAMPAIGN_WORDS: string[][] = [
+  ['WINDMILL', 'FLOUR', 'BREAD'], ['MARKET', 'CRATE', 'FRESH'], ['LANTERN', 'NIGHT', 'GLOW'], ['AUTUMN', 'CIDER', 'LEAF'], ['BUMPER', 'RIBBON', 'HAPPY'],
+  ['CROW', 'CREEK', 'FEATHER'], ['BLACKBIRD', 'NEST', 'WING'], ['SCARECROW', 'POST', 'STRAW'], ['BRIDGE', 'WATCH', 'RIVER'], ['CROW', 'MOUSE', 'FIELD'],
+  ['RESCUE', 'CHICK', 'NEST'], ['SQUIRREL', 'ACORN', 'STASH'], ['BRANCH', 'CLIMB', 'TREE'], ['MILL', 'CROSSING', 'WATER'], ['PATCH', 'GUARD', 'CROP'],
+  ['COUNCIL', 'FLOCK', 'PEACE'], ['RIVERBANK', 'RUSH', 'REED'], ['PROTECT', 'HARVEST', 'SAFE'], ['BUILDERS', 'BRIDGE', 'WOOD'], ['RESTORED', 'CREEK', 'HOME'],
+  ['GATE', 'WEEDS', 'CLEAR'], ['APPLE', 'LANE', 'PEAR'], ['TANGLE', 'VINES', 'GRAPE'], ['GARDEN', 'MILL', 'HERB'], ['GOLDEN', 'ORCHARD', 'FRUIT'],
+  ['CELLAR', 'ROOT', 'STORE'], ['DROUGHT', 'DRY', 'SUN'], ['RAIN', 'BARREL', 'WATER'], ['LOCKED', 'GROVE', 'KEY'], ['RESCUE', 'GARDEN', 'BLOOM'],
+  ['CIDER', 'PRESS', 'APPLE'], ['GOLDEN', 'KERNEL', 'SHINE'], ['ORCHARD', 'CHALLENGE', 'TREE'], ['FESTIVAL', 'SUPPLIES', 'WAGON'], ['RESTORED', 'ORCHARD', 'MILL'],
+  ['TWILIGHT', 'FIELD', 'STAR'], ['RISING', 'WIND', 'CLOUD'], ['LANTERN', 'TRAIL', 'LIGHT'], ['STORM', 'WATCH', 'RAIN'], ['NIGHT', 'HARVEST', 'MOON'],
+  ['MOONLIT', 'ROWS', 'GLOW'], ['FESTIVAL', 'WAGON', 'LOAD'], ['WIND', 'RAIN', 'SHELTER'], ['GOLDEN', 'NIGHT', 'STAR'], ['PROMISE', 'PATCH', 'BRAVE'],
+  ['VALLEY', 'TOGETHER', 'FARM'], ['FINAL', 'SUPPLIES', 'READY'], ['BEFORE', 'STORM', 'SAFE'], ['FESTIVAL', 'HARVEST', 'CROWD'], ['MOONLIGHT', 'MAIZE', 'HOME'],
+];
+
+const WORLD_NAMES = ['Sweet Corn Fields', 'Crow Creek', 'Orchard Hollow', 'Moonlight Maize'] as const;
+
+function worldForLevel(id: number) {
+  return WORLD_NAMES[Math.min(3, Math.floor((id - 1) / 15))];
+}
+
+function lateProgression(id: number) {
+  const words = LATE_CAMPAIGN_WORDS[id - 11] ?? ['CORN', 'FARM', 'HARVEST'];
+  const chapterIndex = (id - 1) % 15;
+  const target = Math.min(78, 58 + Math.floor((id - 1) / 10) * 3 + Math.floor(chapterIndex / 4) * 2);
+  const longest = Math.min(8, 5 + Math.floor((id - 11) / 15));
+  const story = [15, 16, 30, 31, 45, 46, 60].includes(id) ? {
+    speaker: id === 60 ? 'Farmer May' : 'Patch',
+    title: LEVEL_NAMES[id - 1],
+    text: id === 60
+      ? 'Every farm is shining again. The Harvest Festival can finally begin!'
+      : `The road through ${worldForLevel(id)} is changing. One strong harvest will carry us forward.`,
+  } : undefined;
+  return {
+    target,
+    reward: 140 + id * 12,
+    words,
+    objective: id % 3 === 0 ? { harvestPercent: target, minWords: 5 + Math.floor(id / 20) } : { harvestPercent: target, minLongestWord: longest },
+    stars: [
+      { id: `long-word-${longest + 1}`, kind: 'longestWord' as const, value: longest + 1, label: `Find a ${longest + 1}-letter word` },
+      id % 2 === 0
+        ? { id: 'no-tools', kind: 'noTools' as const, label: 'Finish without a tool' }
+        : { id: `harvest-${Math.min(90, target + 10)}`, kind: 'harvestPercent' as const, value: Math.min(90, target + 10), label: `Harvest ${Math.min(90, target + 10)}%` },
+    ],
+    tutorial: id === 16 ? ['Crow Creek begins here. Longer words and careful rotation now matter more.']
+      : id === 31 ? ['Orchard Hollow asks for longer words and efficient harvests.']
+      : id === 46 ? ['Moonlight Maize combines every skill from the valley.'] : [],
+    story,
+  };
+}
 
 const CHAPTER_ONE = {
   1: {
@@ -114,6 +173,7 @@ const CHAPTER_ONE = {
 function progression(id: number, fallbackTarget: number) {
   const authored = CHAPTER_ONE[id as keyof typeof CHAPTER_ONE];
   if (authored) return authored;
+  if (id >= 11 && id <= 60) return lateProgression(id);
   return {
     target: fallbackTarget,
     reward: 100 + id * 10,
@@ -142,7 +202,7 @@ function makeLevel(
   const config = progression(id, targetHarvestPercent);
   return {
     id,
-    world: 'Sweet Corn Fields',
+    world: worldForLevel(id),
     name: LEVEL_NAMES[id - 1] ?? `Level ${id}`,
     rows: rows.length,
     columns,
@@ -164,8 +224,14 @@ function makeLevel(
 
 export const WORLD_NAME = 'Sweet Corn Fields';
 export const NEXT_WORLD_NAME = 'Popcorn Acres';
+export const CAMPAIGN_WORLDS = [...WORLD_NAMES];
+export const worldNameForLevel = worldForLevel;
+export function nextWorldNameForLevel(id: number) {
+  const index = Math.floor((id - 1) / 15);
+  return WORLD_NAMES[index + 1] ?? 'Harvest Festival';
+}
 
-export const LEVELS: Level[] = [
+const CORE_LEVELS: Level[] = [
   makeLevel(1, 70, [
     'SEEDCORN',
     'HAYFARMR',
@@ -347,7 +413,7 @@ export const LEVELS: Level[] = [
     'CORNMAZEE',
     'PUMPKINPIE',
     'HARVESTMOON',
-  ].map(row => row.slice(0, 10)), [
+  ].map(row => row.slice(0, 9)), [
     horiz(0, 0, 6), horiz(1, 0, 4), horiz(2, 0, 5),
     horiz(3, 0, 3), horiz(4, 0, 4), horiz(4, 4, 4),
     horiz(5, 0, 7),
@@ -369,6 +435,34 @@ export const LEVELS: Level[] = [
     { row: 0, column: 6, letter: 'R' }, { row: 2, column: 3, letter: 'L' },
     { row: 6, column: 4, letter: 'E' },
   ]),
+];
+
+function makeGeneratedCampaignLevel(id: number): Level {
+  const columns = id % 3 === 0 ? 10 : 9;
+  const rowsCount = 7;
+  const words = lateProgression(id).words;
+  const filler = 'CORNFIELDHARVESTMAIZEGOLDENBASKETRIVERAPPLEMOONLIGHT';
+  const capacity = columns * rowsCount;
+  const authored = words.join('');
+  const stream = (authored + filler.repeat(3)).slice(0, capacity);
+  const rows = Array.from({ length: rowsCount }, (_, row) => stream.slice(row * columns, (row + 1) * columns));
+  const paths = words.map(word => {
+    const start = authored.indexOf(word);
+    return Array.from({ length: word.length }, (_, offset) => {
+      const index = start + offset;
+      return [Math.floor(index / columns), index % columns] as [number, number];
+    });
+  });
+  const under = id % 4 === 0 ? [
+    { row: 2, column: 2, letter: 'E' },
+    { row: 4, column: columns - 3, letter: 'A' },
+  ] : [];
+  return makeLevel(id, lateProgression(id).target, rows, paths, under);
+}
+
+export const LEVELS: Level[] = [
+  ...CORE_LEVELS,
+  ...Array.from({ length: 45 }, (_, index) => makeGeneratedCampaignLevel(index + 16)),
 ];
 
 export const levelById = (id: number) => LEVELS.find(level => level.id === id);

@@ -119,6 +119,10 @@ describe('Sweet Corn Fields progression', () => {
     expect(validateLevels(chapter)).toEqual([]);
   });
 
+  it('validates every authored campaign level', () => {
+    expect(validateLevels(LEVELS)).toEqual([]);
+  });
+
   it('requires the primary objective before awarding stars', () => {
     const level = LEVELS[6];
     const incomplete = { percent: level.targetHarvestPercent, words: ['FIELD'], toolsUsed: 0, layersRevealed: 0 };
@@ -287,8 +291,9 @@ describe('economy policy', () => {
 });
 
 describe('levels and powerup search', () => {
-  it('ships fifteen Sweet Corn Fields boards', () => {
-    expect(LEVELS).toHaveLength(15);
+  it('ships sixty boards across four campaign worlds', () => {
+    expect(LEVELS).toHaveLength(60);
+    expect(new Set(LEVELS.map(level => level.world)).size).toBe(4);
     expect(new Set(LEVELS.map(level => level.columns)).size).toBeGreaterThan(1);
     LEVELS.forEach(level => {
       expect(level.kernels.length).toBeGreaterThan(20);

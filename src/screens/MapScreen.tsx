@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { FarmButton, Panel } from '../components/FarmButton';
-import { isLevelUnlocked, LEVELS, NEXT_WORLD_NAME, WORLD_NAME } from '../data/levels';
+import { isLevelUnlocked, LEVELS, nextWorldNameForLevel } from '../data/levels';
 import { STAR_GATE } from '../game/types';
 import { totalStars } from '../game/scoring';
 import { showRewardedAd } from '../monetization/ads';
@@ -23,8 +23,13 @@ export function MapScreen() {
   const { width, height } = useWindowDimensions();
   const store = useGameStore();
   const [needEnergy, setNeedEnergy] = useState(false);
-  const stars = totalStars(store.save.levels);
   const currentLevel = LEVELS.find(level => level.id === store.currentLevelId) ?? LEVELS[0];
+  const worldLevels = LEVELS.filter(level => level.world === currentLevel.world);
+  const stars = totalStars(Object.fromEntries(worldLevels.map(level => [level.id, store.save.levels[level.id] ?? { stars: 0 }])));
+  const mapBackground = currentLevel.world === 'Crow Creek' ? wordMaizeAssets.backgrounds.gameplayCrowCreek
+    : currentLevel.world === 'Orchard Hollow' ? wordMaizeAssets.backgrounds.gameplayOrchardHollow
+    : currentLevel.world === 'Moonlight Maize' ? wordMaizeAssets.backgrounds.gameplayMoonlightMaize
+    : wordMaizeAssets.backgrounds.worldMap;
   const play = (id: number) => {
     if (!isLevelUnlocked(id, store.completedIds)) return;
     const continuing = store.save.activeLevelRun?.levelId === id;
@@ -39,12 +44,12 @@ export function MapScreen() {
     if (result.rewarded) { store.addEnergy(1); setNeedEnergy(false); }
   };
   return (
-    <ImageBackground source={wordMaizeAssets.backgrounds.worldMap} style={styles.bg} resizeMode="cover">
+    <ImageBackground source={mapBackground} style={styles.bg} resizeMode="cover">
       <SafeAreaView style={styles.safe}>
         <CurrencyBar onSettings={() => router.push('/settings')} />
-        <Text style={styles.world}>{WORLD_NAME}</Text>
+        <Text style={styles.world}>{currentLevel.world}</Text>
         <View style={styles.field}>
-          {LEVELS.map((level, index) => {
+          {worldLevels.map((level, index) => {
             const node = NODES[index] ?? { x: 0.5, y: 0.5 };
             const unlocked = isLevelUnlocked(level.id, store.completedIds);
             const progress = store.save.levels[level.id];
@@ -79,7 +84,7 @@ export function MapScreen() {
           <Text style={styles.levelReward}>+{currentLevel.rewardCoins}</Text>
         </View>
         <View style={styles.gate}>
-          <Text style={styles.gateText}>{NEXT_WORLD_NAME} · {stars}/{STAR_GATE} stars</Text>
+          <Text style={styles.gateText}>{nextWorldNameForLevel(currentLevel.id)} · {stars}/{STAR_GATE} stars</Text>
           <View style={styles.bar}><View style={[styles.fill, { width: `${Math.min(100, (stars / STAR_GATE) * 100)}%` }]} /></View>
         </View>
       </SafeAreaView>

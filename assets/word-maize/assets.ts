@@ -30,6 +30,9 @@ export const wordMaizeAssets = {
     tractor: require('./props/tractor-mascot.png'),
     chest: require('./props/golden-chest.png'),
   },
+  characters: {
+    patchSpeaking: require('./characters/patch-speaking-v1.png'),
+  },
   powerups: {
     scarecrow: require('./powerups/scarecrow.png'),
     butterBrush: require('./powerups/butter-brush.png'),
@@ -43,6 +46,9 @@ export const wordMaizeAssets = {
     gameplayFarmV6: require('./backgrounds/gameplay_bg_v6.jpg'),
     gameplayFarmV7: require('./backgrounds/gameplay_bg_v7.jpg'),
     gameplayFarmV8: require('./backgrounds/gameplay_bg_v8.jpg'),
+    gameplayCrowCreek: require('./backgrounds/gameplay-crow-creek-v1.png'),
+    gameplayOrchardHollow: require('./backgrounds/gameplay-orchard-hollow-v1.png'),
+    gameplayMoonlightMaize: require('./backgrounds/gameplay-moonlight-maize-v1.png'),
     homeFarm: require('./backgrounds/home-farm.png'),
     worldMap: require('./backgrounds/world-map.png'),
     shopBarn: require('./backgrounds/shop-barn.png'),

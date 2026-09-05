@@ -103,6 +103,10 @@ export function GameScreen() {
     doubled,
   });
   const payout = reward.total;
+  const gameplayBackground = source.world === 'Crow Creek' ? wordMaizeAssets.backgrounds.gameplayCrowCreek
+    : source.world === 'Orchard Hollow' ? wordMaizeAssets.backgrounds.gameplayOrchardHollow
+    : source.world === 'Moonlight Maize' ? wordMaizeAssets.backgrounds.gameplayMoonlightMaize
+    : wordMaizeAssets.backgrounds.gameplayFarmV8;
 
   useEffect(() => {
     if (!store.ready || hydratedRef.current) return;
@@ -245,7 +249,7 @@ export function GameScreen() {
 
   return (
     <View style={styles.shell}>
-      <ImageBackground source={wordMaizeAssets.backgrounds.gameplayFarmV8} style={[styles.bg, { width: gameWidth, height: viewport.height }]} resizeMode="cover">
+      <ImageBackground source={gameplayBackground} style={[styles.bg, { width: gameWidth, height: viewport.height }]} resizeMode="cover">
         <SafeAreaView style={styles.safe}>
           <Pressable style={styles.pause} onPress={() => router.replace('/(tabs)/play')}>
             <Image source={wordMaizeAssets.ui.btnHome} style={{ width: 44, height: 44, borderRadius: 12, resizeMode: 'cover' }} />
@@ -329,9 +333,9 @@ export function GameScreen() {
             onChange={setTuning}
             actions={[
               { label: 'PREVIOUS', onPress: () => router.replace(`/game/${Math.max(1, levelId - 1)}`) },
-              { label: 'NEXT', onPress: () => router.replace(`/game/${Math.min(10, levelId + 1)}`) },
+              { label: 'NEXT', onPress: () => router.replace(`/game/${Math.min(60, levelId + 1)}`) },
               { label: 'TOOLS +10', onPress: () => store.addTools({ scarecrow: 10, butterBrush: 10, cornPicker: 10 }) },
-              { label: 'UNLOCK 1–10', onPress: store.unlockChapterOne },
+              { label: 'UNLOCK 1–60', onPress: store.unlockCampaign },
               { label: 'REPLAY INTRO', onPress: () => setIntroOpen(true) },
               { label: 'RESET SAVE', onPress: () => Alert.alert('Reset playtest save?', 'This clears coins, stars, tools, and chapter progress.', [
                 { text: 'Cancel', style: 'cancel' },
@@ -436,6 +440,7 @@ export function GameScreen() {
       <Modal visible={introOpen} transparent animationType="fade">
         <View style={styles.modalShade}>
           <Panel>
+            {source.story?.speaker === 'Patch' ? <Image source={wordMaizeAssets.characters.patchSpeaking} style={styles.storyCharacter} /> : null}
             <Text style={styles.storySpeaker}>{source.story?.speaker ?? 'PATCH'}</Text>
             <Text style={styles.modalTitle}>{source.story?.title ?? `Level ${levelId}`}</Text>
             {source.story ? <Text style={styles.storyText}>{source.story.text}</Text> : null}
@@ -480,6 +485,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 12 },
   stats: { fontSize: 16, lineHeight: 25, textAlign: 'center', color: '#51351f', fontWeight: '700' },
   storySpeaker: { color: '#98702c', fontWeight: '900', fontSize: 12, letterSpacing: 1.5, textAlign: 'center', marginBottom: 4 },
+  storyCharacter: { width: 104, height: 126, resizeMode: 'contain', alignSelf: 'center', marginTop: -8, marginBottom: 4 },
   storyText: { color: '#51351f', fontWeight: '700', fontSize: 16, lineHeight: 23, textAlign: 'center', marginBottom: 12 },
   tutorialLine: { color: '#51351f', fontWeight: '700', fontSize: 14, lineHeight: 21, marginBottom: 5 },
   goalHeading: { color: '#5d8b31', fontWeight: '900', fontSize: 13, letterSpacing: 1.5, textAlign: 'center', marginTop: 8 },
