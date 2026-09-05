@@ -30,8 +30,7 @@ function layout(rotation: number): LayoutCell[] {
     const visible = Math.abs(offset) <= front + 0.22;
     const angle = (offset / VISIBLE_COLUMNS) * Math.PI;
     const rowT = cell.row / (ROWS.length - 1);
-    // Pull the upper and lower rows inward to form an ear-shaped silhouette.
-    const radius = 178 * (0.7 + 0.3 * Math.sin(Math.PI * rowT));
+    const radius = 178 * (0.88 + 0.12 * Math.sin(Math.PI * rowT));
     const edge = Math.min(1, Math.abs(offset) / front);
     return {
       ...cell,
@@ -39,8 +38,10 @@ function layout(rotation: number): LayoutCell[] {
       y: 142 + cell.row * 68,
       scaleX: 1 - edge * 0.44,
       scale: 1 - edge * 0.08,
-      // Side kernels follow the oval contour while the readable center stays level.
-      tilt: Math.sign(offset) * (0.5 - rowT) * 18 * Math.pow(edge, 1.7),
+      // Left and right columns lean away from the straight, readable center.
+      tilt: edge > 0.36
+        ? (offset / front) * 11 * Math.pow((edge - 0.36) / 0.64, 1.15)
+        : 0,
       shade: edge,
       visible,
     };
@@ -97,7 +98,6 @@ function App() {
           <div className="silk" aria-hidden="true">
             {Array.from({ length: 15 }, (_, index) => <i key={index} style={{ '--strand': index } as React.CSSProperties} />)}
           </div>
-          <div className="core" />
           {board.map(cell => {
             const isSelected = selected.includes(cell.id);
             const isRemoved = removed.has(cell.id);
