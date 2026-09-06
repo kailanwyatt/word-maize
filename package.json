@@ -41,7 +41,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "art:corn": "node tools/art/generate-corn-varieties.mjs && node tools/art/validate-corn-varieties.mjs",
-    "art:corn:validate": "node tools/art/validate-corn-varieties.mjs"
+    "art:corn:validate": "node tools/art/validate-corn-varieties.mjs",
+    "art:wood": "node tools/art/make-seamless-wood.mjs"
   },
   "private": true
 }
