@@ -1,4 +1,6 @@
-# Word Maize — Corn Varieties and Endless Harvest Plan
+# Word Maize — Corn Varieties and Endless Harvest Art Contract
+
+Status: implemented foundation and continuing art-production reference. For current Endless behavior, see `CAMPAIGN_CONTENT.md`.
 
 ## Purpose
 

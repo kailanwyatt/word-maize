@@ -1,6 +1,6 @@
 # Word Maize — Game Vision, Story, and Obstacle Specification
 
-Status: Product direction for the MVP and future campaign  
+Status: historical design foundation. Current behavior is defined by `GAME_OVERVIEW.md`, `GAMEPLAY_SYSTEMS.md`, and `CAMPAIGN_CONTENT.md`.
 Audience: Design, engineering, art, animation, audio, and narrative  
 Authority: This document defines the intended player experience. Deterministic gameplay behavior remains implemented in `src/game`.
 
@@ -664,4 +664,3 @@ The game direction is successful when:
 5. Playtest Levels 1–10 before producing obstacle animation sets.
 6. Specify and prototype the caterpillar as the first obstacle.
 7. Add the crow only after caterpillar counterplay is proven enjoyable.
-

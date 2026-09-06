@@ -1,5 +1,7 @@
 # Word Maize MVP execution roadmap
 
+Status: historical execution plan. See `README.md` and `TECHNICAL_ARCHITECTURE.md` for the current build.
+
 ## Definition of MVP complete
 
 The MVP is a polished, installable portrait mobile game with one complete ten-level chapter, persistent progression, replayable levels, story/tutorial moments, working tools, energy, coins, daily rewards, shop presentation, rewarded ads, purchases, settings, audio/haptics, recovery from interrupted sessions, and store-ready visual assets.

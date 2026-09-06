@@ -19,6 +19,7 @@ type Props = {
   reducedMotion: boolean;
   onDouble: () => void;
   onContinue: () => void;
+  completionLabel?: string;
 };
 
 const STAR_STAGGER_MS = 420;
@@ -38,6 +39,7 @@ export function BumperCropModal({
   reducedMotion,
   onDouble,
   onContinue,
+  completionLabel,
 }: Props) {
   const [skipped, setSkipped] = useState(false);
   const [revealedStars, setRevealedStars] = useState(0);
@@ -90,7 +92,7 @@ export function BumperCropModal({
             style={styles.celebration}
           >
             <Image source={wordMaizeAssets.effects.sparkleBurst} style={styles.sparkles} />
-            <Text style={styles.level}>Level {levelId} complete</Text>
+            <Text style={styles.level}>{completionLabel ?? `Level ${levelId} complete`}</Text>
             <View style={styles.cast}>
               <Image source={wordMaizeAssets.props.tractorCelebration} style={styles.tractor} />
               <Image source={wordMaizeAssets.characters.patchCelebrating} style={styles.patch} />

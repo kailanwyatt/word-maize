@@ -1,5 +1,7 @@
 # Cursor handoff — Word Maize MVP integration and presentation
 
+Status: historical handoff. Cursor should use `README.md`, `GAMEPLAY_SYSTEMS.md`, `CAMPAIGN_CONTENT.md`, and `TECHNICAL_ARCHITECTURE.md` before making current changes.
+
 You are working in the existing Expo + TypeScript project at `/Users/kurt/Documents/mobile-apps/word-maize`.
 
 ## Mission

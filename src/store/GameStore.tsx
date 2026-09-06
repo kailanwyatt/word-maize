@@ -31,6 +31,9 @@ type GameStoreValue = {
   setAdFree: (value: boolean) => void;
   claimRestoration: (id: string) => boolean;
   buyCoinOffer: (offerId: string) => boolean;
+  startEndlessHarvest: () => { seed: string; stage: number } | null;
+  completeEndlessStage: (coins: number) => void;
+  abandonEndlessHarvest: () => void;
   completedIds: number[];
   currentLevelId: number;
 };
@@ -207,6 +210,37 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
     return true;
   }, [patch, save.coins, save.inventory]);
 
+  const startEndlessHarvest = useCallback(() => {
+    if (!save.levels[60]?.completed) return null;
+    if (save.endlessHarvest.active) return save.endlessHarvest.active;
+    const active = { seed: `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`, stage: 1, startedAt: Date.now() };
+    patch(prev => ({ ...prev, endlessHarvest: { ...prev.endlessHarvest, active }, activeLevelRun: null }));
+    return active;
+  }, [patch, save.endlessHarvest.active, save.levels]);
+
+  const completeEndlessStage = useCallback((coins: number) => {
+    patch(prev => {
+      const active = prev.endlessHarvest.active;
+      if (!active) return prev;
+      const completedStage = active.stage;
+      return {
+        ...prev,
+        coins: prev.coins + coins,
+        activeLevelRun: null,
+        endlessHarvest: {
+          bestStage: Math.max(prev.endlessHarvest.bestStage, completedStage),
+          active: { ...active, stage: completedStage + 1 },
+        },
+      };
+    });
+  }, [patch]);
+
+  const abandonEndlessHarvest = useCallback(() => patch(prev => ({
+    ...prev,
+    activeLevelRun: prev.activeLevelRun?.levelId && prev.activeLevelRun.levelId >= 10_000 ? null : prev.activeLevelRun,
+    endlessHarvest: { ...prev.endlessHarvest, active: null },
+  })), [patch]);
+
   const claimDaily = useCallback(() => {
     const today = localDateString();
     const preview = nextDailyDay(save.daily, today);
@@ -237,9 +271,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<GameStoreValue>(() => ({
     ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool,
-    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer,
+    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest,
     completedIds, currentLevelId: save.currentLevelId,
-  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, completedIds]);
+  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, completedIds]);
 
   return <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>;
 }

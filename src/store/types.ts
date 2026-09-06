@@ -27,6 +27,11 @@ export type ActiveLevelRun = {
   updatedAt: number;
 };
 
+export type EndlessHarvestState = {
+  bestStage: number;
+  active: { seed: string; stage: number; startedAt: number } | null;
+};
+
 export type GameSave = {
   version: number;
   coins: number;
@@ -42,10 +47,11 @@ export type GameSave = {
   activeLevelRun: ActiveLevelRun | null;
   adFree: boolean;
   claimedRestorations: string[];
+  endlessHarvest: EndlessHarvestState;
 };
 
 export const SAVE_KEY = 'word-maize.save.v1';
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export const defaultSave = (): GameSave => ({
   version: SAVE_VERSION,
@@ -62,6 +68,7 @@ export const defaultSave = (): GameSave => ({
   activeLevelRun: null,
   adFree: false,
   claimedRestorations: [],
+  endlessHarvest: { bestStage: 0, active: null },
 });
 
 export function migrateSave(value: unknown): GameSave {
@@ -79,6 +86,16 @@ export function migrateSave(value: unknown): GameSave {
     seenLevelIntros: Array.isArray(saved.seenLevelIntros) ? saved.seenLevelIntros.filter(Number.isFinite) : [],
     activeLevelRun: saved.activeLevelRun && typeof saved.activeLevelRun === 'object' ? saved.activeLevelRun : null,
     claimedRestorations: Array.isArray(saved.claimedRestorations) ? saved.claimedRestorations.filter(value => typeof value === 'string') : [],
+    endlessHarvest: {
+      bestStage: Math.max(0, Math.floor(saved.endlessHarvest?.bestStage ?? 0)),
+      active: saved.endlessHarvest?.active && typeof saved.endlessHarvest.active.seed === 'string'
+        ? {
+          seed: saved.endlessHarvest.active.seed,
+          stage: Math.max(1, Math.floor(saved.endlessHarvest.active.stage ?? 1)),
+          startedAt: Number.isFinite(saved.endlessHarvest.active.startedAt) ? saved.endlessHarvest.active.startedAt : Date.now(),
+        }
+        : null,
+    },
   };
 }
 

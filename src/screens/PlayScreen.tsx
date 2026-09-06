@@ -40,6 +40,8 @@ export function PlayScreen() {
     chapterComplete: harvests.complete,
     claimableTitle: claimableRestoration?.title,
   });
+  const endlessUnlocked = !!store.save.levels[60]?.completed;
+  const endlessRun = store.save.endlessHarvest.active;
   const play = () => {
     const continuing = store.save.activeLevelRun?.levelId === level.id;
     const { energy } = store.energyNow();
@@ -55,6 +57,16 @@ export function PlayScreen() {
       setNeedEnergy(false);
     }
   };
+  const playEndless = () => {
+    const run = store.startEndlessHarvest();
+    if (!run) return;
+    router.push({ pathname: '/game/[id]', params: { id: 'endless', seed: run.seed, stage: String(run.stage) } });
+  };
+  const abandonEndless = () => Alert.alert(
+    'End this harvest?',
+    `Your best remains ${store.save.endlessHarvest.bestStage} cob${store.save.endlessHarvest.bestStage === 1 ? '' : 's'}, but the current run will end.`,
+    [{ text: 'Keep playing', style: 'cancel' }, { text: 'End run', style: 'destructive', onPress: store.abandonEndlessHarvest }],
+  );
   const claimRestoration = () => {
     if (!claimableRestoration || !store.claimRestoration(claimableRestoration.id)) return;
     Alert.alert('Farm restored!', `${claimableRestoration.title}\n+${claimableRestoration.coins} coins added to your harvest.`);
@@ -146,6 +158,21 @@ export function PlayScreen() {
               </View>
             </Pressable>
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={endlessUnlocked ? (endlessRun ? `Continue Endless Harvest cob ${endlessRun.stage}` : 'Start Endless Harvest') : 'Endless Harvest unlocks after level 60'}
+            disabled={!endlessUnlocked}
+            onPress={playEndless}
+            onLongPress={endlessRun ? abandonEndless : undefined}
+            style={[styles.endlessCard, !endlessUnlocked && styles.endlessLocked]}
+          >
+            <View style={styles.endlessIcon}><Text style={styles.endlessIconText}>∞</Text></View>
+            <View style={styles.endlessCopy}>
+              <Text style={styles.endlessTitle}>ENDLESS HARVEST</Text>
+              <Text style={styles.endlessText}>{!endlessUnlocked ? 'Complete Level 60 to unlock' : endlessRun ? `Continue cob ${endlessRun.stage} · Best ${store.save.endlessHarvest.bestStage}` : `New run · Best ${store.save.endlessHarvest.bestStage}`}</Text>
+            </View>
+            <Text style={styles.endlessAction}>{endlessUnlocked ? (endlessRun ? 'CONTINUE' : 'START') : '🔒'}</Text>
+          </Pressable>
         </View>
       </SafeAreaView>
       <Modal visible={needEnergy} transparent animationType="fade">
@@ -211,6 +238,14 @@ const styles = StyleSheet.create({
   mapIcon: { width: 38, height: 38, resizeMode: 'contain' },
   quickTitle: { color: '#51351f', fontWeight: '900', fontSize: 9 },
   quickText: { color: '#7a582c', fontWeight: '800', fontSize: 9, marginTop: 2 },
+  endlessCard: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 15, paddingHorizontal: 10, backgroundColor: 'rgba(42,28,61,0.96)', borderWidth: 2, borderColor: '#e4bb40' },
+  endlessLocked: { opacity: 0.72 },
+  endlessIcon: { width: 37, height: 37, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#6c3d91', borderWidth: 2, borderColor: '#f1cf5d' },
+  endlessIconText: { color: '#fff4b4', fontWeight: '900', fontSize: 27, lineHeight: 30 },
+  endlessCopy: { flex: 1 },
+  endlessTitle: { color: '#fff4b4', fontWeight: '900', fontSize: 11, letterSpacing: .8 },
+  endlessText: { color: '#d9c7ea', fontWeight: '700', fontSize: 9, marginTop: 2 },
+  endlessAction: { color: '#f7d85a', fontWeight: '900', fontSize: 9 },
   shade: { flex: 1, backgroundColor: 'rgba(20,40,30,0.68)', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 8 },
   body: { fontSize: 16, lineHeight: 24, textAlign: 'center', color: '#51351f', fontWeight: '700' },

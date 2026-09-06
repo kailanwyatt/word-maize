@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
@@ -13,7 +13,7 @@ import { Tool, ToolBelt } from '../components/ToolBelt';
 import { WordSubmitButton } from '../components/WordSubmitButton';
 import { WeatherOverlay } from '../components/WeatherOverlay';
 import { playGameSound } from '../audio/sounds';
-import { levelById } from '../data/levels';
+import { LEVELS, levelById } from '../data/levels';
 import { chapterIndexForLevel } from '../game/campaign';
 import { TOOL_INFO } from '../data/shop';
 import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board';
@@ -27,6 +27,7 @@ import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete }
 import { canSubmitSelection, evaluateSubmission } from '../game/selection';
 import { Kernel, Tuning } from '../game/types';
 import { weatherCoinBonus, windStep } from '../game/weather';
+import { generateEndlessLevel } from '../game/endless';
 import { useCobRotation } from '../hooks/useCobRotation';
 import { useKernelTapSelection } from '../hooks/useKernelTapSelection';
 import { showRewardedAd } from '../monetization/ads';
@@ -44,12 +45,18 @@ const defaultTuning: Tuning = {
 };
 
 export function GameScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const levelId = Number(id) || 1;
-  const source = levelById(levelId) ?? levelById(1)!;
+  const { id, seed: seedParam, stage: stageParam } = useLocalSearchParams<{ id: string; seed?: string; stage?: string }>();
   const router = useRouter();
   const viewport = useWindowDimensions();
   const store = useGameStore();
+  const endless = id === 'endless';
+  const endlessSeed = seedParam ?? store.save.endlessHarvest.active?.seed ?? 'preview';
+  const endlessStage = Math.max(1, Number(stageParam) || store.save.endlessHarvest.active?.stage || 1);
+  const source = useMemo(
+    () => endless ? generateEndlessLevel(endlessSeed, endlessStage, LEVELS) : (levelById(Number(id) || 1) ?? levelById(1)!),
+    [endless, endlessSeed, endlessStage, id],
+  );
+  const levelId = source.id;
   const savedRun = store.save.activeLevelRun?.levelId === levelId ? store.save.activeLevelRun : null;
   const restoredLevel = () => {
     const fresh = resetLevel(source);
@@ -167,6 +174,28 @@ export function GameScreen() {
     setObstacles(run.obstacles ?? initializeObstacles(source.obstacles));
     setAcceptedTurns(run.acceptedTurns ?? run.foundWords.length);
   }, [levelId, source, store.ready, store.save.activeLevelRun]);
+
+  useEffect(() => {
+    if (!endless) return;
+    const fresh = resetLevel(source);
+    const run = store.save.activeLevelRun?.levelId === source.id ? store.save.activeLevelRun : null;
+    setLevel(run ? {
+      ...fresh,
+      kernels: restoreCornVarietyState(
+        restorePopCharge(restoreFlintState(harvestKernels(fresh.kernels, run.harvestedIds), run.crackedIds), run.popCharges),
+        fresh.columns,
+      ),
+    } : fresh);
+    setFoundWords(run?.foundWords ?? []);
+    setInCoins(run?.earnedCoins ?? 0);
+    setToolsUsed(run?.toolsUsed ?? 0);
+    setAcceptedTurns(run?.acceptedTurns ?? run?.foundWords.length ?? 0);
+    setObstacles(run?.obstacles ?? initializeObstacles(source.obstacles));
+    setHarvestingIds([]); setHints([]); setActiveTool(undefined); setStatus('idle'); setShuffles(1); setDoubled(false);
+    selection.clear();
+    finishingRef.current = false;
+    setIntroOpen(endlessStage === 1 && !store.save.seenLevelIntros.includes(source.id));
+  }, [endless, endlessSeed, endlessStage, source.id]);
 
   useEffect(() => {
     if (!store.ready || !hydratedRef.current || finishingRef.current) return;
@@ -359,12 +388,17 @@ export function GameScreen() {
   const finish = () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
-    store.completeLevel(levelId, starResult.stars, percent, payout, {
-      wordsFound: foundWords.length,
-      longestWord: longest === '—' ? '' : longest,
-      completedGoalIds: starResult.completedGoalIds,
-    });
-    router.replace(`/map/${chapterIndexForLevel(levelId) + 1}`);
+    if (endless) {
+      store.completeEndlessStage(payout);
+      router.replace({ pathname: '/game/[id]', params: { id: 'endless', seed: endlessSeed, stage: String(endlessStage + 1) } });
+    } else {
+      store.completeLevel(levelId, starResult.stars, percent, payout, {
+        wordsFound: foundWords.length,
+        longestWord: longest === '—' ? '' : longest,
+        completedGoalIds: starResult.completedGoalIds,
+      });
+      router.replace(`/map/${chapterIndexForLevel(levelId) + 1}`);
+    }
   };
   const doubleReward = async () => {
     const result = await showRewardedAd('double_coins', store.save.adFree);
@@ -407,7 +441,7 @@ export function GameScreen() {
               <Image source={wordMaizeAssets.ui.btnPause} style={styles.hudIcon} />
             </Pressable>
             <View style={styles.sign}>
-              <Text style={styles.level}>LEVEL {levelId}</Text>
+              <Text style={styles.level}>{endless ? `ENDLESS ${endlessStage}` : `LEVEL ${levelId}`}</Text>
               <Text style={styles.objective} numberOfLines={2}>
                 GOAL {tuning.harvestTarget}%
                 {source.objective.minWords ? ` · ${source.objective.minWords} WORDS` : ''}
@@ -542,7 +576,7 @@ export function GameScreen() {
 
       <BumperCropModal
         visible={complete}
-        levelId={levelId}
+        levelId={endless ? endlessStage : levelId}
         stars={starResult.stars}
         payout={payout}
         harvestedCount={harvestedCount}
@@ -554,6 +588,7 @@ export function GameScreen() {
         reducedMotion={store.save.settings.reducedMotion}
         onDouble={doubleReward}
         onContinue={finish}
+        completionLabel={endless ? `Endless cob ${endlessStage} complete` : undefined}
       />
 
       <Modal visible={!!outOf && outOf !== 'energy'} transparent animationType="fade">

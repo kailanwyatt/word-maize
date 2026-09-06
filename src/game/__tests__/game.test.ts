@@ -681,6 +681,12 @@ describe('save migration', () => {
     expect(migrated.claimedRestorations).toEqual([]);
     expect(migrated.inventory).toEqual({ scarecrow: 9, butterBrush: 2, cornPicker: 3 });
     expect(migrated.seenLevelIntros).toEqual([]);
+    expect(migrated.endlessHarvest).toEqual({ bestStage: 0, active: null });
+  });
+
+  it('preserves a valid endless harvest and sanitizes its counters', () => {
+    const migrated = migrateSave({ endlessHarvest: { bestStage: 8.9, active: { seed: 'field-a', stage: 4.7, startedAt: 123 } } });
+    expect(migrated.endlessHarvest).toEqual({ bestStage: 8, active: { seed: 'field-a', stage: 4, startedAt: 123 } });
   });
 
   it('recovers safely from unusable save data', () => {

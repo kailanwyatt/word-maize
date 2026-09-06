@@ -1,62 +1,43 @@
 # Word Maize
 
-Portrait Expo/React Native word game: hunt letters on a rotating 2.5D corn cob, harvest the cob, and work through Sweet Corn Fields.
+Word Maize is a portrait casual word game for iOS, Android, and web. Players rotate a dimensional corn-cob board, tap visible kernels in spelling order, and press the assembled word to submit it. Valid words send kernels into the harvest basket, expose sockets and deeper layers, and restore a farming valley across a 60-level campaign.
 
-The authoritative product direction, campaign story, obstacle system, progression, monetization boundaries, and art requirements are defined in [docs/GAME_VISION_STORY_SPEC.md](docs/GAME_VISION_STORY_SPEC.md).
+This repository contains the Expo + React Native MVP, including the approved cob presentation, campaign maps, local progression, six corn varieties, obstacles, weather, tools, shop scaffolding, rewarded ads/IAP adapters, and the post-campaign Endless Harvest mode.
 
-## Run it
+## Authoritative documentation
 
-Gameplay UI runs in Expo Go. **In-app purchases and AdMob require a development build.**
+- [Game overview](docs/GAME_OVERVIEW.md) — identity, audience, pillars, modes, story, and MVP boundaries
+- [Gameplay systems](docs/GAMEPLAY_SYSTEMS.md) — controls, rules, objectives, scoring, corn varieties, obstacles, weather, and tools
+- [Campaign and content](docs/CAMPAIGN_CONTENT.md) — Levels 1–60, worlds, progression, tutorials, maps, and Endless Harvest
+- [Technical architecture](docs/TECHNICAL_ARCHITECTURE.md) — runtime, modules, save format, asset pipeline, testing, and release constraints
+- [Corn art contract](docs/CORN_VARIETIES_AND_ENDLESS_PLAN.md) — approved sprite geometry and variety production rules
+
+Older planning and handoff files remain useful historical context, but the documents above describe the current implementation.
+
+## Run
 
 ```bash
 npm install
 npm start
 ```
 
-That opens Expo Go. Use `npm run ios` / `npm run android` for a simulator, or `npm run web` in a browser.
+Use `npm run ios`, `npm run android`, or `npm run web` for a target platform.
 
-### Development build (IAP + ads)
-
-Expo Go cannot load RevenueCat or AdMob. Use a development client for real purchases and rewarded ads.
-
-1. Create an [EAS](https://docs.expo.dev/eas/) project and fill `extra.eas.projectId` in `app.json`.
-2. Add RevenueCat iOS/Android API keys to `expo.extra.revenueCatIosKey` / `revenueCatAndroidKey`.
-3. Replace the Google test AdMob app IDs in the top-level `react-native-google-mobile-ads` block with your real app IDs before production.
-4. Create App Store Connect / Play products matching:
-   - `wordmaize_ad_free`
-   - `wordmaize_starter_shed`
-   - `wordmaize_farmers_toolbox`
-   - `wordmaize_master_harvester`
-5. Link those products in RevenueCat under entitlement `ad_free` (non-consumable) and the three consumable bundles.
-6. Build and install a dev client:
+Gameplay and the local purchase/ad fallbacks run in Expo Go. Real RevenueCat purchases and AdMob rewarded ads require an Expo development build:
 
 ```bash
 npx eas build --profile development --platform ios
 npm run start:dev
 ```
 
-In `__DEV__`, if the store or ads SDK is missing, purchases and rewarded ads grant locally so you can still test the Farm Store and reward buttons.
+Production keys belong in `app.json` extras and EAS secrets. Expo Go cannot load those native SDKs.
 
-## Verify it
+## Verify
 
 ```bash
 npm run typecheck
 npm test
+npm run art:corn:validate
 ```
 
-## Controls
-
-- Tap any visible kernel in spelling order to build a word, then press the word display to submit. Letters do not need to sit next to each other.
-- Invalid words flash and stay on the cob; valid words harvest.
-- Drag horizontally to rotate, or tap the wood rotate buttons to step one column (45° on an 8-column cob). Your word stays selected so you can hunt letters around the back.
-- Scarecrow / Butter Brush / Corn Picker sit on the tool belt. The lightbulb is a Scarecrow shortcut.
-- Shuffle (↻) reshuffles remaining letters once per attempt.
-
-## Architecture
-
-- `src/game` — cylindrical board, selection, harvest, energy, scoring
-- `src/store` — local AsyncStorage progress
-- `src/monetization` — RevenueCat + rewarded AdMob wrappers
-- `app/` — Expo Router screens (Map / Play / Shop)
-
-The authoritative product direction, campaign story, obstacle system, progression, monetization boundaries, and art requirements are defined in [docs/GAME_VISION_STORY_SPEC.md](docs/GAME_VISION_STORY_SPEC.md).
+The deterministic game rules live in `src/game`; screens consume those rules and must not reproduce them.
