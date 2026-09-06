@@ -1,5 +1,5 @@
-import { MapScreen } from '../../src/screens/MapScreen';
+import { ChapterSelectScreen } from '../../src/screens/ChapterSelectScreen';
 
 export default function MapRoute() {
-  return <MapScreen />;
+  return <ChapterSelectScreen />;
 }

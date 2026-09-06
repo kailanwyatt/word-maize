@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { FarmButton, Panel } from '../components/FarmButton';
 import { CAMPAIGN_WORLDS, isLevelUnlocked, LEVELS } from '../data/levels';
+import { chapterIndexForLevel, chapterRange } from '../game/campaign';
 import { totalStars } from '../game/scoring';
 import { STAR_GATE } from '../game/types';
 import { showRewardedAd } from '../monetization/ads';
@@ -13,6 +14,13 @@ import { useGameStore } from '../store/GameStore';
 
 const MAP_HEIGHT = 1540;
 type MapPoint = { x: number; y: number };
+
+function chapterFromRoute(raw: string | string[] | undefined, fallback: number) {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 4) return fallback;
+  return n - 1;
+}
 
 // Bottom-to-top waypoints traced on the 1024×1536 chapter paintings (dirt road / bridges).
 const CHAPTER_PATHS: MapPoint[][] = [
@@ -40,15 +48,15 @@ const CHAPTER_PATHS: MapPoint[][] = [
 
 export function MapScreen() {
   const router = useRouter();
+  const { chapter: chapterParam } = useLocalSearchParams<{ chapter?: string }>();
   const { height } = useWindowDimensions();
   const store = useGameStore();
   const scrollRef = useRef<ScrollView>(null);
-  const initialChapter = Math.min(3, Math.floor((store.currentLevelId - 1) / 15));
-  const [chapter, setChapter] = useState(initialChapter);
+  const chapter = chapterFromRoute(chapterParam, chapterIndexForLevel(store.currentLevelId));
   const [selectedId, setSelectedId] = useState(store.currentLevelId);
   const [needEnergy, setNeedEnergy] = useState(false);
   const chapterLevels = useMemo(() => LEVELS.slice(chapter * 15, chapter * 15 + 15), [chapter]);
-  const selectedLevel = LEVELS.find(level => level.id === selectedId) ?? chapterLevels[0];
+  const selectedLevel = chapterLevels.find(level => level.id === selectedId) ?? chapterLevels[0];
   const chapterStars = totalStars(Object.fromEntries(chapterLevels.map(level => [level.id, store.save.levels[level.id] ?? { stars: 0 }])));
   const backgrounds = [
     wordMaizeAssets.backgrounds.mapSweetCorn,
@@ -67,25 +75,30 @@ export function MapScreen() {
   }, [height]);
 
   useFocusEffect(useCallback(() => {
-    const currentChapter = Math.min(3, Math.floor((store.currentLevelId - 1) / 15));
-    setChapter(currentChapter);
-    setSelectedId(store.currentLevelId);
-    const frame = requestAnimationFrame(() => scrollToLevel(store.currentLevelId, currentChapter, false));
-    const later = setTimeout(() => scrollToLevel(store.currentLevelId, currentChapter, false), 80);
+    const { start, end } = chapterRange(chapter);
+    const inChapter = store.currentLevelId >= start && store.currentLevelId <= end;
+    const nextPlayable = LEVELS.find(level => (
+      level.id >= start
+      && level.id <= end
+      && isLevelUnlocked(level.id, store.completedIds)
+      && !(store.save.levels[level.id]?.stars)
+    ));
+    const focusId = inChapter
+      ? store.currentLevelId
+      : (nextPlayable?.id ?? (isLevelUnlocked(end, store.completedIds) ? end : start));
+    setSelectedId(focusId);
+    const frame = requestAnimationFrame(() => scrollToLevel(focusId, chapter, false));
+    const later = setTimeout(() => scrollToLevel(focusId, chapter, false), 80);
     return () => {
       cancelAnimationFrame(frame);
       clearTimeout(later);
     };
-  }, [scrollToLevel, store.currentLevelId]));
+  }, [chapter, scrollToLevel, store.completedIds, store.currentLevelId, store.save.levels]));
 
   const changeChapter = (next: number) => {
     if (next < 0 || next > 3) return;
-    const firstId = next * 15 + 1;
-    const fallbackId = next < chapter ? firstId + 14 : firstId;
-    const preferred = LEVELS.find(level => level.id >= firstId && level.id <= firstId + 14 && level.id === store.currentLevelId)?.id ?? fallbackId;
-    setChapter(next);
-    setSelectedId(preferred);
-    requestAnimationFrame(() => scrollToLevel(preferred, next, false));
+    if (next > chapter && !isLevelUnlocked(next * 15 + 1, store.completedIds)) return;
+    router.replace(`/map/${next + 1}`);
   };
 
   const play = (id: number) => {
@@ -108,6 +121,9 @@ export function MapScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <CurrencyBar onSettings={() => router.push('/settings')} />
+          <Pressable accessibilityRole="button" accessibilityLabel="All chapters" onPress={() => router.push('/(tabs)/map')} style={styles.allChapters}>
+            <Text style={styles.allChaptersText}>‹ ALL CHAPTERS</Text>
+          </Pressable>
           <Text style={styles.world} numberOfLines={1}>{CAMPAIGN_WORLDS[chapter]}</Text>
           <Text style={styles.dragHint}>SCROLL · LEVELS {chapter * 15 + 1}–{chapter * 15 + 15}</Text>
         </View>
@@ -203,6 +219,8 @@ const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: '#071d2d' },
   safe: { flex: 1 },
   header: { backgroundColor: 'rgba(9,34,54,0.88)', paddingBottom: 8, zIndex: 4 },
+  allChapters: { alignSelf: 'center', marginTop: 2, paddingHorizontal: 12, paddingVertical: 4 },
+  allChaptersText: { color: '#e7c867', fontWeight: '900', fontSize: 11, letterSpacing: 1.1 },
   world: { textAlign: 'center', color: '#fff6c6', fontWeight: '900', fontSize: 22, textShadowColor: '#1d1408', textShadowRadius: 4 },
   dragHint: { textAlign: 'center', color: '#f6d66c', fontWeight: '900', fontSize: 10, letterSpacing: 1.2, marginTop: 2 },
   scroller: { flex: 1 },

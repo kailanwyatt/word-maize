@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { FarmButton, Panel, PlayButton } from '../components/FarmButton';
-import { isLevelUnlocked, LEVELS, WORLD_NAME } from '../data/levels';
+import { isLevelUnlocked, LEVELS, worldNameForLevel } from '../data/levels';
+import { CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, farmQuote, secondaryObjective } from '../game/campaign';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../game/restoration';
 import { showRewardedAd } from '../monetization/ads';
 import { useGameStore } from '../store/GameStore';
@@ -17,19 +18,28 @@ export function PlayScreen() {
   const [needEnergy, setNeedEnergy] = useState(false);
   const level = LEVELS.find(item => item.id === store.currentLevelId) ?? LEVELS[0];
   const daily = nextDailyDay(store.save.daily);
+  const chapterIndex = chapterIndexForLevel(level.id);
+  const world = worldNameForLevel(level.id);
+  const harvests = chapterHarvests(store.completedIds, chapterIndex);
   const restorationStage = completedRestorationStage(store.completedIds);
-  const fieldsRestored = restorationStage === RESTORATION_MILESTONES.length;
   const claimableRestoration = claimableRestorationMilestone(store.completedIds, store.save.claimedRestorations);
   const nextRestoration = claimableRestoration ?? nextRestorationMilestone(store.completedIds, store.save.claimedRestorations);
-  const chapterClears = store.completedIds.filter(id => id <= 15).length;
+  const chapterOneRestored = store.save.claimedRestorations.includes('sweet-corn-restored') || store.completedIds.includes(15);
+  const farmBackground = chapterIndex === 0
+    ? (chapterOneRestored ? wordMaizeAssets.backgrounds.homeFarmRestored : wordMaizeAssets.backgrounds.homeFarmUnrestored)
+    : chapterIndex === 1
+      ? wordMaizeAssets.backgrounds.gameplayCrowCreek
+      : chapterIndex === 2
+        ? wordMaizeAssets.backgrounds.gameplayOrchardHollow
+        : wordMaizeAssets.backgrounds.gameplayMoonlightMaize;
   const levelProgress = store.save.levels[level.id];
-  const longestStar = level.starGoals.find(goal => goal.kind === 'longestWord');
-  const wordLengthGoal = level.objective.minLongestWord ?? (longestStar?.kind === 'longestWord' ? longestStar.value : 3);
-  const quote = fieldsRestored
-    ? 'Sweet Corn Fields is shining again. The wagon is ready whenever you are!'
-    : level.id === 1
-      ? 'Farmer May’s first crop has gone quiet. Let’s wake it up with a few good words!'
-      : `Level ${level.id} is waiting on the cob. One more harvest and the farm keeps waking up.`;
+  const extraGoal = secondaryObjective(level);
+  const quote = farmQuote({
+    levelId: level.id,
+    world,
+    chapterComplete: harvests.complete,
+    claimableTitle: claimableRestoration?.title,
+  });
   const play = () => {
     const continuing = store.save.activeLevelRun?.levelId === level.id;
     const { energy } = store.energyNow();
@@ -52,7 +62,7 @@ export function PlayScreen() {
   return (
     <View style={styles.root}>
       <ImageBackground
-        source={fieldsRestored ? wordMaizeAssets.backgrounds.homeFarmRestored : wordMaizeAssets.backgrounds.homeFarmUnrestored}
+        source={farmBackground}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
@@ -62,17 +72,17 @@ export function PlayScreen() {
         <View style={styles.hero}>
           <Image source={wordMaizeAssets.ui.logo} style={styles.logo} />
           <View style={styles.chapterBadge}>
-            <Text style={styles.chapterEyebrow}>CHAPTER ONE</Text>
-            <Text style={styles.world}>{WORLD_NAME}</Text>
+            <Text style={styles.chapterEyebrow}>{CHAPTER_TITLES[chapterIndex]}</Text>
+            <Text style={styles.world}>{world}</Text>
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${Math.max(4, (chapterClears / 15) * 100)}%` }]} />
+              <View style={[styles.progressFill, { width: `${Math.max(4, (harvests.clears / harvests.total) * 100)}%` }]} />
             </View>
-            <Text style={styles.chapterProgress}>{chapterClears}/15 HARVESTS</Text>
+            <Text style={styles.chapterProgress}>{harvests.clears}/{harvests.total} HARVESTS</Text>
           </View>
         </View>
         <View style={styles.dashboard}>
           <View style={styles.storyCard}>
-            <Image source={wordMaizeAssets.characters.patchIdle} style={styles.patch} />
+            <Image source={harvests.complete ? wordMaizeAssets.characters.patchCelebrating : wordMaizeAssets.characters.patchIdle} style={styles.patch} />
             <View style={styles.speech}>
               <Text style={styles.speaker}>PATCH</Text>
               <Text style={styles.quote} numberOfLines={3}>{quote}</Text>
@@ -109,8 +119,8 @@ export function PlayScreen() {
                 <Text style={styles.objectiveLabel}>HARVEST</Text>
               </View>
               <View style={styles.objectiveChip}>
-                <Text style={styles.objectiveValue}>{wordLengthGoal}+</Text>
-                <Text style={styles.objectiveLabel}>LETTER WORD</Text>
+                <Text style={styles.objectiveValue}>{extraGoal.value}</Text>
+                <Text style={styles.objectiveLabel}>{extraGoal.label}</Text>
               </View>
               <View style={styles.rewardChip}>
                 <Image source={wordMaizeAssets.ui.coin} style={styles.rewardCoin} />
@@ -128,19 +138,13 @@ export function PlayScreen() {
                 <Text style={styles.quickText}>{daily.alreadyClaimed ? 'Claimed today' : `Day ${daily.day} is ready`}</Text>
               </View>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="View game map" style={styles.quickCard} onPress={() => router.push('/map')}>
+            <Pressable accessibilityRole="button" accessibilityLabel="View all chapters" style={styles.quickCard} onPress={() => router.push('/(tabs)/map')}>
               <Image source={wordMaizeAssets.ui.mapNodeCurrent} style={styles.mapIcon} />
               <View>
                 <Text style={styles.quickTitle}>FARM MAP</Text>
-                <Text style={styles.quickText}>Choose a level</Text>
+                <Text style={styles.quickText}>Choose a chapter</Text>
               </View>
             </Pressable>
-          </View>
-
-          <View style={styles.landmarks} pointerEvents="none">
-            <Image source={wordMaizeAssets.props.tractorIdle} style={styles.tractor} />
-            <Image source={wordMaizeAssets.powerups.scarecrow} style={styles.scarecrow} />
-            <Image source={fieldsRestored ? wordMaizeAssets.props.harvestBasketFull : wordMaizeAssets.props.harvestBasketPartial} style={styles.basket} />
           </View>
         </View>
       </SafeAreaView>
@@ -207,10 +211,6 @@ const styles = StyleSheet.create({
   mapIcon: { width: 38, height: 38, resizeMode: 'contain' },
   quickTitle: { color: '#51351f', fontWeight: '900', fontSize: 9 },
   quickText: { color: '#7a582c', fontWeight: '800', fontSize: 9, marginTop: 2 },
-  landmarks: { flex: 1, minHeight: 62, maxHeight: 98, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 2 },
-  tractor: { width: 124, height: 88, resizeMode: 'contain' },
-  scarecrow: { width: 64, height: 78, resizeMode: 'contain' },
-  basket: { width: 72, height: 58, resizeMode: 'contain' },
   shade: { flex: 1, backgroundColor: 'rgba(20,40,30,0.68)', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 8 },
   body: { fontSize: 16, lineHeight: 24, textAlign: 'center', color: '#51351f', fontWeight: '700' },
