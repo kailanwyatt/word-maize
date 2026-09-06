@@ -143,6 +143,7 @@ export const wordMaizeAssets = {
     coin: require('./ui/coin-v2.png'),
     energy: require('./ui/energy.png'),
     logo: require('./ui/logo-v2.png'),
+    logoCorn: require('./ui/logo-corn.png'),
   },
   effects: {
     sparkleBurst: require('./effects/sparkle-burst.png'),

@@ -14,6 +14,13 @@ const CHAPTER_ART = [
   wordMaizeAssets.backgrounds.mapMoonlight,
 ];
 
+const CHAPTER_ICONS = [
+  wordMaizeAssets.props.harvestBasketFull,
+  wordMaizeAssets.obstacles.crow,
+  wordMaizeAssets.obstacles.weed,
+  wordMaizeAssets.effects.sparkleBurst,
+];
+
 export function ChapterSelectScreen() {
   const router = useRouter();
   const store = useGameStore();
@@ -58,11 +65,16 @@ export function ChapterSelectScreen() {
                     <Image source={CHAPTER_ART[index]} style={styles.art} resizeMode="cover" />
                     <View style={styles.shade} />
                     {!unlocked ? <View style={styles.lockVeil} /> : null}
+                    <View style={styles.innerBorder} />
+                    <Image source={CHAPTER_ICONS[index]} style={[styles.chapterIcon, !unlocked && styles.chapterIconLocked]} />
                     <View style={styles.copy}>
                       <Text style={styles.chapter}>{CHAPTER_TITLES[index]}</Text>
                       <Text style={styles.world} numberOfLines={2}>{CAMPAIGN_WORLDS[index]}</Text>
                       <Text style={styles.blurb} numberOfLines={2}>{CHAPTER_SUMMARIES[index]}</Text>
                       <Text style={styles.meta}>LEVELS {range.start}–{range.end}</Text>
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${(harvests.clears / harvests.total) * 100}%` }]} />
+                      </View>
                       <View style={styles.stats}>
                         <Text style={styles.stat}>{harvests.clears}/{harvests.total} HARVESTS</Text>
                         <Text style={styles.stat}>{stars}/45 STARS</Text>
@@ -97,24 +109,29 @@ const styles = StyleSheet.create({
   subtitle: { color: '#ead9a7', fontWeight: '700', fontSize: 12 },
   grid: { flex: 1, paddingHorizontal: 12, paddingBottom: 8, gap: 10 },
   row: { flex: 1, flexDirection: 'row', gap: 10 },
-  card: { flex: 1, minHeight: 0, borderRadius: 18, borderWidth: 3, borderColor: '#d7ad4b', overflow: 'hidden', backgroundColor: '#2a1a0c' },
-  cardCurrent: { borderColor: '#7ee04a' },
+  card: { flex: 1, minHeight: 0, borderRadius: 20, borderWidth: 3, borderColor: '#d7ad4b', overflow: 'hidden', backgroundColor: '#2a1a0c', shadowColor: '#120b04', shadowOffset: { width: 0, height: 6 }, shadowOpacity: .48, shadowRadius: 7, elevation: 8 },
+  cardCurrent: { borderColor: '#8ee64f', shadowColor: '#74d83d', shadowOpacity: .55 },
   cardLocked: { borderColor: '#8a7350' },
   art: { position: 'absolute', inset: 0 },
-  shade: { position: 'absolute', inset: 0, backgroundColor: 'rgba(22,12,4,0.42)' },
+  shade: { position: 'absolute', inset: 0, backgroundColor: 'rgba(22,12,4,0.26)' },
   lockVeil: { position: 'absolute', inset: 0, backgroundColor: 'rgba(12,10,8,0.45)' },
-  copy: { flex: 1, justifyContent: 'flex-end', padding: 10 },
+  innerBorder: { position: 'absolute', inset: 5, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,244,187,.28)' },
+  chapterIcon: { position: 'absolute', width: 72, height: 72, resizeMode: 'contain', right: 8, top: 12, opacity: .98 },
+  chapterIconLocked: { opacity: .32 },
+  copy: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 11, paddingTop: 34, paddingBottom: 10, backgroundColor: 'rgba(34,18,7,.72)' },
   chapter: { color: '#e7c867', fontWeight: '900', fontSize: 9, letterSpacing: 1.1 },
   world: { color: '#fff6c6', fontWeight: '900', fontSize: 16, lineHeight: 19, marginTop: 2 },
   blurb: { color: '#f3e2b4', fontWeight: '700', fontSize: 11, lineHeight: 14, marginTop: 4 },
   meta: { color: '#f6d66c', fontWeight: '900', fontSize: 9, letterSpacing: 0.6, marginTop: 6 },
+  progressTrack: { height: 5, borderRadius: 4, backgroundColor: 'rgba(10,8,4,.72)', overflow: 'hidden', marginTop: 6, borderWidth: 1, borderColor: 'rgba(231,200,103,.35)' },
+  progressFill: { height: '100%', borderRadius: 3, backgroundColor: '#78d63e' },
   stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   stat: { color: '#ead9a7', fontWeight: '800', fontSize: 9 },
   now: { position: 'absolute', top: 8, left: 8, backgroundColor: '#c78a32', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#fff6c6' },
   nowText: { color: '#fff6c6', fontWeight: '900', fontSize: 9, letterSpacing: 0.8 },
   done: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(55,34,14,0.94)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: '#d7ad4b' },
   doneText: { color: '#fff6c6', fontWeight: '900', fontSize: 8, letterSpacing: 0.6 },
-  lockBadge: { position: 'absolute', left: 8, right: 8, top: '38%', alignItems: 'center' },
-  lockIcon: { width: 42, height: 42, resizeMode: 'contain' },
+  lockBadge: { position: 'absolute', left: 8, right: 8, top: '31%', alignItems: 'center' },
+  lockIcon: { width: 48, height: 48, resizeMode: 'contain' },
   lockText: { color: '#fff6c6', fontWeight: '900', fontSize: 9, marginTop: 4, textAlign: 'center' },
 });
