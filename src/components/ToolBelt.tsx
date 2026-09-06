@@ -1,6 +1,7 @@
 import { Image, ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { ToolId } from '../game/types';
+import { WoodPanel } from './WoodPanel';
 
 export type Tool = ToolId;
 
@@ -20,7 +21,7 @@ export function ToolBelt({
   onUse: (tool: Tool) => void;
 }) {
   return (
-    <View style={styles.row}>
+    <WoodPanel style={styles.row}>
       {tools.map(tool => (
         <Pressable
           key={tool.id}
@@ -32,7 +33,7 @@ export function ToolBelt({
           <Text style={styles.count}>×{counts[tool.id]}</Text>
         </Pressable>
       ))}
-    </View>
+    </WoodPanel>
   );
 }
 
@@ -41,7 +42,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 11,
-    backgroundColor: 'rgba(47,33,16,0.88)',
     borderWidth: 2,
     borderColor: '#916028',
     borderRadius: 14,

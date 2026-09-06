@@ -3,6 +3,7 @@ import { Alert, Image, ImageBackground, Pressable, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
+import { WoodPanel } from '../components/WoodPanel';
 import { CAMPAIGN_WORLDS } from '../data/levels';
 import { CHAPTER_SUMMARIES, CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, chapterRange, chapterStarCount, isChapterUnlocked } from '../game/campaign';
 import { useGameStore } from '../store/GameStore';
@@ -39,11 +40,11 @@ export function ChapterSelectScreen() {
       <View style={styles.scrim} />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <CurrencyBar onSettings={() => router.push('/settings')} />
-        <View style={styles.titleBoard}>
+        <WoodPanel style={styles.titleBoard}>
           <Text style={styles.eyebrow}>VALLEY MAP</Text>
           <Text style={styles.title}>Chapters</Text>
           <Text style={styles.subtitle}>Choose a farm to visit</Text>
-        </View>
+        </WoodPanel>
         <View style={styles.grid}>
           {[0, 1].map(row => (
             <View key={row} style={styles.row}>
@@ -67,7 +68,7 @@ export function ChapterSelectScreen() {
                     {!unlocked ? <View style={styles.lockVeil} /> : null}
                     <View style={styles.innerBorder} />
                     <Image source={CHAPTER_ICONS[index]} style={[styles.chapterIcon, !unlocked && styles.chapterIconLocked]} />
-                    <View style={styles.copy}>
+                    <WoodPanel style={styles.copy}>
                       <Text style={styles.chapter}>{CHAPTER_TITLES[index]}</Text>
                       <Text style={styles.world} numberOfLines={2}>{CAMPAIGN_WORLDS[index]}</Text>
                       <Text style={styles.blurb} numberOfLines={2}>{CHAPTER_SUMMARIES[index]}</Text>
@@ -79,7 +80,7 @@ export function ChapterSelectScreen() {
                         <Text style={styles.stat}>{harvests.clears}/{harvests.total} HARVESTS</Text>
                         <Text style={styles.stat}>{stars}/45 STARS</Text>
                       </View>
-                    </View>
+                    </WoodPanel>
                     {current && unlocked ? <View style={styles.now}><Text style={styles.nowText}>NOW</Text></View> : null}
                     {harvests.complete ? <View style={styles.done}><Text style={styles.doneText}>RESTORED</Text></View> : null}
                     {!unlocked ? (
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#16381e' },
   scrim: { position: 'absolute', inset: 0, backgroundColor: 'rgba(8,28,20,0.28)' },
   safe: { flex: 1 },
-  titleBoard: { alignSelf: 'center', minWidth: 230, marginTop: 2, marginBottom: 8, paddingHorizontal: 22, paddingVertical: 8, borderRadius: 14, borderWidth: 3, borderColor: '#c78a32', backgroundColor: 'rgba(68,36,15,0.94)', alignItems: 'center' },
+  titleBoard: { alignSelf: 'center', minWidth: 230, marginTop: 2, marginBottom: 8, paddingHorizontal: 22, paddingVertical: 8, borderRadius: 14, borderWidth: 3, borderColor: '#c78a32', alignItems: 'center' },
   eyebrow: { color: '#e9c968', fontWeight: '900', fontSize: 9, letterSpacing: 2 },
   title: { color: '#fff6c6', fontWeight: '900', fontSize: 28, lineHeight: 32 },
   subtitle: { color: '#ead9a7', fontWeight: '700', fontSize: 12 },
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
   innerBorder: { position: 'absolute', inset: 5, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,244,187,.28)' },
   chapterIcon: { position: 'absolute', width: 72, height: 72, resizeMode: 'contain', right: 8, top: 12, opacity: .98 },
   chapterIconLocked: { opacity: .32 },
-  copy: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 11, paddingTop: 34, paddingBottom: 10, backgroundColor: 'rgba(34,18,7,.72)' },
+  copy: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 11, paddingTop: 34, paddingBottom: 10, backgroundColor: 'rgba(34,18,7,.46)' },
   chapter: { color: '#e7c867', fontWeight: '900', fontSize: 9, letterSpacing: 1.1 },
   world: { color: '#fff6c6', fontWeight: '900', fontSize: 16, lineHeight: 19, marginTop: 2 },
   blurb: { color: '#f3e2b4', fontWeight: '700', fontSize: 11, lineHeight: 14, marginTop: 4 },

@@ -1,11 +1,19 @@
 import { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { palette } from '../theme';
+import { WoodPanel } from './WoodPanel';
 
 export function FarmButton({ label, onPress, dim }: { label: string; onPress: () => void; dim?: boolean }) {
   return (
     <Pressable accessibilityRole="button" disabled={dim} onPress={onPress} style={[styles.btn, dim && styles.dim]}>
-      <Text style={styles.label}>{label}</Text>
+      {({ pressed }) => (
+        <WoodPanel style={styles.btnFrame}>
+          <View style={[styles.btnFace, pressed && styles.btnPressed]}>
+            <View style={styles.btnShine} />
+            <Text style={styles.label}>{label}</Text>
+          </View>
+        </WoodPanel>
+      )}
     </Pressable>
   );
 }
@@ -29,35 +37,45 @@ export function PlayButton({ onPress }: { onPress: () => void }) {
 export function Panel({ children }: { children: ReactNode }) {
   const { height } = useWindowDimensions();
   return (
-    <View style={[styles.panel, { maxHeight: Math.min(height * 0.86, 640) }]}>
-      <ScrollView bounces={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.panelBody}>
+    <WoodPanel style={[styles.panel, { maxHeight: Math.min(height * 0.86, 640) }]}>
+      <ScrollView style={styles.panelPaper} bounces={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.panelBody}>
         {children}
       </ScrollView>
-    </View>
+    </WoodPanel>
   );
 }
 
 const styles = StyleSheet.create({
   btn: {
-    backgroundColor: palette.green,
     borderRadius: 16,
-    borderWidth: 3,
-    borderColor: palette.greenDeep,
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    alignItems: 'center',
+    overflow: 'hidden',
+    shadowColor: '#160b03',
+    shadowOpacity: .38,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 4,
+    elevation: 5,
   },
+  btnFrame: { borderRadius: 16, padding: 4, borderWidth: 1, borderColor: '#d6a64a' },
+  btnFace: { minHeight: 46, borderRadius: 12, backgroundColor: palette.green, borderWidth: 2, borderColor: '#83d64e', paddingHorizontal: 24, paddingVertical: 9, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  btnPressed: { transform: [{ translateY: 2 }], backgroundColor: '#4cae28' },
+  btnShine: { position: 'absolute', left: 10, right: 10, top: 0, height: 11, borderBottomLeftRadius: 9, borderBottomRightRadius: 9, backgroundColor: 'rgba(255,255,255,.15)' },
   dim: { opacity: 0.55 },
   label: { color: 'white', fontWeight: '900', fontSize: 18 },
   panel: {
-    backgroundColor: '#fff2bd',
-    borderWidth: 4,
-    borderColor: '#73441f',
+    borderWidth: 2,
+    borderColor: '#d1a04a',
     borderRadius: 22,
     width: '88%',
     maxWidth: 420,
     overflow: 'hidden',
+    padding: 5,
+    shadowColor: '#160b03',
+    shadowOpacity: .55,
+    shadowOffset: { width: 0, height: 7 },
+    shadowRadius: 8,
+    elevation: 9,
   },
+  panelPaper: { backgroundColor: '#fff2bd', borderRadius: 16 },
   panelBody: { padding: 22, paddingBottom: 18 },
   playPress: { width: '86%', maxWidth: 280, alignSelf: 'center' },
   playWrap: {

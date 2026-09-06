@@ -144,6 +144,9 @@ export const wordMaizeAssets = {
     energy: require('./ui/energy.png'),
     logo: require('./ui/logo-v2.png'),
     logoCorn: require('./ui/logo-corn.png'),
+    materials: {
+      woodPlanks: require('./ui/materials/wood-planks-tile-v1.png'),
+    },
   },
   effects: {
     sparkleBurst: require('./effects/sparkle-burst.png'),

@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 
 export const HarvestMeter = forwardRef<View, { percent: number; catching?: boolean }>(function HarvestMeter({ percent, catching }, ref) {
@@ -10,6 +10,7 @@ export const HarvestMeter = forwardRef<View, { percent: number; catching?: boole
       : wordMaizeAssets.props.harvestBasketPartial;
   return (
     <View ref={ref} collapsable={false} style={styles.row}>
+      <ImageBackground source={wordMaizeAssets.ui.materials.woodPlanks} resizeMode="repeat" imageStyle={styles.woodTexture} style={styles.woodBackground} />
       {catching ? <Image source={wordMaizeAssets.effects.sparkleBurst} style={styles.sparkle} /> : null}
       <Image source={basket} style={styles.basket} />
       <Text style={styles.percent}>{percent}%</Text>
@@ -34,4 +35,6 @@ const styles = StyleSheet.create({
   sparkle: { position: 'absolute' as const, width: 72, height: 72, resizeMode: 'contain' as const, opacity: 0.85, top: -8 },
   percent: { color: '#fff6c6', fontSize: 15, fontWeight: '900', marginTop: -5 },
   label: { color: '#fff6c6', fontSize: 7, fontWeight: '900' },
+  woodTexture: { opacity: .9 },
+  woodBackground: { position: 'absolute', inset: 0, borderRadius: 12, overflow: 'hidden' },
 });

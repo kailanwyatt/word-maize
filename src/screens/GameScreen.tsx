@@ -11,6 +11,7 @@ import { FarmButton, Panel } from '../components/FarmButton';
 import { HarvestMeter } from '../components/HarvestMeter';
 import { Tool, ToolBelt } from '../components/ToolBelt';
 import { WordSubmitButton } from '../components/WordSubmitButton';
+import { WoodPanel } from '../components/WoodPanel';
 import { WeatherOverlay } from '../components/WeatherOverlay';
 import { playGameSound } from '../audio/sounds';
 import { LEVELS, levelById } from '../data/levels';
@@ -440,7 +441,7 @@ export function GameScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="Pause" style={styles.hudButton} onPress={() => setPaused(true)}>
               <Image source={wordMaizeAssets.ui.btnPause} style={styles.hudIcon} />
             </Pressable>
-            <View style={styles.sign}>
+            <WoodPanel style={styles.sign}>
               <Text style={styles.level}>{endless ? `ENDLESS ${endlessStage}` : `LEVEL ${levelId}`}</Text>
               <Text style={styles.objective} numberOfLines={2}>
                 GOAL {tuning.harvestTarget}%
@@ -448,7 +449,7 @@ export function GameScreen() {
                 {source.objective.minLongestWord ? ` · ${source.objective.minLongestWord}+ LETTER` : ''}
                 {source.objective.minLayersRevealed ? ` · REVEAL ${source.objective.minLayersRevealed}` : ''}
               </Text>
-            </View>
+            </WoodPanel>
             <View style={styles.topRight}>
               <View style={styles.energyChip}>
                 <Image source={wordMaizeAssets.ui.energy} style={styles.energyIcon} />
@@ -515,10 +516,10 @@ export function GameScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="Rotate cob left" style={styles.rotateHit} onPress={() => spin(-1)}>
               <Image source={wordMaizeAssets.ui.btnRotate} style={[styles.rotateIcon, styles.rotateFlip]} />
             </Pressable>
-            <View style={styles.sessionCoins}>
+            <WoodPanel style={styles.sessionCoins}>
               <Image source={wordMaizeAssets.ui.coin} style={styles.coin} />
               <Text style={styles.sessionText}>{inCoins}</Text>
-            </View>
+            </WoodPanel>
             <Pressable accessibilityRole="button" accessibilityLabel="Rotate cob right" style={styles.rotateHit} onPress={() => spin(1)}>
               <Image source={wordMaizeAssets.ui.btnRotate} style={styles.rotateIcon} />
             </Pressable>

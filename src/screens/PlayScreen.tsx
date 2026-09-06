@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { FarmButton, Panel, PlayButton } from '../components/FarmButton';
+import { WoodPanel } from '../components/WoodPanel';
 import { isLevelUnlocked, LEVELS, worldNameForLevel } from '../data/levels';
 import { CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, farmQuote, secondaryObjective } from '../game/campaign';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../game/restoration';
@@ -83,14 +84,14 @@ export function PlayScreen() {
         <CurrencyBar onSettings={() => router.push('/settings')} />
         <View style={styles.hero}>
           <Image source={wordMaizeAssets.ui.logo} style={styles.logo} />
-          <View style={styles.chapterBadge}>
+          <WoodPanel style={styles.chapterBadge}>
             <Text style={styles.chapterEyebrow}>{CHAPTER_TITLES[chapterIndex]}</Text>
             <Text style={styles.world}>{world}</Text>
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${Math.max(4, (harvests.clears / harvests.total) * 100)}%` }]} />
             </View>
             <Text style={styles.chapterProgress}>{harvests.clears}/{harvests.total} HARVESTS</Text>
-          </View>
+          </WoodPanel>
         </View>
         <View style={styles.dashboard}>
           <View style={styles.storyCard}>
@@ -115,7 +116,7 @@ export function PlayScreen() {
             </View>
           ) : null}
 
-          <View style={styles.levelPanel}>
+          <WoodPanel style={styles.levelPanel}>
             <View style={styles.levelTopline}>
               <View>
                 <Text style={styles.levelLabel}>LEVEL {level.id}</Text>
@@ -140,7 +141,7 @@ export function PlayScreen() {
               </View>
             </View>
             <PlayButton onPress={play} />
-          </View>
+          </WoodPanel>
 
           <View style={styles.quickRow}>
             <Pressable accessibilityRole="button" accessibilityLabel={daily.alreadyClaimed ? 'Daily harvest already claimed' : `Daily harvest, day ${daily.day} ready`} style={styles.quickCard} onPress={() => router.push('/daily-harvest')}>
