@@ -1,13 +1,21 @@
 import { Tabs } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { ImageBackground, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabIcon } from '../../src/components/TabIcons';
+import { wordMaizeAssets } from '../../assets/word-maize/assets';
 
 function TabBarWood() {
   return (
-    <View style={styles.wood}>
+    <ImageBackground
+      source={wordMaizeAssets.ui.materials.woodPlanks}
+      resizeMode="repeat"
+      imageStyle={styles.woodTexture}
+      style={styles.wood}
+    >
+      <View style={styles.woodShade} />
       <View style={styles.woodRim} />
-    </View>
+      <View style={styles.woodHighlight} />
+    </ImageBackground>
   );
 }
 
@@ -61,6 +69,9 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  wood: { flex: 1, backgroundColor: '#3b2410' },
-  woodRim: { height: 5, backgroundColor: '#5c3a18' },
+  wood: { flex: 1, backgroundColor: '#3b2410', overflow: 'hidden' },
+  woodTexture: { opacity: .9 },
+  woodShade: { position: 'absolute', inset: 0, backgroundColor: 'rgba(26,11,3,.22)' },
+  woodRim: { height: 6, backgroundColor: '#5c3216', borderTopWidth: 2, borderTopColor: '#d09a42', borderBottomWidth: 1, borderBottomColor: '#241006' },
+  woodHighlight: { position: 'absolute', left: 0, right: 0, top: 6, height: 1, backgroundColor: 'rgba(255,211,107,.28)' },
 });
