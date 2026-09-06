@@ -46,6 +46,7 @@ export function KernelTile({
   pickerMode?: boolean;
 }) {
   const { kernel, x, y, scaleX, scale, shade } = layout;
+  const dormant = kernel.variety === 'white' && kernel.dormant === true;
   const activeObstacle = obstacle && obstacle.status !== 'cleared' ? obstacle : undefined;
   const isKernelObstacle = activeObstacle?.kind === 'weed' || activeObstacle?.kind === 'caterpillar' || activeObstacle?.kind === 'frost';
   const isBoardActorTarget = activeObstacle?.kind === 'crow' || activeObstacle?.kind === 'squirrel';
@@ -117,7 +118,7 @@ export function KernelTile({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Letter ${kernel.letter}, row ${kernel.row + 1}, column ${kernel.column + 1}${obstacle && obstacle.status !== 'cleared' ? `, ${obstacle.kind} obstacle` : ''}`}
+      accessibilityLabel={`Letter ${kernel.letter}, row ${kernel.row + 1}, column ${kernel.column + 1}${dormant ? ', sleeping White Corn kernel' : ''}${obstacle && obstacle.status !== 'cleared' ? `, ${obstacle.kind} obstacle` : ''}`}
       accessibilityState={{ selected, disabled: kernel.harvested || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35 }}
       disabled={kernel.harvested || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35}
       style={[
@@ -161,6 +162,7 @@ export function KernelTile({
           source={kernelArt}
           style={[
             styles.kernel,
+            dormant && styles.dormantKernel,
             faulted && styles.kernelFaulted,
             rejected && { opacity: reject.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] }) },
             isKernelObstacle && {
@@ -172,9 +174,15 @@ export function KernelTile({
             },
           ]}
         />
-        <Text style={[styles.letter, { fontSize: size * 0.42 }]}>
+        <Text style={[styles.letter, dormant && styles.dormantLetter, { fontSize: size * 0.42 }]}> 
           {kernel.letter}
         </Text>
+        {dormant ? (
+          <View pointerEvents="none" style={styles.dormantMark}>
+            <View style={[styles.vein, styles.veinOne]} />
+            <View style={[styles.vein, styles.veinTwo]} />
+          </View>
+        ) : null}
         {activeObstacle && !isKernelObstacle && !isBoardActorTarget ? <Animated.View style={[
           activeObstacle.kind === 'web' ? styles.webWrap : styles.obstacleWrap,
           activeObstacle.kind === 'web' && {
@@ -208,7 +216,13 @@ const styles = StyleSheet.create({
   countdown: { position: 'absolute', right: 0, top: 0, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: '#b43b24', color: 'white', textAlign: 'center', fontWeight: '900', fontSize: 11, overflow: 'hidden' },
   kernelCountdown: { position: 'absolute', right: '-17%', top: '-17%', zIndex: 10, minWidth: 19, height: 19, borderRadius: 10, borderWidth: 1.5, borderColor: '#fff3c4', backgroundColor: '#b43b24', color: 'white', textAlign: 'center', fontWeight: '900', fontSize: 12, overflow: 'hidden' },
   kernel: { position: 'absolute', width: '154%', height: '154%', resizeMode: 'contain' },
+  dormantKernel: { opacity: 0.72 },
   kernelFaulted: { tintColor: '#c45a32' },
+  dormantLetter: { opacity: 0.5 },
+  dormantMark: { position: 'absolute', width: '56%', height: '56%', opacity: 0.75 },
+  vein: { position: 'absolute', left: '48%', top: '8%', width: 3, height: '86%', borderRadius: 2, backgroundColor: '#78914c' },
+  veinOne: { transform: [{ rotate: '34deg' }] },
+  veinTwo: { transform: [{ rotate: '-34deg' }] },
   letter: {
     fontWeight: '900',
     color: '#2e1a0c',

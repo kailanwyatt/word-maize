@@ -5,6 +5,7 @@ import {
   type AudioPlayer,
   type AudioSource,
 } from 'expo-audio';
+import { Platform } from 'react-native';
 
 type AudioPreferences = { music: boolean; sfx: boolean };
 
@@ -13,6 +14,7 @@ class WordMaizeAudioManager {
   private sfxPlayers = new Map<AudioSource, AudioPlayer>();
   private preferences: AudioPreferences = { music: true, sfx: true };
   private active = true;
+  private unlocked = Platform.OS !== 'web';
   private configured = false;
 
   async configure() {
@@ -50,6 +52,8 @@ class WordMaizeAudioManager {
   async playSfx(source: AudioSource, volume = 0.8) {
     if (!this.preferences.sfx || !this.active) return;
     await this.configure();
+    this.unlocked = true;
+    this.syncMusic();
     let player = this.sfxPlayers.get(source);
     if (!player) {
       player = createAudioPlayer(source, { keepAudioSessionActive: true });
@@ -70,7 +74,7 @@ class WordMaizeAudioManager {
   private syncMusic() {
     const music = this.music;
     if (!music) return;
-    if (this.preferences.music && this.active) music.play();
+    if (this.preferences.music && this.active && this.unlocked) music.play();
     else music.pause();
   }
 

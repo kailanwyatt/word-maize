@@ -14,11 +14,13 @@ import { WordSubmitButton } from '../components/WordSubmitButton';
 import { WeatherOverlay } from '../components/WeatherOverlay';
 import { playGameSound } from '../audio/sounds';
 import { levelById } from '../data/levels';
+import { chapterIndexForLevel } from '../game/campaign';
 import { TOOL_INFO } from '../data/shop';
 import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board';
 import { WORD_LIST } from '../game/dictionary';
 import { completionReward } from '../game/economy';
 import { harvestKernels, harvestPercent } from '../game/harvest';
+import { dormantKernelIds, isDormantKernel, restoreCornVarietyState, wakeDormantNeighbors } from '../game/cornVarieties';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../game/obstacles';
 import { findDiscoverablePath } from '../game/powerups';
 import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
@@ -51,7 +53,10 @@ export function GameScreen() {
   const savedRun = store.save.activeLevelRun?.levelId === levelId ? store.save.activeLevelRun : null;
   const restoredLevel = () => {
     const fresh = resetLevel(source);
-    return savedRun ? { ...fresh, kernels: harvestKernels(fresh.kernels, savedRun.harvestedIds) } : fresh;
+    return savedRun ? {
+      ...fresh,
+      kernels: restoreCornVarietyState(harvestKernels(fresh.kernels, savedRun.harvestedIds), fresh.columns),
+    } : fresh;
   };
   const [level, setLevel] = useState(restoredLevel);
   const [harvestingIds, setHarvestingIds] = useState<string[]>([]);
@@ -120,7 +125,7 @@ export function GameScreen() {
     doubled,
   });
   const payout = reward.total;
-  const blockedIds = blockedKernelIds(obstacles);
+  const blockedIds = new Set([...blockedKernelIds(obstacles), ...dormantKernelIds(level.kernels)]);
   // Keep the shipped playfield visually identical to the approved React demo.
   // Its full cob is part of the background composition; adding another cob or
   // core behind CornCob makes the board look doubled and breaks its alignment.
@@ -140,7 +145,10 @@ export function GameScreen() {
     const run = store.save.activeLevelRun;
     if (!run || run.levelId !== levelId) return;
     const fresh = resetLevel(source);
-    setLevel({ ...fresh, kernels: harvestKernels(fresh.kernels, run.harvestedIds) });
+    setLevel({
+      ...fresh,
+      kernels: restoreCornVarietyState(harvestKernels(fresh.kernels, run.harvestedIds), fresh.columns),
+    });
     setFoundWords(run.foundWords);
     setInCoins(run.earnedCoins);
     setToolsUsed(run.toolsUsed);
@@ -230,7 +238,10 @@ export function GameScreen() {
       }
       const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, result.harvestIds.length - 1) * 70;
       setTimeout(() => {
-        setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, result.harvestIds) }));
+        setLevel(prev => {
+          const harvested = harvestKernels(prev.kernels, result.harvestIds);
+          return { ...prev, kernels: wakeDormantNeighbors(harvested, result.harvestIds, prev.columns) };
+        });
         setObstacles(prev => advanceObstacles(prev, result.harvestIds));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
         setInCoins(v => v + coinsForWord(result.word) + weatherCoinBonus(source.weather, result.word));
@@ -256,7 +267,14 @@ export function GameScreen() {
     }
     setTimeout(() => setStatus('idle'), store.save.settings.reducedMotion ? 120 : 480);
   };
-  const unusedPath = () => findDiscoverablePath(level.kernels, level.columns, WORD_LIST, WORD_LIST, foundWords, level.hintPaths);
+  const unusedPath = () => findDiscoverablePath(
+    level.kernels.map(kernel => isDormantKernel(kernel) ? { ...kernel, harvested: true } : kernel),
+    level.columns,
+    WORD_LIST,
+    WORD_LIST,
+    foundWords,
+    level.hintPaths,
+  );
   const useTool = (tool: Tool) => {
     if (tool === 'cornPicker') {
       if (!store.save.inventory.cornPicker) { setOutOf('cornPicker'); return; }
@@ -290,7 +308,10 @@ export function GameScreen() {
     setHarvestingIds([kernel.id]);
     setObstacles(value => clearObstacle(value, kernel.id));
     setTimeout(() => {
-      setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, [kernel.id]) }));
+      setLevel(prev => {
+        const harvested = harvestKernels(prev.kernels, [kernel.id]);
+        return { ...prev, kernels: wakeDormantNeighbors(harvested, [kernel.id], prev.columns) };
+      });
       setInCoins(v => v + 8);
       setHarvestingIds([]);
     }, 380);
@@ -317,7 +338,7 @@ export function GameScreen() {
       longestWord: longest === '—' ? '' : longest,
       completedGoalIds: starResult.completedGoalIds,
     });
-    router.replace('/(tabs)/map');
+    router.replace(`/map/${chapterIndexForLevel(levelId) + 1}`);
   };
   const doubleReward = async () => {
     const result = await showRewardedAd('double_coins', store.save.adFree);

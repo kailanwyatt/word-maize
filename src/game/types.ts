@@ -14,6 +14,7 @@ export type Kernel = {
   letter: string;
   harvested: boolean;
   variety: CornVariety;
+  dormant?: boolean;
 };
 
 export type Point = { x: number; y: number };

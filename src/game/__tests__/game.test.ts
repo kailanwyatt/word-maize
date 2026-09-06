@@ -21,6 +21,7 @@ import { evaluateLevelStars, objectiveComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
+import { dormantKernelIds, restoreCornVarietyState, wakeDormantNeighbors } from '../cornVarieties';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
   id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'sweet',
@@ -352,6 +353,34 @@ describe('levels and powerup search', () => {
     const reset = resetLevel({ ...level, shuffleOnStart: true }, () => 0.2);
     expect(reset.kernels.map(k => k.id)).toEqual(level.kernels.map(k => k.id));
     expect(reset.kernels.some((kernel, index) => kernel.letter !== level.kernels[index].letter)).toBe(true);
+  });
+});
+
+describe('White Corn neighbor reveal', () => {
+  const white = (id: string, row: number, column: number, dormant = false): Kernel => ({
+    ...k(id, row, column), variety: 'white', dormant,
+  });
+
+  it('wakes vertically and cylindrically adjacent sleeping kernels', () => {
+    const harvested = { ...white('a', 2, 0), harvested: true };
+    const above = white('b', 1, 0, true);
+    const acrossSeam = white('c', 2, 7, true);
+    const far = white('d', 4, 4, true);
+    const next = wakeDormantNeighbors([harvested, above, acrossSeam, far], ['a'], 8);
+    expect(dormantKernelIds(next)).toEqual(new Set(['d']));
+  });
+
+  it('restores awakened state from harvested positions in a saved run', () => {
+    const harvested = { ...white('a', 2, 0), harvested: true };
+    const sleeping = white('b', 2, 1, true);
+    expect(dormantKernelIds(restoreCornVarietyState([harvested, sleeping], 8))).toEqual(new Set());
+  });
+
+  it('authors a small readable set of sleeping kernels only on White Corn levels', () => {
+    const whiteLevels = LEVELS.filter(level => level.cornType === 'white');
+    expect(whiteLevels.every(level => dormantKernelIds(level.kernels).size === 3)).toBe(true);
+    expect(LEVELS.filter(level => level.cornType !== 'white').every(level => dormantKernelIds(level.kernels).size === 0)).toBe(true);
+    expect(LEVELS.find(level => level.id === 13)?.tutorial.join(' ')).toMatch(/sleeping kernels/i);
   });
 });
 

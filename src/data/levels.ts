@@ -321,6 +321,14 @@ function makeLevel(
   const columns = rows[0].length;
   const config = progression(id, targetHarvestPercent);
   const cornType = cornTypeForLevel(id);
+  const applyVarietySetup = (kernels: ReturnType<typeof kernelsFromRows>) => kernels.map(kernel => ({
+    ...kernel,
+    dormant: cornType === 'white' && kernel.layer === 0 && (
+      (kernel.row === 1 && kernel.column === 0)
+      || (kernel.row === 3 && kernel.column === columns - 1)
+      || (kernel.row === 5 && kernel.column === 1)
+    ),
+  }));
   const baseObstacleKind = id === 36 ? 'web'
     : id === 48 || id === 52 ? 'frost'
     : id >= 8 && id <= 15 ? 'caterpillar'
@@ -369,13 +377,18 @@ function makeLevel(
     name: LEVEL_NAMES[id - 1] ?? `Level ${id}`,
     rows: rows.length,
     columns,
-    kernels: [...kernelsFromRows(rows, cornType), ...underKernels(under, cornType)],
+    kernels: applyVarietySetup([...kernelsFromRows(rows, cornType), ...underKernels(under, cornType)]),
     targetHarvestPercent: config.target,
     objective: config.objective,
     starGoals: [...config.stars] as [StarGoal, StarGoal],
     rewardCoins: config.reward,
     guaranteedWords: [...config.words],
-    tutorial: [...config.tutorial, ...obstacleTutorial, ...weatherTutorial],
+    tutorial: [
+      ...config.tutorial,
+      ...(id === 13 ? ['White Corn has sleeping kernels marked with a husk vein. Harvest beside one to wake its letter.'] : []),
+      ...obstacleTutorial,
+      ...weatherTutorial,
+    ],
     story: 'story' in config ? config.story : undefined,
     shuffleOnStart: 'shuffle' in config ? config.shuffle : id > 10,
     rotationEnabled: true,
