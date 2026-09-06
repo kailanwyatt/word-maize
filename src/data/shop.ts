@@ -13,9 +13,9 @@ export type ShopProduct = {
 };
 
 export const TOOL_INFO: Record<ToolId, { title: string; blurb: string }> = {
-  scarecrow: { title: 'Scarecrow', blurb: 'Highlights the first letter of a hidden word.' },
-  butterBrush: { title: 'Butter Brush', blurb: 'Highlights the letters of a hidden word around the cob.' },
-  cornPicker: { title: 'Corn Picker', blurb: 'Remove any single kernel from the cob.' },
+  scarecrow: { title: 'Scarecrow', blurb: 'Clears a crow, or highlights the first letter of a useful word.' },
+  butterBrush: { title: 'Butter Brush', blurb: 'Clears weeds, pests, webs, or frost—or reveals a useful word path.' },
+  cornPicker: { title: 'Corn Picker', blurb: 'Harvests one visible kernel immediately, including a squirrel’s target.' },
 };
 
 export const SHOP_PRODUCTS: ShopProduct[] = [
@@ -80,10 +80,10 @@ export type CoinToolOffer = {
 };
 
 export const COIN_TOOL_OFFERS: CoinToolOffer[] = [
-  { id: 'coin-scarecrow', title: 'Scarecrow Stake', blurb: 'One Scarecrow to mark the start of a hidden word.', coins: 80, tools: { scarecrow: 1 } },
-  { id: 'coin-brush', title: 'Butter Brush Tin', blurb: 'One Butter Brush to paint a whole hidden word.', coins: 100, tools: { butterBrush: 1 } },
-  { id: 'coin-picker', title: 'Corn Picker', blurb: 'One Corn Picker to pluck a stubborn kernel.', coins: 120, tools: { cornPicker: 1 } },
-  { id: 'coin-belt', title: 'Field Belt', blurb: 'One of each tool, packed for a hard cob.', coins: 260, tools: { scarecrow: 1, butterBrush: 1, cornPicker: 1 } },
+  { id: 'coin-scarecrow', title: 'Scarecrow Stake', blurb: 'One Scarecrow for a crow or a helpful starting letter.', coins: 220, tools: { scarecrow: 1 } },
+  { id: 'coin-brush', title: 'Butter Brush Tin', blurb: 'One Butter Brush for an obstacle or a useful word path.', coins: 280, tools: { butterBrush: 1 } },
+  { id: 'coin-picker', title: 'Corn Picker', blurb: 'One Corn Picker to harvest a stubborn visible kernel.', coins: 340, tools: { cornPicker: 1 } },
+  { id: 'coin-belt', title: 'Field Belt', blurb: 'One of each tool, packed for a hard cob.', coins: 720, tools: { scarecrow: 1, butterBrush: 1, cornPicker: 1 } },
 ];
 
 export function coinOfferForTool(tool: ToolId) {
@@ -103,11 +103,11 @@ export function validateCoinOffers(offers: CoinToolOffer[] = COIN_TOOL_OFFERS): 
 }
 
 export const DAILY_REWARDS: { day: number; coins?: number; tools?: Partial<Inventory>; chest?: boolean }[] = [
-  { day: 1, coins: 50 },
+  { day: 1, coins: 40 },
   { day: 2, tools: { scarecrow: 1 } },
-  { day: 3, coins: 80 },
+  { day: 3, coins: 60 },
   { day: 4, tools: { butterBrush: 1 } },
-  { day: 5, coins: 120 },
+  { day: 5, coins: 100 },
   { day: 6, tools: { cornPicker: 1 } },
-  { day: 7, coins: 250, tools: { scarecrow: 2, butterBrush: 1, cornPicker: 1 }, chest: true },
+  { day: 7, coins: 180, tools: { scarecrow: 1, butterBrush: 1, cornPicker: 1 }, chest: true },
 ];

@@ -53,6 +53,7 @@ export type Level = {
   rewardCoins: number;
   guaranteedWords: string[];
   tutorial: string[];
+  educationalFact?: string;
   story?: { speaker: string; title: string; text: string };
   shuffleOnStart: boolean;
   rotationEnabled: boolean;
@@ -84,6 +85,8 @@ export type LevelProgress = {
 };
 
 export const ENERGY_MAX = 5;
+// Five attempts with a 20-minute refill keeps an MVP session generous while
+// still giving energy, daily rewards, and rewarded refills a clear purpose.
 export const ENERGY_REGEN_MS = 20 * 60 * 1000;
 export const STAR_GATE = 36;
 export const WORLD_LEVEL_COUNT = 15;

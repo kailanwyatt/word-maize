@@ -4,7 +4,7 @@ import { exposedKernels, kernelId, resetLevel, shuffleExposedLetters } from '../
 import { validateWord, WORD_LIST } from '../dictionary';
 import { canSpendEnergy, replenishEnergy } from '../energy';
 import { CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, chapterStarCount, farmQuote, isChapterUnlocked, secondaryObjective } from '../campaign';
-import { SHOP_PRODUCTS, COIN_TOOL_OFFERS, validateShopProducts, validateCoinOffers } from '../../data/shop';
+import { SHOP_PRODUCTS, COIN_TOOL_OFFERS, TOOL_INFO, validateShopProducts, validateCoinOffers } from '../../data/shop';
 import { clampInventoryAmount, completionReward, purchaseCoinOffer } from '../economy';
 import { hitKernel } from '../../components/CornCob/layout';
 import { classifyMovement, resolvePointerRelease } from '../gestures';
@@ -14,7 +14,7 @@ import { wrapColumn, signedColumnOffset, snapRotation, rotationFromDrag, finishR
 import { coinsForWord, starsForLevel } from '../scoring';
 import { canSubmitSelection, evaluateSubmission, tapKernel } from '../selection';
 import { ENERGY_REGEN_MS, Kernel } from '../types';
-import { cornMechanicCountForLevel, isLevelUnlocked, LEVELS } from '../../data/levels';
+import { CORN_EDUCATIONAL_FACTS, cornMechanicCountForLevel, isLevelUnlocked, LEVELS } from '../../data/levels';
 import { migrateSave, nextDailyDay, SAVE_VERSION } from '../../store/types';
 import { validateLevels } from '../levelValidation';
 import { evaluateLevelStars, objectiveComplete } from '../scoring';
@@ -282,7 +282,7 @@ describe('energy and stars', () => {
     expect(starsForLevel(95, 70, 4)).toBe(3);
   });
   it('pays more coins for longer words', () => {
-    expect(coinsForWord('HAY')).toBe(30);
+    expect(coinsForWord('HAY')).toBe(15);
     expect(coinsForWord('HARVEST')).toBeGreaterThan(coinsForWord('CORN'));
   });
 });
@@ -291,12 +291,12 @@ describe('economy policy', () => {
   it('awards authored and performance bonuses only on the first clear', () => {
     const first = completionReward({ wordCoins: 90, levelReward: 100, harvestPercent: 55, harvestTarget: 45, firstClear: true });
     const replay = completionReward({ wordCoins: 90, levelReward: 100, harvestPercent: 55, harvestTarget: 45, firstClear: false });
-    expect(first).toMatchObject({ wordCoins: 90, firstClearCoins: 100, performanceCoins: 120, total: 310 });
+    expect(first).toMatchObject({ wordCoins: 90, firstClearCoins: 100, performanceCoins: 70, total: 260 });
     expect(replay).toMatchObject({ wordCoins: 90, firstClearCoins: 0, performanceCoins: 0, total: 90 });
   });
 
   it('doubles the eligible payout exactly once', () => {
-    expect(completionReward({ wordCoins: 40, levelReward: 100, harvestPercent: 45, harvestTarget: 45, firstClear: true, doubled: true }).total).toBe(440);
+    expect(completionReward({ wordCoins: 40, levelReward: 100, harvestPercent: 45, harvestTarget: 45, firstClear: true, doubled: true }).total).toBe(380);
   });
 
   it('keeps inventory grants within safe integer bounds', () => {
@@ -354,6 +354,64 @@ describe('levels and powerup search', () => {
     const reset = resetLevel({ ...level, shuffleOnStart: true }, () => 0.2);
     expect(reset.kernels.map(k => k.id)).toEqual(level.kernels.map(k => k.id));
     expect(reset.kernels.some((kernel, index) => kernel.letter !== level.kernels[index].letter)).toBe(true);
+  });
+});
+
+describe('tutorial clarity and campaign balance', () => {
+  it('introduces each special corn with one short fact and its mechanic', () => {
+    const introductions = [
+      [1, /sweet corn/i],
+      [13, /white corn/i],
+      [21, /flint corn/i],
+      [31, /popcorn/i],
+      [41, /blue corn/i],
+      [51, /golden-yellow corn/i],
+    ] as const;
+    introductions.forEach(([id, factPattern]) => {
+      const level = LEVELS.find(item => item.id === id)!;
+      expect(level.educationalFact).toBe(CORN_EDUCATIONAL_FACTS[id]);
+      expect(level.educationalFact).toMatch(factPattern);
+      expect(level.tutorial.length).toBeGreaterThan(0);
+    });
+    expect(LEVELS.find(level => level.id === 41)?.educationalFact).toMatch(/indigo-purple|anthocyanin/i);
+  });
+
+  it('introduces one obstacle family at a time before combining them', () => {
+    const firstObstacleLevel = (kind: string) => LEVELS.find(level => level.obstacles.some(obstacle => obstacle.kind === kind))?.id;
+    expect(firstObstacleLevel('caterpillar')).toBe(8);
+    expect(firstObstacleLevel('crow')).toBe(16);
+    expect(firstObstacleLevel('squirrel')).toBe(20);
+    expect(firstObstacleLevel('weed')).toBe(32);
+    expect(firstObstacleLevel('web')).toBe(36);
+    expect(firstObstacleLevel('frost')).toBe(48);
+    expect(LEVELS.find(level => level.id === 31)?.obstacles).toHaveLength(0);
+    expect(LEVELS.find(level => level.id === 32)?.tutorial.join(' ')).toMatch(/Butter Brush/i);
+  });
+
+  it('teaches every tool before or when its specialized counter appears', () => {
+    expect(LEVELS.find(level => level.id === 3)?.tutorial.join(' ')).toMatch(/Corn Picker/i);
+    expect(LEVELS.find(level => level.id === 6)?.tutorial.join(' ')).toMatch(/Scarecrow/i);
+    expect(LEVELS.find(level => level.id === 8)?.tutorial.join(' ')).toMatch(/Butter Brush/i);
+    expect(TOOL_INFO.scarecrow.blurb).toMatch(/crow/i);
+    expect(TOOL_INFO.butterBrush.blurb).toMatch(/weeds|pests|webs|frost/i);
+    expect(TOOL_INFO.cornPicker.blurb).toMatch(/kernel/i);
+  });
+
+  it('gives special-corn introductions a forgiving goal before difficulty rises', () => {
+    for (const [intro, followup] of [[21, 25], [31, 35], [41, 45], [51, 55]] as const) {
+      const first = LEVELS.find(level => level.id === intro)!;
+      const later = LEVELS.find(level => level.id === followup)!;
+      expect(first.objective.harvestPercent).toBeLessThanOrEqual(later.objective.harvestPercent);
+      expect(first.objective.minLongestWord ?? 0).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it('keeps first-clear rewards and coin tool prices inside the intended economy bands', () => {
+    const lateRewards = LEVELS.filter(level => level.id >= 11).map(level => level.rewardCoins);
+    expect(Math.min(...lateRewards)).toBeGreaterThanOrEqual(200);
+    expect(Math.max(...lateRewards)).toBeLessThanOrEqual(450);
+    expect(COIN_TOOL_OFFERS.slice(0, 3).map(offer => offer.coins)).toEqual([220, 280, 340]);
+    expect(COIN_TOOL_OFFERS[3].coins).toBeLessThan(220 + 280 + 340);
   });
 });
 
@@ -546,9 +604,9 @@ describe('farm obstacles', () => {
 
   it('authors web and frost introductions on their planned levels', () => {
     expect(LEVELS.find(level => level.id === 36)?.obstacles.some(obstacle => obstacle.kind === 'web')).toBe(true);
-    expect(LEVELS.find(level => level.id === 36)?.tutorial.join(' ')).toMatch(/Spider webs/i);
+    expect(LEVELS.find(level => level.id === 36)?.tutorial.join(' ')).toMatch(/spider web/i);
     expect(LEVELS.find(level => level.id === 48)?.obstacles.some(obstacle => obstacle.kind === 'frost')).toBe(true);
-    expect(LEVELS.find(level => level.id === 48)?.tutorial.join(' ')).toMatch(/Tap a frozen kernel/i);
+    expect(LEVELS.find(level => level.id === 48)?.tutorial.join(' ')).toMatch(/Frost coats one kernel/i);
   });
 });
 
@@ -631,7 +689,7 @@ describe('store catalog', () => {
     const offer = COIN_TOOL_OFFERS[0];
     const inventory = { scarecrow: 1, butterBrush: 0, cornPicker: 0 };
     expect(purchaseCoinOffer(20, inventory, offer.coins, offer.tools).ok).toBe(false);
-    expect(purchaseCoinOffer(80, inventory, offer.coins, offer.tools)).toEqual({
+    expect(purchaseCoinOffer(offer.coins, inventory, offer.coins, offer.tools)).toEqual({
       ok: true,
       coins: 0,
       inventory: { scarecrow: 2, butterBrush: 0, cornPicker: 0 },
@@ -679,7 +737,7 @@ describe('save migration', () => {
     expect(migrated.coins).toBe(275);
     expect(migrated.currentLevelId).toBe(4);
     expect(migrated.claimedRestorations).toEqual([]);
-    expect(migrated.inventory).toEqual({ scarecrow: 9, butterBrush: 2, cornPicker: 3 });
+    expect(migrated.inventory).toEqual({ scarecrow: 9, butterBrush: 2, cornPicker: 1 });
     expect(migrated.seenLevelIntros).toEqual([]);
     expect(migrated.endlessHarvest).toEqual({ bestStage: 0, active: null });
   });

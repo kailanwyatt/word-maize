@@ -11,6 +11,7 @@ This repository contains the Expo + React Native MVP, including the approved cob
 - [Campaign and content](docs/CAMPAIGN_CONTENT.md) — Levels 1–60, worlds, progression, tutorials, maps, and Endless Harvest
 - [Technical architecture](docs/TECHNICAL_ARCHITECTURE.md) — runtime, modules, save format, asset pipeline, testing, and release constraints
 - [Corn art contract](docs/CORN_VARIETIES_AND_ENDLESS_PLAN.md) — approved sprite geometry and variety production rules
+- [Tutorial and balance specification](docs/TUTORIAL_AND_BALANCE_SPEC.md) — mechanic introductions, educational field notes, difficulty, energy, rewards, and tool pricing
 
 Older planning and handoff files remain useful historical context, but the documents above describe the current implementation.
 

@@ -615,6 +615,7 @@ export function GameScreen() {
             <Text style={styles.modalTitle}>{source.story?.title ?? `Level ${levelId}`}</Text>
             {source.story ? <Text style={styles.storyText}>{source.story.text}</Text> : null}
             {source.tutorial.map((line, index) => <Text key={line} style={styles.tutorialLine}>{index + 1}. {line}</Text>)}
+            {source.educationalFact ? <View style={styles.fieldNote}><Text style={styles.fieldNoteText}>{source.educationalFact}</Text></View> : null}
             <Text style={styles.goalHeading}>GOAL</Text>
             <Text style={styles.stats}>Harvest {source.objective.harvestPercent}%{source.objective.minWords ? ` and find ${source.objective.minWords} words` : ''}{source.objective.minLongestWord ? ` with a ${source.objective.minLongestWord}-letter word` : ''}{source.objective.minLayersRevealed ? ` and reveal ${source.objective.minLayersRevealed} hidden kernel${source.objective.minLayersRevealed > 1 ? 's' : ''}` : ''}.</Text>
             <View style={{ height: 12 }} />
@@ -661,5 +662,7 @@ const styles = StyleSheet.create({
   storyCharacter: { width: 104, height: 126, resizeMode: 'contain', alignSelf: 'center', marginTop: -8, marginBottom: 4 },
   storyText: { color: '#51351f', fontWeight: '700', fontSize: 16, lineHeight: 23, textAlign: 'center', marginBottom: 12 },
   tutorialLine: { color: '#51351f', fontWeight: '700', fontSize: 14, lineHeight: 21, marginBottom: 5 },
+  fieldNote: { marginTop: 8, marginBottom: 4, borderRadius: 12, borderWidth: 1.5, borderColor: '#d6a83f', backgroundColor: '#fff2b9', paddingHorizontal: 12, paddingVertical: 9 },
+  fieldNoteText: { color: '#553819', fontWeight: '800', fontSize: 13, lineHeight: 18, textAlign: 'center' },
   goalHeading: { color: '#5d8b31', fontWeight: '900', fontSize: 13, letterSpacing: 1.5, textAlign: 'center', marginTop: 8 },
 });

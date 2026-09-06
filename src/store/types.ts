@@ -58,7 +58,7 @@ export const defaultSave = (): GameSave => ({
   coins: 0,
   energy: 5,
   energyUpdatedAt: Date.now(),
-  inventory: { scarecrow: 3, butterBrush: 2, cornPicker: 3 },
+  inventory: { scarecrow: 2, butterBrush: 2, cornPicker: 1 },
   currentLevelId: 1,
   levels: {},
   settings: { music: true, sfx: true, haptics: true, notifications: false, reducedMotion: false },

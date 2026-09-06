@@ -39,6 +39,15 @@ const LATE_CAMPAIGN_WORDS: string[][] = [
 
 const WORLD_NAMES = ['Sweet Corn Fields', 'Crow Creek', 'Orchard Hollow', 'Moonlight Maize'] as const;
 
+export const CORN_EDUCATIONAL_FACTS: Partial<Record<number, string>> = {
+  1: 'FIELD NOTE · Sweet corn is harvested while the kernels are young, tender, and naturally high in sugar.',
+  13: 'FIELD NOTE · White corn is naturally pale because its kernels contain very little colored pigment.',
+  21: 'FIELD NOTE · Flint corn has a hard outer layer. Real flint varieties can be red, orange, gold, blue, or nearly black.',
+  31: 'FIELD NOTE · A popcorn kernel holds a little water. Heat turns it to steam until the kernel bursts open.',
+  41: 'FIELD NOTE · Real blue corn is usually dark indigo-purple or nearly black—not bright blue. Its color comes from anthocyanin pigments.',
+  51: 'FIELD NOTE · Golden-yellow corn gets much of its color from naturally occurring carotenoid pigments.',
+};
+
 function worldForLevel(id: number) {
   return WORLD_NAMES[Math.min(3, Math.floor((id - 1) / 15))];
 }
@@ -76,7 +85,7 @@ function chapterOneLate(id: number) {
   } : undefined;
   return {
     target,
-    reward: 140 + id * 12,
+    reward: 150 + id * 5,
     words,
     objective: id % 3 === 0 ? { harvestPercent: target, minWords: 5 + Math.floor(id / 20) } : { harvestPercent: target, minLongestWord: longest },
     stars: [
@@ -97,8 +106,11 @@ function varietyProgression(id: number) {
   const chapter = Math.floor((id - 1) / 15);
   const slot = (id - 1) % 15;
   const archetype = slot % 5;
-  const longest = Math.min(8, 4 + chapter);
-  const harvest = Math.min(78, 54 + chapter * 4 + Math.floor(slot / 5) * 3);
+  const baselineLongest = Math.min(8, 4 + chapter);
+  const baselineHarvest = Math.min(78, 54 + chapter * 4 + Math.floor(slot / 5) * 3);
+  // New varieties begin on forgiving cobs before returning to the chapter curve.
+  const longest = [21, 31, 41, 51].includes(id) ? 5 : baselineLongest;
+  const harvest = id === 21 ? 58 : id === 31 ? 58 : id === 41 ? 60 : id === 51 ? 62 : baselineHarvest;
   const story = [16, 30, 31, 45, 46, 60].includes(id) ? {
     speaker: id === 60 ? 'Farmer May' : 'Patch',
     title: LEVEL_NAMES[id - 1],
@@ -106,16 +118,16 @@ function varietyProgression(id: number) {
       ? 'Every farm is shining again. The Harvest Festival can finally begin!'
       : `The road through ${worldForLevel(id)} is changing. One strong harvest will carry us forward.`,
   } : undefined;
-  const tutorial = id === 16 ? ['Crows swoop in after two valid words. The Scarecrow clears one before it blocks a letter.']
-    : id === 20 ? ['Squirrels guard a kernel immediately. Use a Corn Picker to remove it.']
-    : id === 31 ? ['Weeds lock a kernel in place. The Butter Brush clears them without harvesting the letter.']
+  const tutorial = id === 16 ? ['Crows swoop in after two valid words. Harvest the marked letter first, or use a Scarecrow to chase the crow away.']
+    : id === 20 ? ['A squirrel guards one letter immediately. Use a Corn Picker on that kernel before building your word.']
+    : id === 32 ? ['Weeds lock one kernel. Activate the Butter Brush, then tap the vine-covered kernel to clear it.']
     : id === 46 ? ['Moonlight Maize combines every skill from the valley.'] : [];
 
   if (archetype === 1) {
     const minWords = 6 + chapter;
     return {
       target: Math.min(80, harvest + 4),
-      reward: 140 + id * 12,
+      reward: 150 + id * 5,
       words,
       objective: { harvestPercent: Math.min(80, harvest + 4), minWords },
       stars: [
@@ -132,7 +144,7 @@ function varietyProgression(id: number) {
     const layers = chapter === 1 ? 2 : 3;
     return {
       target: Math.max(52, harvest - 4),
-      reward: 140 + id * 12,
+      reward: 150 + id * 5,
       words,
       objective: { harvestPercent: Math.max(52, harvest - 4), minLayersRevealed: layers },
       stars: [
@@ -150,7 +162,7 @@ function varietyProgression(id: number) {
     const target = Math.max(50, harvest - 10);
     return {
       target,
-      reward: 140 + id * 12,
+      reward: 150 + id * 5,
       words,
       objective: { harvestPercent: target, minLongestWord: longWord },
       stars: [
@@ -167,7 +179,7 @@ function varietyProgression(id: number) {
     const minWords = 5 + chapter;
     return {
       target: harvest,
-      reward: 140 + id * 12,
+      reward: 150 + id * 5,
       words,
       objective: { harvestPercent: harvest, minWords, minLongestWord: longest },
       stars: [
@@ -182,7 +194,7 @@ function varietyProgression(id: number) {
   }
   return {
     target: harvest,
-    reward: 140 + id * 12,
+    reward: 150 + id * 5,
     words,
     objective: { harvestPercent: harvest, minLongestWord: longest },
     stars: [
@@ -228,7 +240,7 @@ const CHAPTER_ONE = {
       { id: 'long-word-5', kind: 'longestWord', value: 5, label: 'Find a 5-letter word' },
       { id: 'no-tools', kind: 'noTools', label: 'Finish without a tool' },
     ],
-    tutorial: ['Every accepted word fills the basket and earns coins.'],
+    tutorial: ['Every accepted word fills the basket and earns coins.', 'The Corn Picker harvests one visible kernel immediately. Save it for a letter that blocks your plan.'],
     story: { speaker: 'Farmer May', title: 'A Brighter Harvest', text: 'The field is glowing again. Gather enough grain and we can reopen the lower path.' },
   },
   4: {
@@ -256,7 +268,7 @@ const CHAPTER_ONE = {
       { id: 'long-word-6', kind: 'longestWord', value: 6, label: 'Find a 6-letter word' },
       { id: 'no-tools', kind: 'noTools', label: 'Finish without a tool' },
     ],
-    tutorial: ['The Scarecrow can reveal the start of a useful word when you are stuck.'],
+    tutorial: ['The Scarecrow highlights the first letter of a useful word. Later, it can also chase away crows.'],
     story: { speaker: 'Patch', title: 'The Creek Road', text: 'The old creek road is just ahead. Strong harvests will clear the way.' },
   },
   7: {
@@ -277,7 +289,7 @@ const CHAPTER_ONE = {
     ],
     tutorial: [
       'Newly revealed kernels can be used immediately in later words.',
-      'Caterpillars count down after each valid word. Harvest their kernel or use the Butter Brush before they settle in.',
+      'A caterpillar counts down after each valid word. Harvest its marked kernel, or activate the Butter Brush and tap it before the letter locks.',
     ],
     story: { speaker: 'Patch', title: 'Hungry Visitors', text: 'Something is chewing the stalks! Harvest those caterpillars or brush them off before they lock a letter.' },
   },
@@ -356,9 +368,9 @@ function makeLevel(
   const baseObstacleKind = id === 36 ? 'web'
     : id === 48 || id === 52 ? 'frost'
     : id >= 8 && id <= 15 ? 'caterpillar'
-    : id >= 16 && id <= 25 ? (id % 4 === 0 ? 'squirrel' : 'crow')
+    : id >= 16 && id <= 25 ? (id === 20 || id === 24 ? 'squirrel' : 'crow')
     : id >= 26 && id <= 30 ? 'squirrel'
-    : id >= 31 && id <= 45 ? 'weed' : undefined;
+    : id >= 32 && id <= 45 ? 'weed' : undefined;
   const masteryObstacles = id === 46 ? ['crow'] as const
     : id === 49 ? ['squirrel'] as const
     : id === 54 ? ['crow', 'frost'] as const
@@ -381,18 +393,18 @@ function makeLevel(
       ? { kind: 'wind' as const, interval: 2 }
       : undefined;
   const weatherTutorial = id === 38
-    ? ['Rain is helping the crop. Every accepted word earns bonus coins.']
+    ? ['Rain feeds the crop. Every accepted word earns bonus coins while the shower lasts.']
     : id === 37
-      ? ['Drought rewards careful harvesting. Words with 5 or more letters earn bonus coins.']
+      ? ['Drought dries the field. Build words with 5 or more letters to earn a careful-harvest bonus.']
     : id === 47
-      ? ['Wind rotates the cob one step after every two accepted words.']
+      ? ['Wind rotates the cob one step after every two accepted words. Your selected letters stay safe.']
       : id === 54
-        ? ['Storms combine driving rain with sudden cob rotation every two accepted words.']
+        ? ['A storm combines rain with a sudden cob rotation every two accepted words. Watch the gust warning after submitting.']
       : [];
   const obstacleTutorial = id === 36
-    ? ['Spider webs lock covered kernels. Clear the web with the Butter Brush before using those letters.']
+    ? ['A spider web locks its covered kernel. Activate the Butter Brush, then tap the web before choosing that letter.']
     : id === 48
-      ? ['Frost coats individual kernels. Tap a frozen kernel once to crack the ice, then tap it again to select its letter.']
+      ? ['Frost coats one kernel. Tap it once to crack the ice, then tap it again to choose the revealed letter.']
       : [];
   return {
     id,
@@ -417,6 +429,7 @@ function makeLevel(
       ...obstacleTutorial,
       ...weatherTutorial,
     ],
+    educationalFact: CORN_EDUCATIONAL_FACTS[id],
     story: 'story' in config ? config.story : undefined,
     shuffleOnStart: 'shuffle' in config ? config.shuffle : id > 10,
     rotationEnabled: true,

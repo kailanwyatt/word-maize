@@ -3,11 +3,11 @@ import { Level, StarGoal } from './types';
 export function coinsForWord(word: string): number {
   const length = word.trim().length;
   if (length < 3) return 0;
-  return length * 10 + Math.max(0, length - 4) * 8;
+  return length * 5 + Math.max(0, length - 4) * 7;
 }
 
 export function completionBonus(percent: number, target: number): number {
-  return 80 + Math.max(0, percent - target) * 4;
+  return 50 + Math.max(0, percent - target) * 2;
 }
 
 export function starsForLevel(percent: number, target: number, wordsFound: number): 0 | 1 | 2 | 3 {
