@@ -52,6 +52,18 @@ export function cornTypeForLevel(id: number): CornVariety {
   return 'golden';
 }
 
+export function cornMechanicCountForLevel(id: number) {
+  const type = cornTypeForLevel(id);
+  const start = type === 'white' ? 13 : type === 'flint' ? 21 : type === 'popcorn' ? 31 : type === 'blue' ? 41 : type === 'golden' ? 51 : 1;
+  const offset = id - start;
+  if (type === 'sweet') return 0;
+  if (type === 'white') return offset === 0 ? 1 : offset < 3 ? 2 : 3;
+  if (type === 'flint') return offset === 0 ? 2 : offset < 3 ? 3 : offset < 6 ? 4 : 5;
+  if (type === 'popcorn') return offset === 0 ? 2 : offset < 4 ? 3 : 4;
+  if (type === 'blue') return offset === 0 ? 2 : offset < 4 ? 4 : 6;
+  return offset === 0 ? 2 : offset < 4 ? 3 : offset < 7 ? 4 : 5;
+}
+
 function chapterOneLate(id: number) {
   const words = LATE_CAMPAIGN_WORDS[id - 11] ?? ['CORN', 'FARM', 'HARVEST'];
   const chapterIndex = (id - 1) % 15;
@@ -321,42 +333,25 @@ function makeLevel(
   const columns = rows[0].length;
   const config = progression(id, targetHarvestPercent);
   const cornType = cornTypeForLevel(id);
+  const mechanicCount = cornMechanicCountForLevel(id);
+  const positions = {
+    white: [[1, 0], [3, columns - 1], [5, 1]],
+    flint: [[0, 2], [1, columns - 2], [3, 1], [4, columns - 1], [6, 3]],
+    popcorn: [[1, 1], [2, columns - 2], [4, 2], [6, columns - 3]],
+    blue: [[0, 1], [1, columns - 2], [2, 3], [4, columns - 1], [5, 2], [6, columns - 3]],
+    golden: [[0, 2], [2, columns - 2], [3, 1], [5, columns - 1], [6, 3]],
+  } as const;
+  const activePositions = new Set((cornType === 'sweet' ? [] : positions[cornType])
+    .slice(0, mechanicCount)
+    .map(([row, column]) => `${row}:${column}`));
   const applyVarietySetup = (kernels: ReturnType<typeof kernelsFromRows>) => kernels.map(kernel => ({
     ...kernel,
-    dormant: cornType === 'white' && kernel.layer === 0 && (
-      (kernel.row === 1 && kernel.column === 0)
-      || (kernel.row === 3 && kernel.column === columns - 1)
-      || (kernel.row === 5 && kernel.column === 1)
-    ),
-    armored: cornType === 'flint' && kernel.layer === 0 && (
-      (kernel.row === 0 && kernel.column === 2)
-      || (kernel.row === 1 && kernel.column === columns - 2)
-      || (kernel.row === 3 && kernel.column === 1)
-      || (kernel.row === 4 && kernel.column === columns - 1)
-      || (kernel.row === 6 && kernel.column === 3)
-    ),
-    popKernel: cornType === 'popcorn' && kernel.layer === 0 && (
-      (kernel.row === 1 && kernel.column === 1)
-      || (kernel.row === 2 && kernel.column === columns - 2)
-      || (kernel.row === 4 && kernel.column === 2)
-      || (kernel.row === 6 && kernel.column === columns - 3)
-    ),
+    dormant: cornType === 'white' && kernel.layer === 0 && activePositions.has(`${kernel.row}:${kernel.column}`),
+    armored: cornType === 'flint' && kernel.layer === 0 && activePositions.has(`${kernel.row}:${kernel.column}`),
+    popKernel: cornType === 'popcorn' && kernel.layer === 0 && activePositions.has(`${kernel.row}:${kernel.column}`),
     popCharge: 0,
-    moonlit: cornType === 'blue' && kernel.layer === 0 && (
-      (kernel.row === 0 && kernel.column === 1)
-      || (kernel.row === 1 && kernel.column === columns - 2)
-      || (kernel.row === 2 && kernel.column === 3)
-      || (kernel.row === 4 && kernel.column === columns - 1)
-      || (kernel.row === 5 && kernel.column === 2)
-      || (kernel.row === 6 && kernel.column === columns - 3)
-    ),
-    festival: cornType === 'golden' && kernel.layer === 0 && (
-      (kernel.row === 0 && kernel.column === 2)
-      || (kernel.row === 2 && kernel.column === columns - 2)
-      || (kernel.row === 3 && kernel.column === 1)
-      || (kernel.row === 5 && kernel.column === columns - 1)
-      || (kernel.row === 6 && kernel.column === 3)
-    ),
+    moonlit: cornType === 'blue' && kernel.layer === 0 && activePositions.has(`${kernel.row}:${kernel.column}`),
+    festival: cornType === 'golden' && kernel.layer === 0 && activePositions.has(`${kernel.row}:${kernel.column}`),
   }));
   const baseObstacleKind = id === 36 ? 'web'
     : id === 48 || id === 52 ? 'frost'

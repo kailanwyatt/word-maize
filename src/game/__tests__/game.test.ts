@@ -14,13 +14,14 @@ import { wrapColumn, signedColumnOffset, snapRotation, rotationFromDrag, finishR
 import { coinsForWord, starsForLevel } from '../scoring';
 import { canSubmitSelection, evaluateSubmission, tapKernel } from '../selection';
 import { ENERGY_REGEN_MS, Kernel } from '../types';
-import { isLevelUnlocked, LEVELS } from '../../data/levels';
+import { cornMechanicCountForLevel, isLevelUnlocked, LEVELS } from '../../data/levels';
 import { migrateSave, nextDailyDay, SAVE_VERSION } from '../../store/types';
 import { validateLevels } from '../levelValidation';
 import { evaluateLevelStars, objectiveComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
+import { endlessDifficulty, generateEndlessLevel } from '../endless';
 import { advancePopCharge, dormantKernelIds, festivalCoinBonus, isMoonlitHidden, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../cornVarieties';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
@@ -376,9 +377,9 @@ describe('White Corn neighbor reveal', () => {
     expect(dormantKernelIds(restoreCornVarietyState([harvested, sleeping], 8))).toEqual(new Set());
   });
 
-  it('authors a small readable set of sleeping kernels only on White Corn levels', () => {
+  it('ramps sleeping kernels gradually across White Corn levels', () => {
     const whiteLevels = LEVELS.filter(level => level.cornType === 'white');
-    expect(whiteLevels.every(level => dormantKernelIds(level.kernels).size === 3)).toBe(true);
+    expect(whiteLevels.map(level => dormantKernelIds(level.kernels).size)).toEqual([1, 2, 2, 3, 3, 3, 3, 3]);
     expect(LEVELS.filter(level => level.cornType !== 'white').every(level => dormantKernelIds(level.kernels).size === 0)).toBe(true);
     expect(LEVELS.find(level => level.id === 13)?.tutorial.join(' ')).toMatch(/sleeping kernels/i);
   });
@@ -405,10 +406,10 @@ describe('Flint Corn armor', () => {
     expect(result.harvestIds).toEqual(['a']);
   });
 
-  it('restores cracked armor and authors five armored kernels per Flint level', () => {
+  it('restores cracked armor and ramps Flint difficulty', () => {
     expect(restoreFlintState([flint('a', 0, 0, true)], ['a'])[0].cracked).toBe(true);
     const flintLevels = LEVELS.filter(level => level.cornType === 'flint');
-    expect(flintLevels.every(level => level.kernels.filter(kernel => kernel.armored).length === 5)).toBe(true);
+    expect(flintLevels.map(level => level.kernels.filter(kernel => kernel.armored).length)).toEqual([2, 3, 3, 4, 4, 4, 5, 5, 5, 5]);
     expect(LEVELS.find(level => level.id === 21)?.tutorial.join(' ')).toMatch(/armored kernels/i);
   });
 });
@@ -435,10 +436,10 @@ describe('Popcorn charge', () => {
     expect(reducePopCharge([popcorn('c', 1, 1, 2)])[0].popCharge).toBe(1);
   });
 
-  it('restores charge and authors four marked kernels per Popcorn level', () => {
+  it('restores charge and ramps Popcorn difficulty', () => {
     expect(restorePopCharge([popcorn('a', 0, 0)], { a: 2 })[0].popCharge).toBe(2);
     const popcornLevels = LEVELS.filter(level => level.cornType === 'popcorn');
-    expect(popcornLevels.every(level => level.kernels.filter(kernel => kernel.popKernel).length === 4)).toBe(true);
+    expect(popcornLevels.map(level => level.kernels.filter(kernel => kernel.popKernel).length)).toEqual([2, 3, 3, 3, 4, 4, 4, 4, 4, 4]);
     expect(LEVELS.find(level => level.id === 31)?.tutorial.join(' ')).toMatch(/charge after every valid word/i);
   });
 });
@@ -453,9 +454,9 @@ describe('Blue Corn moonlit letters', () => {
     expect(isMoonlitHidden({ ...moonlit, moonlit: false }, 0.8)).toBe(false);
   });
 
-  it('authors six moonlit kernels per Blue Corn level', () => {
+  it('ramps moonlit kernels across Blue Corn levels', () => {
     const blueLevels = LEVELS.filter(level => level.cornType === 'blue');
-    expect(blueLevels.every(level => level.kernels.filter(kernel => kernel.moonlit).length === 6)).toBe(true);
+    expect(blueLevels.map(level => level.kernels.filter(kernel => kernel.moonlit).length)).toEqual([2, 4, 4, 4, 6, 6, 6, 6, 6, 6]);
     expect(LEVELS.find(level => level.id === 41)?.tutorial.join(' ')).toMatch(/bright center/i);
   });
 });
@@ -470,10 +471,37 @@ describe('Golden Corn festival kernels', () => {
     expect(festivalCoinBonus(kernels, ['c'], 'GRAIN')).toBe(0);
   });
 
-  it('authors five festival kernels per Golden Corn level', () => {
+  it('ramps festival kernels across Golden Corn levels', () => {
     const goldenLevels = LEVELS.filter(level => level.cornType === 'golden');
-    expect(goldenLevels.every(level => level.kernels.filter(kernel => kernel.festival).length === 5)).toBe(true);
+    expect(goldenLevels.map(level => level.kernels.filter(kernel => kernel.festival).length)).toEqual([2, 3, 3, 3, 4, 4, 4, 5, 5, 5]);
     expect(LEVELS.find(level => level.id === 51)?.tutorial.join(' ')).toMatch(/gold star/i);
+  });
+
+  it('exposes the authored mechanic intensity used by level validation and generation', () => {
+    expect([12, 13, 16, 21, 27, 31, 35, 41, 45, 51, 58, 60].map(cornMechanicCountForLevel))
+      .toEqual([0, 1, 3, 2, 5, 2, 4, 2, 6, 2, 5, 5]);
+  });
+});
+
+describe('Endless Harvest generation', () => {
+  it('generates the same validated cob for the same seed and stage', () => {
+    const first = generateEndlessLevel('harvest-2026', 7, LEVELS);
+    const second = generateEndlessLevel('harvest-2026', 7, LEVELS);
+    expect(first).toEqual(second);
+    expect(validateLevels([first])).toEqual([]);
+  });
+
+  it('cycles through every corn variety and remains valid across a long run', () => {
+    const generated = Array.from({ length: 36 }, (_, index) => generateEndlessLevel('test-run', index + 1, LEVELS));
+    expect(generated.slice(0, 6).map(level => level.cornType)).toEqual(['sweet', 'white', 'flint', 'popcorn', 'blue', 'golden']);
+    expect(validateLevels(generated)).toEqual([]);
+  });
+
+  it('raises difficulty every three cobs while keeping a safe cap', () => {
+    expect(endlessDifficulty(1).harvestPercent).toBe(58);
+    expect(endlessDifficulty(3).harvestPercent).toBe(58);
+    expect(endlessDifficulty(4).harvestPercent).toBe(60);
+    expect(endlessDifficulty(100).harvestPercent).toBe(86);
   });
 });
 

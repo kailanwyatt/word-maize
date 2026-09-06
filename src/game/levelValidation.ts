@@ -35,6 +35,15 @@ export function validateLevels(levels: Level[], dictionary: Set<string> = WORD_L
     if (level.starGoals.length !== 2) add('Exactly two optional star goals are required.');
     if (!level.rewardCoins || level.rewardCoins < 1) add('A positive completion reward is required.');
     if (level.kernels.some(kernel => kernel.row >= level.rows || kernel.column >= level.columns)) add('A kernel lies outside the board.');
+    if (level.kernels.some(kernel => kernel.variety !== level.cornType)) add('A kernel uses the wrong corn variety for this level.');
+    const mechanicFlags = level.kernels.map(kernel => [kernel.dormant, kernel.armored, kernel.popKernel, kernel.moonlit, kernel.festival].filter(Boolean).length);
+    if (mechanicFlags.some(count => count > 1)) add('A kernel has more than one corn-variety mechanic.');
+    if (level.kernels.some(kernel => kernel.dormant && level.cornType !== 'white')) add('Sleeping kernels may only appear on White Corn.');
+    if (level.kernels.some(kernel => kernel.armored && level.cornType !== 'flint')) add('Armored kernels may only appear on Flint Corn.');
+    if (level.kernels.some(kernel => kernel.popKernel && level.cornType !== 'popcorn')) add('Charged kernels may only appear on Popcorn.');
+    if (level.kernels.some(kernel => kernel.moonlit && level.cornType !== 'blue')) add('Moonlit kernels may only appear on Blue Corn.');
+    if (level.kernels.some(kernel => kernel.festival && level.cornType !== 'golden')) add('Festival kernels may only appear on Golden Corn.');
+    if (level.cornType !== 'sweet' && !mechanicFlags.some(Boolean)) add('A special corn level must contain its variety mechanic.');
     const kernelIds = new Set(level.kernels.map(kernel => kernel.id));
     level.obstacles.forEach(obstacle => {
       if (!kernelIds.has(obstacle.kernelId)) add(`Obstacle ${obstacle.id} targets a missing kernel.`);
