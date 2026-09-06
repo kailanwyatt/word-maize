@@ -1,56 +1,87 @@
-import { Audio, AVPlaybackSource } from 'expo-av';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  setIsAudioActiveAsync,
+  type AudioPlayer,
+  type AudioSource,
+} from 'expo-audio';
 
 type AudioPreferences = { music: boolean; sfx: boolean };
 
 class WordMaizeAudioManager {
-  private music: Audio.Sound | null = null;
+  private music: AudioPlayer | null = null;
+  private sfxPlayers = new Map<AudioSource, AudioPlayer>();
   private preferences: AudioPreferences = { music: true, sfx: true };
   private active = true;
   private configured = false;
 
   async configure() {
     if (this.configured) return;
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: false, staysActiveInBackground: false, shouldDuckAndroid: true });
+    await setAudioModeAsync({
+      playsInSilentMode: false,
+      shouldPlayInBackground: false,
+      interruptionMode: 'duckOthers',
+      allowsRecording: false,
+    });
     this.configured = true;
   }
 
   async setPreferences(preferences: AudioPreferences) {
     this.preferences = preferences;
-    await this.syncMusic();
+    this.syncMusic();
   }
 
   async setAppActive(active: boolean) {
     this.active = active;
-    await this.syncMusic();
+    await setIsAudioActiveAsync(active).catch(() => {});
+    this.syncMusic();
   }
 
-  async loadMusic(source: AVPlaybackSource) {
+  async loadMusic(source: AudioSource) {
     await this.configure();
-    await this.music?.unloadAsync().catch(() => {});
-    const created = await Audio.Sound.createAsync(source, { isLooping: true, volume: 0.45, shouldPlay: false });
-    this.music = created.sound;
-    await this.syncMusic();
+    this.releasePlayer(this.music);
+    const player = createAudioPlayer(source);
+    player.loop = true;
+    player.volume = 0.45;
+    this.music = player;
+    this.syncMusic();
   }
 
-  async playSfx(source: AVPlaybackSource, volume = 0.8) {
+  async playSfx(source: AudioSource, volume = 0.8) {
     if (!this.preferences.sfx || !this.active) return;
     await this.configure();
-    const created = await Audio.Sound.createAsync(source, { volume, shouldPlay: true });
-    created.sound.setOnPlaybackStatusUpdate(status => {
-      if (status.isLoaded && status.didJustFinish) created.sound.unloadAsync().catch(() => {});
-    });
+    let player = this.sfxPlayers.get(source);
+    if (!player) {
+      player = createAudioPlayer(source, { keepAudioSessionActive: true });
+      this.sfxPlayers.set(source, player);
+    }
+    player.volume = volume;
+    await player.seekTo(0);
+    player.play();
   }
 
   async dispose() {
-    const music = this.music;
+    this.releasePlayer(this.music);
     this.music = null;
-    await music?.unloadAsync().catch(() => {});
+    for (const player of this.sfxPlayers.values()) this.releasePlayer(player);
+    this.sfxPlayers.clear();
   }
 
-  private async syncMusic() {
-    if (!this.music) return;
-    if (this.preferences.music && this.active) await this.music.playAsync().catch(() => {});
-    else await this.music.pauseAsync().catch(() => {});
+  private syncMusic() {
+    const music = this.music;
+    if (!music) return;
+    if (this.preferences.music && this.active) music.play();
+    else music.pause();
+  }
+
+  private releasePlayer(player: AudioPlayer | null) {
+    if (!player) return;
+    try {
+      player.pause();
+      player.remove();
+    } catch {
+      // Native player may already be gone.
+    }
   }
 }
 
