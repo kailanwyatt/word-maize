@@ -177,7 +177,13 @@ export function KernelTile({
           ]}
         />
         {kernel.cracked ? <Image source={wordMaizeAssets.kernels.varieties.flintCrack} style={styles.crackOverlay} /> : null}
-        <Text style={[styles.letter, dormant && styles.dormantLetter, moonlitHidden && styles.moonlitLetter, { fontSize: size * 0.42 }]}> 
+        <Text style={[
+          styles.letter,
+          kernel.variety === 'blue' && !isKernelObstacle && styles.blueCornLetter,
+          dormant && styles.dormantLetter,
+          moonlitHidden && styles.moonlitLetter,
+          { fontSize: size * 0.42 },
+        ]}>
           {moonlitHidden ? '✦' : kernel.letter}
         </Text>
         {kernel.armored && !kernel.cracked ? <Text style={styles.armoredBadge}>2×</Text> : null}
@@ -245,5 +251,11 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255,236,150,0.55)',
     textShadowOffset: { width: 0, height: 1.5 },
     textShadowRadius: 1.5,
+  },
+  blueCornLetter: {
+    color: '#fff1bd',
+    textShadowColor: 'rgba(12, 8, 30, 0.88)',
+    textShadowOffset: { width: 0, height: 1.5 },
+    textShadowRadius: 2.5,
   },
 });

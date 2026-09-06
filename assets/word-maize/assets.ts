@@ -57,7 +57,7 @@ export const wordMaizeAssets = {
         socket: require('./corn/varieties/popcorn/kernel-empty-socket.png'),
       },
       blue: {
-        full: require('./corn/varieties/blue/kernel-full.png'),
+        full: require('./corn/varieties/blue/kernel-full-v2.png'),
         socket: require('./corn/varieties/blue/kernel-empty-socket.png'),
       },
       golden: {
@@ -110,7 +110,7 @@ export const wordMaizeAssets = {
       white: require('./backgrounds/corn/gameplay-cob-white-v1.png'),
       flint: require('./backgrounds/corn/gameplay-cob-flint-v1.png'),
       popcorn: require('./backgrounds/corn/gameplay-cob-popcorn-v1.png'),
-      blue: require('./backgrounds/corn/gameplay-cob-blue-v1.png'),
+      blue: require('./backgrounds/corn/gameplay-cob-blue-v2.png'),
       golden: require('./backgrounds/corn/gameplay-cob-golden-v1.png'),
     },
     gameplayFarm: require('./backgrounds/gameplay-farm.png'),
