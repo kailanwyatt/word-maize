@@ -29,7 +29,7 @@ export function cobMetrics(width: number, height: number): CobMetrics {
     // Keep the playable kernels seated as one dense ear. Perspective still
     // comes from scaleX/scale/tilt; a slightly smaller projection radius
     // removes the artificial channels that exposed too much painted cob.
-    radius: width * 0.394,
+    radius: width * 0.375,
     top: height * 0.21,
     cobHeight: height * 0.63,
   };
