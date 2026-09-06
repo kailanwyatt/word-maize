@@ -105,6 +105,14 @@ export const wordMaizeAssets = {
     // Approved kernel-cob demo composition: the supporting cob is painted into
     // the barn scene and the native rotating kernel board sits over its face.
     gameplayApprovedCob: require('../../experiments/kernel-cob-demo/public/assets/gameplay-bg.jpg'),
+    gameplayCobByType: {
+      sweet: require('../../experiments/kernel-cob-demo/public/assets/gameplay-bg.jpg'),
+      white: require('./backgrounds/corn/gameplay-cob-white-v1.png'),
+      flint: require('./backgrounds/corn/gameplay-cob-flint-v1.png'),
+      popcorn: require('./backgrounds/corn/gameplay-cob-popcorn-v1.png'),
+      blue: require('./backgrounds/corn/gameplay-cob-blue-v1.png'),
+      golden: require('./backgrounds/corn/gameplay-cob-golden-v1.png'),
+    },
     gameplayFarm: require('./backgrounds/gameplay-farm.png'),
     gameplayFarmV2: require('./backgrounds/gameplay-farm-v2.png'),
     gameplayFarmV3: require('./backgrounds/gameplay_bg_v3.jpg'),

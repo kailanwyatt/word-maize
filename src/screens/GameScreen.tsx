@@ -140,10 +140,9 @@ export function GameScreen() {
   });
   const payout = reward.total;
   const blockedIds = new Set([...blockedKernelIds(obstacles), ...dormantKernelIds(level.kernels)]);
-  // Keep the shipped playfield visually identical to the approved React demo.
-  // Its full cob is part of the background composition; adding another cob or
-  // core behind CornCob makes the board look doubled and breaks its alignment.
-  const gameplayBackground = wordMaizeAssets.backgrounds.gameplayApprovedCob;
+  // The supporting cob is painted into each background while the native board
+  // remains interactive above it. Match that cob to the level's kernel variety.
+  const gameplayBackground = wordMaizeAssets.backgrounds.gameplayCobByType[source.cornType];
 
   useEffect(() => {
     if (complete && !completionSoundRef.current) {
