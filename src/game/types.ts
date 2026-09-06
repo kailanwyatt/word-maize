@@ -20,6 +20,7 @@ export type Kernel = {
   popKernel?: boolean;
   popCharge?: number;
   moonlit?: boolean;
+  festival?: boolean;
 };
 
 export type Point = { x: number; y: number };

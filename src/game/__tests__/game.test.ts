@@ -21,7 +21,7 @@ import { evaluateLevelStars, objectiveComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
-import { advancePopCharge, dormantKernelIds, isMoonlitHidden, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../cornVarieties';
+import { advancePopCharge, dormantKernelIds, festivalCoinBonus, isMoonlitHidden, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../cornVarieties';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
   id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'sweet',
@@ -457,6 +457,23 @@ describe('Blue Corn moonlit letters', () => {
     const blueLevels = LEVELS.filter(level => level.cornType === 'blue');
     expect(blueLevels.every(level => level.kernels.filter(kernel => kernel.moonlit).length === 6)).toBe(true);
     expect(LEVELS.find(level => level.id === 41)?.tutorial.join(' ')).toMatch(/bright center/i);
+  });
+});
+
+describe('Golden Corn festival kernels', () => {
+  const festival = (id: string, marked = true): Kernel => ({ ...k(id, 0, 0), variety: 'golden', festival: marked });
+
+  it('rewards marked kernels only in words of five or more letters', () => {
+    const kernels = [festival('a'), festival('b'), festival('c', false)];
+    expect(festivalCoinBonus(kernels, ['a', 'b', 'c'], 'CORN')).toBe(0);
+    expect(festivalCoinBonus(kernels, ['a', 'b', 'c'], 'GRAIN')).toBe(10);
+    expect(festivalCoinBonus(kernels, ['c'], 'GRAIN')).toBe(0);
+  });
+
+  it('authors five festival kernels per Golden Corn level', () => {
+    const goldenLevels = LEVELS.filter(level => level.cornType === 'golden');
+    expect(goldenLevels.every(level => level.kernels.filter(kernel => kernel.festival).length === 5)).toBe(true);
+    expect(LEVELS.find(level => level.id === 51)?.tutorial.join(' ')).toMatch(/gold star/i);
   });
 });
 

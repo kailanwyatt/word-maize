@@ -20,7 +20,7 @@ import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board
 import { WORD_LIST } from '../game/dictionary';
 import { completionReward } from '../game/economy';
 import { harvestKernels, harvestPercent } from '../game/harvest';
-import { advancePopCharge, dormantKernelIds, isDormantKernel, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../game/cornVarieties';
+import { advancePopCharge, dormantKernelIds, festivalCoinBonus, isDormantKernel, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../game/cornVarieties';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../game/obstacles';
 import { findDiscoverablePath } from '../game/powerups';
 import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
@@ -253,12 +253,14 @@ export function GameScreen() {
       pulse(Haptics.ImpactFeedbackStyle.Heavy);
       setAcceptedTurns(nextAcceptedTurn);
       const bonus = weatherCoinBonus(source.weather, result.word);
+      const goldenBonus = festivalCoinBonus(level.kernels, result.harvestIds, result.word);
       if (source.weather?.kind === 'rain') triggerWeather(`RAIN BONUS +${bonus}`);
       if (source.weather?.kind === 'drought') {
         triggerWeather(bonus ? `DROUGHT BREAKER +${bonus}` : 'DROUGHT · TRY 5+ LETTERS');
       }
       if (flint.newlyCrackedIds.length) triggerWeather(`${flint.newlyCrackedIds.length > 1 ? 'ARMOR' : 'KERNEL'} CRACKED!`);
       if (popcorn.poppedIds.length) triggerWeather(`POP! +${popcorn.poppedIds.length} KERNEL${popcorn.poppedIds.length > 1 ? 'S' : ''}`);
+      if (goldenBonus) triggerWeather(`FESTIVAL BONUS +${goldenBonus}`);
       const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, actualHarvestIds.length - 1) * 70;
       setTimeout(() => {
         setLevel(prev => {
@@ -267,7 +269,7 @@ export function GameScreen() {
         });
         setObstacles(prev => advanceObstacles(prev, actualHarvestIds));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
-        setInCoins(v => v + coinsForWord(result.word) + weatherCoinBonus(source.weather, result.word));
+        setInCoins(v => v + coinsForWord(result.word) + weatherCoinBonus(source.weather, result.word) + goldenBonus);
         setHarvestingIds([]);
         busyRef.current = false;
         selection.clear();

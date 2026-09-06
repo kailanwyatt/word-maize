@@ -350,6 +350,13 @@ function makeLevel(
       || (kernel.row === 5 && kernel.column === 2)
       || (kernel.row === 6 && kernel.column === columns - 3)
     ),
+    festival: cornType === 'golden' && kernel.layer === 0 && (
+      (kernel.row === 0 && kernel.column === 2)
+      || (kernel.row === 2 && kernel.column === columns - 2)
+      || (kernel.row === 3 && kernel.column === 1)
+      || (kernel.row === 5 && kernel.column === columns - 1)
+      || (kernel.row === 6 && kernel.column === 3)
+    ),
   }));
   const baseObstacleKind = id === 36 ? 'web'
     : id === 48 || id === 52 ? 'frost'
@@ -411,6 +418,7 @@ function makeLevel(
       ...(id === 21 ? ['Flint Corn can grow armored kernels marked 2×. Use one in a valid word to crack it, then use it again to harvest it.'] : []),
       ...(id === 31 ? ['Marked Popcorn kernels charge after every valid word. At 3 charges they pop themselves and the next kernel around the cob.'] : []),
       ...(id === 41 ? ['Moonlit letters appear when their Blue Corn kernel rotates into the bright center. Hints can reveal one from the side.'] : []),
+      ...(id === 51 ? ['Festival kernels carry a gold star. Use them in words of 5 or more letters to earn a Golden Corn bonus.'] : []),
       ...obstacleTutorial,
       ...weatherTutorial,
     ],

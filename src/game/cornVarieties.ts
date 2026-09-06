@@ -99,3 +99,10 @@ export const MOONLIT_CENTER_SHADE = 0.28;
 export function isMoonlitHidden(kernel: Kernel, shade: number, revealed = false) {
   return kernel.variety === 'blue' && kernel.moonlit === true && shade > MOONLIT_CENTER_SHADE && !revealed;
 }
+
+export function festivalCoinBonus(kernels: Kernel[], submittedIds: string[], word: string) {
+  if (word.length < 5) return 0;
+  const submitted = new Set(submittedIds);
+  const festivalKernels = kernels.filter(kernel => submitted.has(kernel.id) && kernel.festival && !kernel.harvested).length;
+  return festivalKernels * word.length;
+}
