@@ -93,3 +93,9 @@ export function restorePopCharge(kernels: Kernel[], charges: Record<string, numb
     ? { ...kernel, popCharge: Math.max(0, Math.min(POP_CHARGE_TARGET - 1, charges[kernel.id])) }
     : kernel);
 }
+
+export const MOONLIT_CENTER_SHADE = 0.28;
+
+export function isMoonlitHidden(kernel: Kernel, shade: number, revealed = false) {
+  return kernel.variety === 'blue' && kernel.moonlit === true && shade > MOONLIT_CENTER_SHADE && !revealed;
+}

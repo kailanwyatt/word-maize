@@ -7,6 +7,7 @@ import { KernelTile } from './Kernel';
 import { ObstacleState } from '../../game/obstacles';
 import { cobMetrics, hitKernel, layoutKernels } from './layout';
 import { TapGestureArbitrator } from './TapGestureArbitrator';
+import { isMoonlitHidden } from '../../game/cornVarieties';
 
 type Props = {
   kernels: Kernel[];
@@ -140,6 +141,8 @@ export const CornCob = forwardRef<View, Props>(function CornCob(props, ref) {
 
   const handlePress = (kernel: Kernel) => {
     if (props.locked || rotating.current) return;
+    const kernelLayout = layoutRef.current.visible.find(item => item.kernel.id === kernel.id);
+    if (!props.pickerMode && kernelLayout && isMoonlitHidden(kernel, kernelLayout.shade, selectedIds.has(kernel.id) || hintIds.has(kernel.id))) return;
     const now = Date.now();
     if (now - lastTap.current < 80) return;
     lastTap.current = now;

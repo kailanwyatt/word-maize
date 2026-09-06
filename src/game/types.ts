@@ -19,6 +19,7 @@ export type Kernel = {
   cracked?: boolean;
   popKernel?: boolean;
   popCharge?: number;
+  moonlit?: boolean;
 };
 
 export type Point = { x: number; y: number };

@@ -3,6 +3,7 @@ import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native
 import { wordMaizeAssets } from '../../../assets/word-maize/assets';
 import { KernelLayout } from './layout';
 import { ObstacleState } from '../../game/obstacles';
+import { isMoonlitHidden } from '../../game/cornVarieties';
 
 function varietyArt(kernel: KernelLayout['kernel']) {
   const varieties = wordMaizeAssets.kernels.varieties;
@@ -47,6 +48,7 @@ export function KernelTile({
 }) {
   const { kernel, x, y, scaleX, scale, shade } = layout;
   const dormant = kernel.variety === 'white' && kernel.dormant === true;
+  const moonlitHidden = isMoonlitHidden(kernel, shade, selected || hinted);
   const activeObstacle = obstacle && obstacle.status !== 'cleared' ? obstacle : undefined;
   const isKernelObstacle = activeObstacle?.kind === 'weed' || activeObstacle?.kind === 'caterpillar' || activeObstacle?.kind === 'frost';
   const isBoardActorTarget = activeObstacle?.kind === 'crow' || activeObstacle?.kind === 'squirrel';
@@ -118,9 +120,9 @@ export function KernelTile({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Letter ${kernel.letter}, row ${kernel.row + 1}, column ${kernel.column + 1}${dormant ? ', sleeping White Corn kernel' : ''}${obstacle && obstacle.status !== 'cleared' ? `, ${obstacle.kind} obstacle` : ''}`}
-      accessibilityState={{ selected, disabled: kernel.harvested || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35 }}
-      disabled={kernel.harvested || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35}
+      accessibilityLabel={`${moonlitHidden ? 'Hidden moonlit letter' : `Letter ${kernel.letter}`}, row ${kernel.row + 1}, column ${kernel.column + 1}${dormant ? ', sleeping White Corn kernel' : ''}${obstacle && obstacle.status !== 'cleared' ? `, ${obstacle.kind} obstacle` : ''}`}
+      accessibilityState={{ selected, disabled: kernel.harvested || moonlitHidden || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35 }}
+      disabled={kernel.harvested || moonlitHidden || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35}
       style={[
         styles.wrap,
         {
@@ -175,8 +177,8 @@ export function KernelTile({
           ]}
         />
         {kernel.cracked ? <Image source={wordMaizeAssets.kernels.varieties.flintCrack} style={styles.crackOverlay} /> : null}
-        <Text style={[styles.letter, dormant && styles.dormantLetter, { fontSize: size * 0.42 }]}> 
-          {kernel.letter}
+        <Text style={[styles.letter, dormant && styles.dormantLetter, moonlitHidden && styles.moonlitLetter, { fontSize: size * 0.42 }]}> 
+          {moonlitHidden ? '✦' : kernel.letter}
         </Text>
         {kernel.armored && !kernel.cracked ? <Text style={styles.armoredBadge}>2×</Text> : null}
         {kernel.popKernel && !kernel.harvested ? (
@@ -230,6 +232,7 @@ const styles = StyleSheet.create({
   popChargeText: { color: '#fffdf2', fontWeight: '900', fontSize: 10 },
   kernelFaulted: { tintColor: '#c45a32' },
   dormantLetter: { opacity: 0.5 },
+  moonlitLetter: { color: '#d8dbff', opacity: 0.42, fontSize: 18 },
   dormantMark: { position: 'absolute', width: '56%', height: '56%', opacity: 0.75 },
   vein: { position: 'absolute', left: '48%', top: '8%', width: 3, height: '86%', borderRadius: 2, backgroundColor: '#78914c' },
   veinOne: { transform: [{ rotate: '34deg' }] },

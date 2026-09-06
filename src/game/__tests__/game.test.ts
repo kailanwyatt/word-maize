@@ -21,7 +21,7 @@ import { evaluateLevelStars, objectiveComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
-import { advancePopCharge, dormantKernelIds, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../cornVarieties';
+import { advancePopCharge, dormantKernelIds, isMoonlitHidden, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../cornVarieties';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
   id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'sweet',
@@ -440,6 +440,23 @@ describe('Popcorn charge', () => {
     const popcornLevels = LEVELS.filter(level => level.cornType === 'popcorn');
     expect(popcornLevels.every(level => level.kernels.filter(kernel => kernel.popKernel).length === 4)).toBe(true);
     expect(LEVELS.find(level => level.id === 31)?.tutorial.join(' ')).toMatch(/charge after every valid word/i);
+  });
+});
+
+describe('Blue Corn moonlit letters', () => {
+  const moonlit: Kernel = { ...k('m', 2, 2), variety: 'blue', moonlit: true };
+
+  it('hides marked letters at the side and reveals them in the center or with a hint', () => {
+    expect(isMoonlitHidden(moonlit, 0.8)).toBe(true);
+    expect(isMoonlitHidden(moonlit, 0.2)).toBe(false);
+    expect(isMoonlitHidden(moonlit, 0.8, true)).toBe(false);
+    expect(isMoonlitHidden({ ...moonlit, moonlit: false }, 0.8)).toBe(false);
+  });
+
+  it('authors six moonlit kernels per Blue Corn level', () => {
+    const blueLevels = LEVELS.filter(level => level.cornType === 'blue');
+    expect(blueLevels.every(level => level.kernels.filter(kernel => kernel.moonlit).length === 6)).toBe(true);
+    expect(LEVELS.find(level => level.id === 41)?.tutorial.join(' ')).toMatch(/bright center/i);
   });
 });
 
