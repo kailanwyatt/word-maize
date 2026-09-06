@@ -67,8 +67,8 @@
       },
       "revenueCatIosKey": "",
       "revenueCatAndroidKey": "",
-      "privacyPolicyUrl": "https://example.com/word-maize/privacy",
-      "termsOfUseUrl": "https://example.com/word-maize/terms",
+      "privacyPolicyUrl": "https://wordmaize.com/privacy",
+      "termsOfUseUrl": "https://wordmaize.com/terms",
       "admobRewardedUnitIdIos": "ca-app-pub-3940256099942544/1712485313",
       "admobRewardedUnitIdAndroid": "ca-app-pub-3940256099942544/5224354917"
     }

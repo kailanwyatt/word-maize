@@ -5,8 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { FarmButton, Panel } from '../components/FarmButton';
-import { SHOP_PRODUCTS, ShopProduct, TOOL_INFO } from '../data/shop';
+import { COIN_TOOL_OFFERS, CoinToolOffer, SHOP_PRODUCTS, ShopProduct, TOOL_INFO, coinOfferForTool } from '../data/shop';
 import { ToolId } from '../game/types';
+import { playGameSound } from '../audio/sounds';
 import { purchaseProduct } from '../monetization/purchases';
 import { showRewardedAd } from '../monetization/ads';
 import { useGameStore } from '../store/GameStore';
@@ -51,6 +52,18 @@ export function ShopScreen() {
     } else Alert.alert('Reward unavailable', result.message ?? 'The rewarded ad could not be shown.');
     setRewarding(false);
   };
+  const buyWithCoins = (offer: CoinToolOffer) => {
+    if (store.save.coins < offer.coins) {
+      Alert.alert('Need more coins', `${offer.title} costs ${offer.coins} coins. Harvest a few more words and come back.`);
+      return;
+    }
+    if (!store.buyCoinOffer(offer.id)) {
+      Alert.alert('Need more coins', `${offer.title} costs ${offer.coins} coins.`);
+      return;
+    }
+    playGameSound('coin', 0.7);
+    Alert.alert('Tools packed', `${offer.title} was added to your belt.`);
+  };
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.shopBarn} style={styles.bg} resizeMode="cover">
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -67,6 +80,28 @@ export function ShopScreen() {
             <View style={styles.featureCopy}><Text style={styles.featureEyebrow}>FARMER MAY'S PICK</Text><Text style={styles.featureTitle}>Ready for stubborn cobs</Text><Text style={styles.featureText}>Tool packs work across every chapter.</Text></View>
           </View>
           {__DEV__ ? <View style={styles.devNotice}><Text style={styles.devNoticeText}>DEVELOPMENT PREVIEW · STORE PURCHASES GRANT TEST ITEMS</Text></View> : null}
+          <View style={styles.sectionBoard}><Text style={styles.section}>SPEND HARVEST COINS</Text></View>
+          {COIN_TOOL_OFFERS.map(offer => (
+            <Pressable key={offer.id} style={styles.card} onPress={() => buyWithCoins(offer)}>
+              <View style={styles.productArt}>
+                <View style={styles.bundleArt}>
+                  {offer.tools.scarecrow ? <Image source={wordMaizeAssets.powerups.scarecrow} style={styles.bundleIcon} /> : null}
+                  {offer.tools.butterBrush ? <Image source={wordMaizeAssets.powerups.butterBrush} style={styles.bundleIconMain} /> : null}
+                  {offer.tools.cornPicker ? <Image source={wordMaizeAssets.powerups.cornPicker} style={styles.bundleIcon} /> : null}
+                </View>
+              </View>
+              <View style={styles.productCopy}>
+                <Text style={styles.cardTitle}>{offer.title}</Text>
+                <Text style={styles.blurb}>{offer.blurb}</Text>
+                <Text style={styles.contents}>{Object.entries(offer.tools).filter(([, amount]) => amount).map(([tool, amount]) => `${amount} ${TOOL_INFO[tool as ToolId].title}`).join(' · ')}</Text>
+              </View>
+              <View style={[styles.priceButton, styles.coinPrice, store.save.coins < offer.coins && styles.ownedPrice]}>
+                <Image source={wordMaizeAssets.ui.coin} style={styles.priceCoin} />
+                <Text style={styles.price}>{offer.coins}</Text>
+              </View>
+            </Pressable>
+          ))}
+          <View style={styles.sectionBoard}><Text style={styles.section}>FARM STORE</Text></View>
           {SHOP_PRODUCTS.map(product => (
             <Pressable key={product.id} style={[styles.card, product.id === 'farmers_toolbox' && styles.featuredProduct]} onPress={() => setDetail(product)}>
               {product.id === 'farmers_toolbox' ? <View style={styles.valueRibbon}><Text style={styles.valueRibbonText}>BEST VALUE</Text></View> : null}
@@ -120,6 +155,19 @@ export function ShopScreen() {
             <Text style={styles.body}>Owned: {toolDetail ? store.save.inventory[toolDetail] : 0}</Text>
             <View style={{ height: 12 }} />
             <FarmButton label={rewarding ? 'LOADING REWARD…' : store.save.adFree ? 'CLAIM 1 FREE' : 'WATCH AD · GET 1'} onPress={() => toolDetail && watchForTool(toolDetail)} dim={rewarding} />
+            {toolDetail && coinOfferForTool(toolDetail) ? (
+              <>
+                <View style={{ height: 10 }} />
+                <FarmButton
+                  label={`BUY 1 · ${coinOfferForTool(toolDetail)?.coins} COINS`}
+                  onPress={() => {
+                    const offer = coinOfferForTool(toolDetail);
+                    if (offer) buyWithCoins(offer);
+                  }}
+                  dim={store.save.coins < (coinOfferForTool(toolDetail)?.coins ?? 0)}
+                />
+              </>
+            ) : null}
             <View style={{ height: 10 }} />
             <FarmButton label="CLOSE" onPress={() => setDetail(undefined)} />
           </Panel>
@@ -173,6 +221,8 @@ const styles = StyleSheet.create({
   contents: { color: '#477126', fontWeight: '900', fontSize: 9, marginTop: 5 },
   priceButton: { backgroundColor: '#5b9f2c', borderWidth: 2, borderColor: '#386b19', borderRadius: 12, minWidth: 72, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 8 },
   price: { color: 'white', fontWeight: '900', fontSize: 14 },
+  coinPrice: { flexDirection: 'row', gap: 4, paddingHorizontal: 10 },
+  priceCoin: { width: 16, height: 16, resizeMode: 'contain', marginBottom: 0 },
   ownedPrice: { backgroundColor: '#7d765f', borderColor: '#5d5747' },
   sectionBoard: { alignSelf: 'center', marginTop: 8, backgroundColor: 'rgba(68,36,15,0.94)', borderRadius: 12, borderWidth: 2, borderColor: '#c78a32', paddingHorizontal: 22, paddingVertical: 7 },
   section: { color: '#fff6c6', fontWeight: '900', letterSpacing: 1.2 },

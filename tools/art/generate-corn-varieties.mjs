@@ -66,4 +66,39 @@ for (const [id, palettes] of Object.entries(varieties)) {
   recolor(path.join(masterDir, 'kernel-empty-socket.png'), path.join(directory, 'kernel-empty-socket.png'), palettes.socket, 'socket');
 }
 
+function drawLine(image, from, to, width, color) {
+  const steps = Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1]));
+  for (let step = 0; step <= steps; step += 1) {
+    const t = step / Math.max(1, steps);
+    const x = Math.round(from[0] + (to[0] - from[0]) * t);
+    const y = Math.round(from[1] + (to[1] - from[1]) * t);
+    for (let dy = -width; dy <= width; dy += 1) {
+      for (let dx = -width; dx <= width; dx += 1) {
+        if (dx * dx + dy * dy > width * width) continue;
+        const offset = ((y + dy) * image.width + x + dx) * 4;
+        if (offset < 0 || offset >= image.data.length) continue;
+        image.data[offset] = color[0];
+        image.data[offset + 1] = color[1];
+        image.data[offset + 2] = color[2];
+        image.data[offset + 3] = color[3];
+      }
+    }
+  }
+}
+
+const crack = new PNG({ width: 1254, height: 1254 });
+const crackSegments = [
+  [[635, 240], [590, 410]], [[590, 410], [690, 520]], [[690, 520], [610, 690]],
+  [[610, 690], [665, 860]], [[590, 410], [455, 500]], [[690, 520], [835, 440]],
+  [[610, 690], [470, 790]], [[665, 860], [775, 980]],
+];
+for (const [from, to] of crackSegments) {
+  drawLine(crack, [from[0] + 7, from[1] + 8], [to[0] + 7, to[1] + 8], 7, [255, 214, 108, 165]);
+  drawLine(crack, from, to, 10, [75, 24, 9, 220]);
+  drawLine(crack, from, to, 3, [31, 10, 5, 245]);
+}
+const crackPath = path.join(outputRoot, 'flint/kernel-crack-overlay.png');
+fs.mkdirSync(path.dirname(crackPath), { recursive: true });
+fs.writeFileSync(crackPath, PNG.sync.write(crack));
+
 console.log(`Generated ${Object.keys(varieties).length} perspective-locked kernel/socket pairs.`);

@@ -34,3 +34,28 @@ export function wakeDormantNeighbors(kernels: Kernel[], harvestedIds: string[], 
 export function restoreCornVarietyState(kernels: Kernel[], columns: number): Kernel[] {
   return wakeDormantNeighbors(kernels, kernels.filter(kernel => kernel.harvested).map(kernel => kernel.id), columns);
 }
+
+export function isArmoredKernel(kernel: Kernel) {
+  return kernel.variety === 'flint' && kernel.armored === true && !kernel.harvested;
+}
+
+export function resolveFlintHarvest(kernels: Kernel[], submittedIds: string[]) {
+  const submitted = new Set(submittedIds);
+  const harvestIds: string[] = [];
+  const newlyCrackedIds: string[] = [];
+  const next = kernels.map(kernel => {
+    if (!submitted.has(kernel.id)) return kernel;
+    if (!isArmoredKernel(kernel) || kernel.cracked) {
+      harvestIds.push(kernel.id);
+      return kernel;
+    }
+    newlyCrackedIds.push(kernel.id);
+    return { ...kernel, cracked: true };
+  });
+  return { kernels: next, harvestIds, newlyCrackedIds };
+}
+
+export function restoreFlintState(kernels: Kernel[], crackedIds: string[] = []) {
+  const cracked = new Set(crackedIds);
+  return kernels.map(kernel => cracked.has(kernel.id) && isArmoredKernel(kernel) ? { ...kernel, cracked: true } : kernel);
+}

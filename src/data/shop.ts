@@ -71,6 +71,37 @@ export function validateShopProducts(products: ShopProduct[] = SHOP_PRODUCTS): s
   return issues;
 }
 
+export type CoinToolOffer = {
+  id: string;
+  title: string;
+  blurb: string;
+  coins: number;
+  tools: Partial<Inventory>;
+};
+
+export const COIN_TOOL_OFFERS: CoinToolOffer[] = [
+  { id: 'coin-scarecrow', title: 'Scarecrow Stake', blurb: 'One Scarecrow to mark the start of a hidden word.', coins: 80, tools: { scarecrow: 1 } },
+  { id: 'coin-brush', title: 'Butter Brush Tin', blurb: 'One Butter Brush to paint a whole hidden word.', coins: 100, tools: { butterBrush: 1 } },
+  { id: 'coin-picker', title: 'Corn Picker', blurb: 'One Corn Picker to pluck a stubborn kernel.', coins: 120, tools: { cornPicker: 1 } },
+  { id: 'coin-belt', title: 'Field Belt', blurb: 'One of each tool, packed for a hard cob.', coins: 260, tools: { scarecrow: 1, butterBrush: 1, cornPicker: 1 } },
+];
+
+export function coinOfferForTool(tool: ToolId) {
+  return COIN_TOOL_OFFERS.find(offer => offer.tools[tool] === 1 && Object.keys(offer.tools).length === 1);
+}
+
+export function validateCoinOffers(offers: CoinToolOffer[] = COIN_TOOL_OFFERS): string[] {
+  const issues: string[] = [];
+  const ids = new Set<string>();
+  offers.forEach(offer => {
+    if (ids.has(offer.id)) issues.push(`Duplicate coin offer: ${offer.id}`);
+    ids.add(offer.id);
+    if (!Number.isInteger(offer.coins) || offer.coins < 1) issues.push(`Invalid coin price: ${offer.id}`);
+    if (!offer.tools || !Object.values(offer.tools).some(amount => (amount ?? 0) > 0)) issues.push(`Coin offer has no tools: ${offer.id}`);
+  });
+  return issues;
+}
+
 export const DAILY_REWARDS: { day: number; coins?: number; tools?: Partial<Inventory>; chest?: boolean }[] = [
   { day: 1, coins: 50 },
   { day: 2, tools: { scarecrow: 1 } },

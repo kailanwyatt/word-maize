@@ -328,6 +328,13 @@ function makeLevel(
       || (kernel.row === 3 && kernel.column === columns - 1)
       || (kernel.row === 5 && kernel.column === 1)
     ),
+    armored: cornType === 'flint' && kernel.layer === 0 && (
+      (kernel.row === 0 && kernel.column === 2)
+      || (kernel.row === 1 && kernel.column === columns - 2)
+      || (kernel.row === 3 && kernel.column === 1)
+      || (kernel.row === 4 && kernel.column === columns - 1)
+      || (kernel.row === 6 && kernel.column === 3)
+    ),
   }));
   const baseObstacleKind = id === 36 ? 'web'
     : id === 48 || id === 52 ? 'frost'
@@ -386,6 +393,7 @@ function makeLevel(
     tutorial: [
       ...config.tutorial,
       ...(id === 13 ? ['White Corn has sleeping kernels marked with a husk vein. Harvest beside one to wake its letter.'] : []),
+      ...(id === 21 ? ['Flint Corn can grow armored kernels marked 2×. Use one in a valid word to crack it, then use it again to harvest it.'] : []),
       ...obstacleTutorial,
       ...weatherTutorial,
     ],

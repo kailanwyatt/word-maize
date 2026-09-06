@@ -51,6 +51,7 @@ export const wordMaizeAssets = {
           socket: require('./corn/varieties/flint-gold/kernel-empty-socket.png'),
         },
       ],
+      flintCrack: require('./corn/varieties/flint/kernel-crack-overlay.png'),
       popcorn: {
         full: require('./corn/varieties/popcorn/kernel-full.png'),
         socket: require('./corn/varieties/popcorn/kernel-empty-socket.png'),

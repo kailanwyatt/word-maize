@@ -20,7 +20,7 @@ import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board
 import { WORD_LIST } from '../game/dictionary';
 import { completionReward } from '../game/economy';
 import { harvestKernels, harvestPercent } from '../game/harvest';
-import { dormantKernelIds, isDormantKernel, restoreCornVarietyState, wakeDormantNeighbors } from '../game/cornVarieties';
+import { dormantKernelIds, isDormantKernel, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, wakeDormantNeighbors } from '../game/cornVarieties';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../game/obstacles';
 import { findDiscoverablePath } from '../game/powerups';
 import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
@@ -55,7 +55,10 @@ export function GameScreen() {
     const fresh = resetLevel(source);
     return savedRun ? {
       ...fresh,
-      kernels: restoreCornVarietyState(harvestKernels(fresh.kernels, savedRun.harvestedIds), fresh.columns),
+      kernels: restoreCornVarietyState(
+        restoreFlintState(harvestKernels(fresh.kernels, savedRun.harvestedIds), savedRun.crackedIds),
+        fresh.columns,
+      ),
     } : fresh;
   };
   const [level, setLevel] = useState(restoredLevel);
@@ -147,7 +150,10 @@ export function GameScreen() {
     const fresh = resetLevel(source);
     setLevel({
       ...fresh,
-      kernels: restoreCornVarietyState(harvestKernels(fresh.kernels, run.harvestedIds), fresh.columns),
+      kernels: restoreCornVarietyState(
+        restoreFlintState(harvestKernels(fresh.kernels, run.harvestedIds), run.crackedIds),
+        fresh.columns,
+      ),
     });
     setFoundWords(run.foundWords);
     setInCoins(run.earnedCoins);
@@ -161,6 +167,7 @@ export function GameScreen() {
     store.saveLevelRun({
       levelId,
       harvestedIds: level.kernels.filter(kernel => kernel.harvested).map(kernel => kernel.id),
+      crackedIds: level.kernels.filter(kernel => kernel.cracked && !kernel.harvested).map(kernel => kernel.id),
       foundWords,
       earnedCoins: inCoins,
       toolsUsed,
@@ -224,11 +231,14 @@ export function GameScreen() {
   const submit = () => {
     const result = evaluateSubmission(selection.pathRef.current, WORD_LIST, busy || busyRef.current);
     if (result.harvest) {
+      const flint = resolveFlintHarvest(level.kernels, result.harvestIds);
+      const actualHarvestIds = flint.harvestIds;
       const nextAcceptedTurn = acceptedTurns + 1;
       busyRef.current = true;
       setStatus('valid');
       playGameSound('valid');
-      setHarvestingIds(result.harvestIds);
+      setLevel(prev => ({ ...prev, kernels: resolveFlintHarvest(prev.kernels, result.harvestIds).kernels }));
+      setHarvestingIds(actualHarvestIds);
       pulse(Haptics.ImpactFeedbackStyle.Heavy);
       setAcceptedTurns(nextAcceptedTurn);
       const bonus = weatherCoinBonus(source.weather, result.word);
@@ -236,20 +246,21 @@ export function GameScreen() {
       if (source.weather?.kind === 'drought') {
         triggerWeather(bonus ? `DROUGHT BREAKER +${bonus}` : 'DROUGHT · TRY 5+ LETTERS');
       }
-      const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, result.harvestIds.length - 1) * 70;
+      if (flint.newlyCrackedIds.length) triggerWeather(`${flint.newlyCrackedIds.length > 1 ? 'ARMOR' : 'KERNEL'} CRACKED!`);
+      const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, actualHarvestIds.length - 1) * 70;
       setTimeout(() => {
         setLevel(prev => {
-          const harvested = harvestKernels(prev.kernels, result.harvestIds);
-          return { ...prev, kernels: wakeDormantNeighbors(harvested, result.harvestIds, prev.columns) };
+          const harvested = harvestKernels(prev.kernels, actualHarvestIds);
+          return { ...prev, kernels: wakeDormantNeighbors(harvested, actualHarvestIds, prev.columns) };
         });
-        setObstacles(prev => advanceObstacles(prev, result.harvestIds));
+        setObstacles(prev => advanceObstacles(prev, actualHarvestIds));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
         setInCoins(v => v + coinsForWord(result.word) + weatherCoinBonus(source.weather, result.word));
         setHarvestingIds([]);
         busyRef.current = false;
         selection.clear();
         setStatus('idle');
-        playGameSound('basket', 0.7);
+        playGameSound(actualHarvestIds.length ? 'basket' : 'backtrack', 0.7);
         const weatherStep = windStep(source.weather, nextAcceptedTurn);
         if (weatherStep) {
           triggerWeather(source.weather?.kind === 'storm' ? 'STORM SPIN!' : 'WIND GUST!');

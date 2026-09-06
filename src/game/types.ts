@@ -15,6 +15,8 @@ export type Kernel = {
   harvested: boolean;
   variety: CornVariety;
   dormant?: boolean;
+  armored?: boolean;
+  cracked?: boolean;
 };
 
 export type Point = { x: number; y: number };

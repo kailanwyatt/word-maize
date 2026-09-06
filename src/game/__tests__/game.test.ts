@@ -21,7 +21,7 @@ import { evaluateLevelStars, objectiveComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
-import { dormantKernelIds, restoreCornVarietyState, wakeDormantNeighbors } from '../cornVarieties';
+import { dormantKernelIds, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, wakeDormantNeighbors } from '../cornVarieties';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
   id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'sweet',
@@ -381,6 +381,35 @@ describe('White Corn neighbor reveal', () => {
     expect(whiteLevels.every(level => dormantKernelIds(level.kernels).size === 3)).toBe(true);
     expect(LEVELS.filter(level => level.cornType !== 'white').every(level => dormantKernelIds(level.kernels).size === 0)).toBe(true);
     expect(LEVELS.find(level => level.id === 13)?.tutorial.join(' ')).toMatch(/sleeping kernels/i);
+  });
+});
+
+describe('Flint Corn armor', () => {
+  const flint = (id: string, row: number, column: number, armored = false, cracked = false): Kernel => ({
+    ...k(id, row, column), variety: 'flint', armored, cracked,
+  });
+
+  it('cracks armor on first use while harvesting ordinary kernels', () => {
+    const armored = flint('a', 0, 0, true);
+    const ordinary = flint('b', 0, 1);
+    const result = resolveFlintHarvest([armored, ordinary], ['a', 'b']);
+    expect(result.newlyCrackedIds).toEqual(['a']);
+    expect(result.harvestIds).toEqual(['b']);
+    expect(result.kernels.find(kernel => kernel.id === 'a')?.cracked).toBe(true);
+  });
+
+  it('harvests an armored kernel on its second accepted-word use', () => {
+    const cracked = flint('a', 0, 0, true, true);
+    const result = resolveFlintHarvest([cracked], ['a']);
+    expect(result.newlyCrackedIds).toEqual([]);
+    expect(result.harvestIds).toEqual(['a']);
+  });
+
+  it('restores cracked armor and authors five armored kernels per Flint level', () => {
+    expect(restoreFlintState([flint('a', 0, 0, true)], ['a'])[0].cracked).toBe(true);
+    const flintLevels = LEVELS.filter(level => level.cornType === 'flint');
+    expect(flintLevels.every(level => level.kernels.filter(kernel => kernel.armored).length === 5)).toBe(true);
+    expect(LEVELS.find(level => level.id === 21)?.tutorial.join(' ')).toMatch(/armored kernels/i);
   });
 });
 

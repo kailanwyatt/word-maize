@@ -174,9 +174,11 @@ export function KernelTile({
             },
           ]}
         />
+        {kernel.cracked ? <Image source={wordMaizeAssets.kernels.varieties.flintCrack} style={styles.crackOverlay} /> : null}
         <Text style={[styles.letter, dormant && styles.dormantLetter, { fontSize: size * 0.42 }]}> 
           {kernel.letter}
         </Text>
+        {kernel.armored && !kernel.cracked ? <Text style={styles.armoredBadge}>2×</Text> : null}
         {dormant ? (
           <View pointerEvents="none" style={styles.dormantMark}>
             <View style={[styles.vein, styles.veinOne]} />
@@ -217,6 +219,8 @@ const styles = StyleSheet.create({
   kernelCountdown: { position: 'absolute', right: '-17%', top: '-17%', zIndex: 10, minWidth: 19, height: 19, borderRadius: 10, borderWidth: 1.5, borderColor: '#fff3c4', backgroundColor: '#b43b24', color: 'white', textAlign: 'center', fontWeight: '900', fontSize: 12, overflow: 'hidden' },
   kernel: { position: 'absolute', width: '154%', height: '154%', resizeMode: 'contain' },
   dormantKernel: { opacity: 0.72 },
+  crackOverlay: { position: 'absolute', width: '154%', height: '154%', resizeMode: 'contain', zIndex: 2 },
+  armoredBadge: { position: 'absolute', right: '-12%', top: '-10%', zIndex: 6, minWidth: 23, height: 19, borderRadius: 10, borderWidth: 1.5, borderColor: '#ffe89a', backgroundColor: '#663518', color: '#fff6cd', textAlign: 'center', fontWeight: '900', fontSize: 11, overflow: 'hidden' },
   kernelFaulted: { tintColor: '#c45a32' },
   dormantLetter: { opacity: 0.5 },
   dormantMark: { position: 'absolute', width: '56%', height: '56%', opacity: 0.75 },

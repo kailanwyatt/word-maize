@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import { DAILY_REWARDS } from '../data/shop';
+import { DAILY_REWARDS, COIN_TOOL_OFFERS } from '../data/shop';
 import { LEVELS } from '../data/levels';
 import { replenishEnergy } from '../game/energy';
-import { clampInventoryAmount } from '../game/economy';
+import { clampInventoryAmount, purchaseCoinOffer } from '../game/economy';
 import { RESTORATION_MILESTONES } from '../game/restoration';
 import { ENERGY_MAX, Inventory, LevelProgress, ToolId } from '../game/types';
 import { ActiveLevelRun, defaultSave, GameSave, localDateString, migrateSave, nextDailyDay, SAVE_KEY } from './types';
@@ -30,6 +30,7 @@ type GameStoreValue = {
   clearLevelRun: () => void;
   setAdFree: (value: boolean) => void;
   claimRestoration: (id: string) => boolean;
+  buyCoinOffer: (offerId: string) => boolean;
   completedIds: number[];
   currentLevelId: number;
 };
@@ -193,6 +194,19 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
     return true;
   }, [patch, save.claimedRestorations, save.levels]);
 
+  const buyCoinOffer = useCallback((offerId: string) => {
+    const offer = COIN_TOOL_OFFERS.find(item => item.id === offerId);
+    if (!offer) return false;
+    const preview = purchaseCoinOffer(save.coins, save.inventory, offer.coins, offer.tools);
+    if (!preview.ok) return false;
+    patch(prev => {
+      const result = purchaseCoinOffer(prev.coins, prev.inventory, offer.coins, offer.tools);
+      if (!result.ok) return prev;
+      return { ...prev, coins: result.coins, inventory: result.inventory };
+    });
+    return true;
+  }, [patch, save.coins, save.inventory]);
+
   const claimDaily = useCallback(() => {
     const today = localDateString();
     const preview = nextDailyDay(save.daily, today);
@@ -223,9 +237,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<GameStoreValue>(() => ({
     ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool,
-    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration,
+    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer,
     completedIds, currentLevelId: save.currentLevelId,
-  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, completedIds]);
+  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, completedIds]);
 
   return <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>;
 }
