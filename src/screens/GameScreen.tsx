@@ -20,7 +20,7 @@ import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board
 import { WORD_LIST } from '../game/dictionary';
 import { completionReward } from '../game/economy';
 import { harvestKernels, harvestPercent } from '../game/harvest';
-import { dormantKernelIds, isDormantKernel, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, wakeDormantNeighbors } from '../game/cornVarieties';
+import { advancePopCharge, dormantKernelIds, isDormantKernel, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../game/cornVarieties';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../game/obstacles';
 import { findDiscoverablePath } from '../game/powerups';
 import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
@@ -56,7 +56,10 @@ export function GameScreen() {
     return savedRun ? {
       ...fresh,
       kernels: restoreCornVarietyState(
-        restoreFlintState(harvestKernels(fresh.kernels, savedRun.harvestedIds), savedRun.crackedIds),
+        restorePopCharge(
+          restoreFlintState(harvestKernels(fresh.kernels, savedRun.harvestedIds), savedRun.crackedIds),
+          savedRun.popCharges,
+        ),
         fresh.columns,
       ),
     } : fresh;
@@ -151,7 +154,10 @@ export function GameScreen() {
     setLevel({
       ...fresh,
       kernels: restoreCornVarietyState(
-        restoreFlintState(harvestKernels(fresh.kernels, run.harvestedIds), run.crackedIds),
+        restorePopCharge(
+          restoreFlintState(harvestKernels(fresh.kernels, run.harvestedIds), run.crackedIds),
+          run.popCharges,
+        ),
         fresh.columns,
       ),
     });
@@ -168,6 +174,7 @@ export function GameScreen() {
       levelId,
       harvestedIds: level.kernels.filter(kernel => kernel.harvested).map(kernel => kernel.id),
       crackedIds: level.kernels.filter(kernel => kernel.cracked && !kernel.harvested).map(kernel => kernel.id),
+      popCharges: Object.fromEntries(level.kernels.filter(kernel => kernel.popKernel && !kernel.harvested).map(kernel => [kernel.id, kernel.popCharge ?? 0])),
       foundWords,
       earnedCoins: inCoins,
       toolsUsed,
@@ -232,12 +239,16 @@ export function GameScreen() {
     const result = evaluateSubmission(selection.pathRef.current, WORD_LIST, busy || busyRef.current);
     if (result.harvest) {
       const flint = resolveFlintHarvest(level.kernels, result.harvestIds);
-      const actualHarvestIds = flint.harvestIds;
+      const popcorn = advancePopCharge(flint.kernels, level.columns);
+      const actualHarvestIds = [...new Set([...flint.harvestIds, ...popcorn.poppedIds])];
       const nextAcceptedTurn = acceptedTurns + 1;
       busyRef.current = true;
       setStatus('valid');
       playGameSound('valid');
-      setLevel(prev => ({ ...prev, kernels: resolveFlintHarvest(prev.kernels, result.harvestIds).kernels }));
+      setLevel(prev => {
+        const nextFlint = resolveFlintHarvest(prev.kernels, result.harvestIds);
+        return { ...prev, kernels: advancePopCharge(nextFlint.kernels, prev.columns).kernels };
+      });
       setHarvestingIds(actualHarvestIds);
       pulse(Haptics.ImpactFeedbackStyle.Heavy);
       setAcceptedTurns(nextAcceptedTurn);
@@ -247,6 +258,7 @@ export function GameScreen() {
         triggerWeather(bonus ? `DROUGHT BREAKER +${bonus}` : 'DROUGHT · TRY 5+ LETTERS');
       }
       if (flint.newlyCrackedIds.length) triggerWeather(`${flint.newlyCrackedIds.length > 1 ? 'ARMOR' : 'KERNEL'} CRACKED!`);
+      if (popcorn.poppedIds.length) triggerWeather(`POP! +${popcorn.poppedIds.length} KERNEL${popcorn.poppedIds.length > 1 ? 'S' : ''}`);
       const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, actualHarvestIds.length - 1) * 70;
       setTimeout(() => {
         setLevel(prev => {
@@ -272,6 +284,7 @@ export function GameScreen() {
     }
     if (!selection.pathRef.current.length) return;
     setStatus('invalid');
+    setLevel(prev => ({ ...prev, kernels: reducePopCharge(prev.kernels) }));
     playGameSound('invalid', 0.65);
     if (tuning.haptics && store.save.settings.haptics) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});

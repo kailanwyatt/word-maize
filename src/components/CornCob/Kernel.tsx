@@ -179,6 +179,11 @@ export function KernelTile({
           {kernel.letter}
         </Text>
         {kernel.armored && !kernel.cracked ? <Text style={styles.armoredBadge}>2×</Text> : null}
+        {kernel.popKernel && !kernel.harvested ? (
+          <View style={styles.popChargeBadge}>
+            <Text style={styles.popChargeText}>{kernel.popCharge ?? 0}/{3}</Text>
+          </View>
+        ) : null}
         {dormant ? (
           <View pointerEvents="none" style={styles.dormantMark}>
             <View style={[styles.vein, styles.veinOne]} />
@@ -221,6 +226,8 @@ const styles = StyleSheet.create({
   dormantKernel: { opacity: 0.72 },
   crackOverlay: { position: 'absolute', width: '154%', height: '154%', resizeMode: 'contain', zIndex: 2 },
   armoredBadge: { position: 'absolute', right: '-12%', top: '-10%', zIndex: 6, minWidth: 23, height: 19, borderRadius: 10, borderWidth: 1.5, borderColor: '#ffe89a', backgroundColor: '#663518', color: '#fff6cd', textAlign: 'center', fontWeight: '900', fontSize: 11, overflow: 'hidden' },
+  popChargeBadge: { position: 'absolute', right: '-13%', top: '-11%', zIndex: 6, minWidth: 27, height: 20, paddingHorizontal: 3, borderRadius: 10, borderWidth: 1.5, borderColor: '#fff6cf', backgroundColor: '#a75c18', alignItems: 'center', justifyContent: 'center' },
+  popChargeText: { color: '#fffdf2', fontWeight: '900', fontSize: 10 },
   kernelFaulted: { tintColor: '#c45a32' },
   dormantLetter: { opacity: 0.5 },
   dormantMark: { position: 'absolute', width: '56%', height: '56%', opacity: 0.75 },

@@ -23,6 +23,7 @@ export type ActiveLevelRun = {
   obstacles?: ObstacleState[];
   acceptedTurns?: number;
   crackedIds?: string[];
+  popCharges?: Record<string, number>;
   updatedAt: number;
 };
 

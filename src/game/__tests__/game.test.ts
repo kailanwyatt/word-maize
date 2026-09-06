@@ -21,7 +21,7 @@ import { evaluateLevelStars, objectiveComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
-import { dormantKernelIds, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, wakeDormantNeighbors } from '../cornVarieties';
+import { advancePopCharge, dormantKernelIds, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../cornVarieties';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
   id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'sweet',
@@ -410,6 +410,36 @@ describe('Flint Corn armor', () => {
     const flintLevels = LEVELS.filter(level => level.cornType === 'flint');
     expect(flintLevels.every(level => level.kernels.filter(kernel => kernel.armored).length === 5)).toBe(true);
     expect(LEVELS.find(level => level.id === 21)?.tutorial.join(' ')).toMatch(/armored kernels/i);
+  });
+});
+
+describe('Popcorn charge', () => {
+  const popcorn = (id: string, row: number, column: number, charge = 0, marked = true): Kernel => ({
+    ...k(id, row, column), variety: 'popcorn', popKernel: marked, popCharge: charge,
+  });
+
+  it('charges marked kernels on accepted words and pops at three', () => {
+    const charged = advancePopCharge([popcorn('a', 1, 2, 1)], 8);
+    expect(charged.kernels[0].popCharge).toBe(2);
+    expect(charged.poppedIds).toEqual([]);
+    const popped = advancePopCharge(charged.kernels, 8);
+    expect(popped.kernels[0].popCharge).toBe(0);
+    expect(popped.poppedIds).toEqual(['a']);
+  });
+
+  it('pops the next cylindrical neighbor and reduces charge after a miss', () => {
+    const marked = popcorn('a', 2, 7, 2);
+    const seamNeighbor = popcorn('b', 2, 0, 0, false);
+    const popped = advancePopCharge([marked, seamNeighbor], 8);
+    expect(new Set(popped.poppedIds)).toEqual(new Set(['a', 'b']));
+    expect(reducePopCharge([popcorn('c', 1, 1, 2)])[0].popCharge).toBe(1);
+  });
+
+  it('restores charge and authors four marked kernels per Popcorn level', () => {
+    expect(restorePopCharge([popcorn('a', 0, 0)], { a: 2 })[0].popCharge).toBe(2);
+    const popcornLevels = LEVELS.filter(level => level.cornType === 'popcorn');
+    expect(popcornLevels.every(level => level.kernels.filter(kernel => kernel.popKernel).length === 4)).toBe(true);
+    expect(LEVELS.find(level => level.id === 31)?.tutorial.join(' ')).toMatch(/charge after every valid word/i);
   });
 });
 

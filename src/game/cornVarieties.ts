@@ -59,3 +59,37 @@ export function restoreFlintState(kernels: Kernel[], crackedIds: string[] = []) 
   const cracked = new Set(crackedIds);
   return kernels.map(kernel => cracked.has(kernel.id) && isArmoredKernel(kernel) ? { ...kernel, cracked: true } : kernel);
 }
+
+export const POP_CHARGE_TARGET = 3;
+
+export function advancePopCharge(kernels: Kernel[], columns: number) {
+  const poppedIds = new Set<string>();
+  const next = kernels.map(kernel => {
+    if (kernel.variety !== 'popcorn' || !kernel.popKernel || kernel.harvested) return kernel;
+    const charge = Math.min(POP_CHARGE_TARGET, (kernel.popCharge ?? 0) + 1);
+    if (charge < POP_CHARGE_TARGET) return { ...kernel, popCharge: charge };
+    poppedIds.add(kernel.id);
+    const neighborColumn = (kernel.column + 1) % columns;
+    const neighbor = kernels.find(candidate => (
+      candidate.row === kernel.row
+      && candidate.column === neighborColumn
+      && candidate.layer === kernel.layer
+      && !candidate.harvested
+    ));
+    if (neighbor) poppedIds.add(neighbor.id);
+    return { ...kernel, popCharge: 0 };
+  });
+  return { kernels: next, poppedIds: [...poppedIds] };
+}
+
+export function reducePopCharge(kernels: Kernel[]) {
+  return kernels.map(kernel => kernel.variety === 'popcorn' && kernel.popKernel && !kernel.harvested
+    ? { ...kernel, popCharge: Math.max(0, (kernel.popCharge ?? 0) - 1) }
+    : kernel);
+}
+
+export function restorePopCharge(kernels: Kernel[], charges: Record<string, number> = {}) {
+  return kernels.map(kernel => kernel.variety === 'popcorn' && kernel.popKernel && Number.isFinite(charges[kernel.id])
+    ? { ...kernel, popCharge: Math.max(0, Math.min(POP_CHARGE_TARGET - 1, charges[kernel.id])) }
+    : kernel);
+}

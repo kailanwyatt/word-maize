@@ -17,6 +17,8 @@ export type Kernel = {
   dormant?: boolean;
   armored?: boolean;
   cracked?: boolean;
+  popKernel?: boolean;
+  popCharge?: number;
 };
 
 export type Point = { x: number; y: number };
