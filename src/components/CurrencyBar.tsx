@@ -31,7 +31,7 @@ export function CurrencyBar({ onSettings }: { onSettings?: () => void }) {
         <Text style={styles.value}>{energy}</Text>
       </View>
       <View accessibilityLabel={`${stars} stars`} style={styles.starPill}>
-        <Text style={styles.star}>★</Text>
+        <Image source={wordMaizeAssets.kernels.approvedNormal} style={styles.star} />
         <Text style={styles.value}>{stars}</Text>
       </View>
       <View style={styles.spacer} />
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   plusText: { color: '#ffffff', fontWeight: '900', fontSize: 18, marginTop: -1 },
-  star: { color: '#ffd24a', fontSize: 18, fontWeight: '900' },
+  star: { width: 22, height: 22, resizeMode: 'contain' },
   gear: {
     width: 42,
     height: 42,

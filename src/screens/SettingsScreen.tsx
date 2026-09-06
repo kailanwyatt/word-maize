@@ -25,6 +25,7 @@ export function SettingsScreen() {
               ['music', 'Music'],
               ['sfx', 'Sound Effects'],
               ['haptics', 'Haptics'],
+              ['notifications', 'Notifications'],
               ['reducedMotion', 'Reduced Motion'],
             ] as const).map(([key, label]) => (
               <View key={key} style={styles.row}>
@@ -34,6 +35,8 @@ export function SettingsScreen() {
             ))}
             <View style={styles.row}><Text style={styles.label}>Language</Text><Text style={styles.value}>English</Text></View>
             <View style={{ height: 16 }} />
+            <FarmButton label="HOW TO PLAY" onPress={() => router.push('/how-to-play')} />
+            <View style={{ height: 10 }} />
             <FarmButton label="RESTORE PURCHASES" onPress={restore} />
             <Pressable accessibilityRole="link" onPress={() => Linking.openURL(PRIVACY_POLICY_URL)} style={styles.linkHit}>
               <Text style={styles.link}>Privacy Policy</Text>

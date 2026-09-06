@@ -1,18 +1,24 @@
 import { useRouter } from 'expo-router';
-import { ImageBackground, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ImageBackground, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { FarmButton } from '../components/FarmButton';
+import { useGameStore } from '../store/GameStore';
 
 const STEPS = [
   { title: '1. Tap letters', body: 'Tap any visible kernels in spelling order to build a word, then press the word to harvest it. Letters do not need to sit next to each other.' },
   { title: '2. Rotate the cob', body: 'Drag left or right, or tap the rotate buttons, to spin the ear and hunt the next letter. Your current word stays selected.' },
   { title: '3. Use tools', body: 'Scarecrow shows a start letter, Butter Brush highlights the letters of a hidden word around the cob, Corn Picker plucks one kernel.' },
   { title: '4. Hit the harvest goal', body: 'Clear enough kernels to fill the basket and bring in a bumper crop.' },
+  { title: '5. Watch the pests', body: 'Caterpillars, crows, squirrels, and weeds can lock a letter. Harvest the kernel they sit on, or use the matching tool, before they settle in.', pest: true },
+  { title: '6. Break webs and frost', body: 'Butter Brush clears webbed letters. Tap a frozen kernel once to crack its ice, then tap again to use the letter.' },
+  { title: '7. Read the weather', body: 'Rain pays bonus coins, drought rewards words with 5 or more letters, and wind or storms can rotate the cob after accepted words.' },
 ];
 
 export function HowToPlayScreen() {
   const router = useRouter();
+  const store = useGameStore();
+  const close = () => { store.markTutorialSeen(); router.back(); };
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.homeFarm} style={styles.bg} resizeMode="cover">
       <SafeAreaView style={styles.safe}>
@@ -21,10 +27,18 @@ export function HowToPlayScreen() {
           {STEPS.map(step => (
             <View key={step.title} style={styles.card}>
               <Text style={styles.heading}>{step.title}</Text>
+              {'pest' in step ? (
+                <View style={styles.pestRow}>
+                  <Image source={wordMaizeAssets.obstacles.caterpillar} style={styles.pest} />
+                  <Image source={wordMaizeAssets.obstacles.crow} style={styles.pest} />
+                  <Image source={wordMaizeAssets.obstacles.squirrel} style={styles.pest} />
+                  <Image source={wordMaizeAssets.obstacles.weed} style={styles.pest} />
+                </View>
+              ) : null}
               <Text style={styles.body}>{step.body}</Text>
             </View>
           ))}
-          <FarmButton label="BACK" onPress={() => router.back()} />
+          <FarmButton label="GOT IT" onPress={close} />
         </ScrollView>
       </SafeAreaView>
     </ImageBackground>
@@ -39,4 +53,6 @@ const styles = StyleSheet.create({
   card: { backgroundColor: 'rgba(255,242,189,0.94)', borderRadius: 14, borderWidth: 2, borderColor: '#73441f', padding: 12 },
   heading: { fontWeight: '900', color: '#406f20', fontSize: 16 },
   body: { color: '#51351f', fontWeight: '700', marginTop: 4 },
+  pestRow: { flexDirection: 'row', gap: 10, marginTop: 8, marginBottom: 4 },
+  pest: { width: 36, height: 36, resizeMode: 'contain' },
 });

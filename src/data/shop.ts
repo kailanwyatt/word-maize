@@ -53,6 +53,24 @@ export const SHOP_PRODUCTS: ShopProduct[] = [
   },
 ];
 
+export function validateShopProducts(products: ShopProduct[] = SHOP_PRODUCTS): string[] {
+  const issues: string[] = [];
+  const ids = new Set<string>();
+  const storeIds = new Set<string>();
+  products.forEach(product => {
+    if (ids.has(product.id)) issues.push(`Duplicate product id: ${product.id}`);
+    if (storeIds.has(product.storeProductId)) issues.push(`Duplicate store product id: ${product.storeProductId}`);
+    ids.add(product.id);
+    storeIds.add(product.storeProductId);
+    if (!/^\$\d+\.\d{2}$/.test(product.displayPrice)) issues.push(`Invalid display price: ${product.id}`);
+    if (!product.entitlement && !product.tools) issues.push(`Product has no grant: ${product.id}`);
+    Object.values(product.tools ?? {}).forEach(amount => {
+      if (!Number.isInteger(amount) || amount < 1) issues.push(`Invalid tool quantity: ${product.id}`);
+    });
+  });
+  return issues;
+}
+
 export const DAILY_REWARDS: { day: number; coins?: number; tools?: Partial<Inventory>; chest?: boolean }[] = [
   { day: 1, coins: 50 },
   { day: 2, tools: { scarecrow: 1 } },

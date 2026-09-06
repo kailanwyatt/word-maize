@@ -66,7 +66,7 @@ function lateProgression(id: number) {
         ? { id: 'no-tools', kind: 'noTools' as const, label: 'Finish without a tool' }
         : { id: `harvest-${Math.min(90, target + 10)}`, kind: 'harvestPercent' as const, value: Math.min(90, target + 10), label: `Harvest ${Math.min(90, target + 10)}%` },
     ],
-    tutorial: id === 11 ? ['Caterpillars count down after each valid word. Harvest their kernel or use the Butter Brush before they settle in.']
+    tutorial: id === 11 ? ['Caterpillars are back. Harvest their kernel or use the Butter Brush before they settle in.']
       : id === 16 ? ['Crows swoop in after two valid words. The Scarecrow clears one before it blocks a letter.']
       : id === 20 ? ['Squirrels guard a kernel immediately. Use a Corn Picker to remove it.']
       : id === 31 ? ['Weeds lock a kernel in place. The Butter Brush clears them without harvesting the letter.']
@@ -149,7 +149,11 @@ const CHAPTER_ONE = {
       { id: 'layers-3', kind: 'layersRevealed', value: 3, label: 'Reveal 3 hidden kernels' },
       { id: 'nine-words', kind: 'maxWords', value: 9, label: 'Finish in 9 words or fewer' },
     ],
-    tutorial: ['Newly revealed kernels can be used immediately in later words.'],
+    tutorial: [
+      'Newly revealed kernels can be used immediately in later words.',
+      'Caterpillars count down after each valid word. Harvest their kernel or use the Butter Brush before they settle in.',
+    ],
+    story: { speaker: 'Patch', title: 'Hungry Visitors', text: 'Something is chewing the stalks! Harvest those caterpillars or brush them off before they lock a letter.' },
   },
   9: {
     target: 62, reward: 200, words: ['HONEY', 'BEES', 'POLLEN', 'CLOVER'],
@@ -168,7 +172,7 @@ const CHAPTER_ONE = {
       { id: 'no-tools', kind: 'noTools', label: 'Finish without a tool' },
     ],
     tutorial: ['This Bumper Crop combines rotation, layers, longer words, and careful tool use.'],
-    story: { speaker: 'Patch', title: 'Bumper Crop', text: 'One last field! Fill the festival wagon and Sweet Corn Fields will shine again.' },
+    story: { speaker: 'Patch', title: 'Bumper Crop', text: 'One last field! Fill the festival wagon and Sweet Corn Fields will shine again. Keep an eye on the next rows — more hungry pests are gathering.' },
   },
 } as const;
 
@@ -202,11 +206,47 @@ function makeLevel(
 ): Level {
   const columns = rows[0].length;
   const config = progression(id, targetHarvestPercent);
-  const obstacleKind = id >= 11 && id <= 15 ? 'caterpillar'
+  const baseObstacleKind = id === 36 ? 'web'
+    : id === 48 || id === 52 ? 'frost'
+    : id >= 8 && id <= 15 ? 'caterpillar'
     : id >= 16 && id <= 25 ? (id % 4 === 0 ? 'squirrel' : 'crow')
     : id >= 26 && id <= 30 ? 'squirrel'
     : id >= 31 && id <= 45 ? 'weed' : undefined;
-  const obstacleCount = obstacleKind ? (id % 5 === 0 ? 2 : 1) : 0;
+  const masteryObstacles = id === 46 ? ['crow'] as const
+    : id === 49 ? ['squirrel'] as const
+    : id === 54 ? ['crow', 'frost'] as const
+    : id === 57 ? ['squirrel', 'frost'] as const
+    : id === 59 ? ['crow', 'web'] as const
+    : id === 60 ? ['crow', 'weed'] as const
+    : undefined;
+  const obstacleKinds = masteryObstacles
+    ? [...masteryObstacles]
+    : baseObstacleKind
+      ? Array.from({ length: id % 5 === 0 ? 2 : 1 }, () => baseObstacleKind)
+      : [];
+  const weather = [54, 57, 59, 60].includes(id)
+    ? { kind: 'storm' as const, interval: 2 }
+    : [37, 40, 43].includes(id)
+      ? { kind: 'drought' as const, interval: 1 }
+    : [38, 42, 44].includes(id)
+    ? { kind: 'rain' as const, interval: 2, coinBonusPerLetter: 1 }
+    : [47, 49, 53, 58].includes(id)
+      ? { kind: 'wind' as const, interval: 2 }
+      : undefined;
+  const weatherTutorial = id === 38
+    ? ['Rain is helping the crop. Every accepted word earns bonus coins.']
+    : id === 37
+      ? ['Drought rewards careful harvesting. Words with 5 or more letters earn bonus coins.']
+    : id === 47
+      ? ['Wind rotates the cob one step after every two accepted words.']
+      : id === 54
+        ? ['Storms combine driving rain with sudden cob rotation every two accepted words.']
+      : [];
+  const obstacleTutorial = id === 36
+    ? ['Spider webs lock covered kernels. Clear the web with the Butter Brush before using those letters.']
+    : id === 48
+      ? ['Frost coats individual kernels. Tap a frozen kernel once to crack the ice, then tap it again to select its letter.']
+      : [];
   return {
     id,
     world: worldForLevel(id),
@@ -219,19 +259,20 @@ function makeLevel(
     starGoals: [...config.stars] as [StarGoal, StarGoal],
     rewardCoins: config.reward,
     guaranteedWords: [...config.words],
-    tutorial: [...config.tutorial],
+    tutorial: [...config.tutorial, ...obstacleTutorial, ...weatherTutorial],
     story: 'story' in config ? config.story : undefined,
     shuffleOnStart: id > 10,
     rotationEnabled: true,
     hintPaths: planted
       .map(coords => pathIds(coords.filter(([row, column]) => row < rows.length && column < columns)))
       .filter(path => path.length >= 3),
-    obstacles: Array.from({ length: obstacleCount }, (_, index) => ({
+    obstacles: obstacleKinds.map((obstacleKind, index) => ({
       id: `${obstacleKind}-${id}-${index}`,
-      kind: obstacleKind!,
+      kind: obstacleKind,
       kernelId: `${1 + index}-${index === 0 ? 2 % columns : 1 % columns}-0`,
       countdown: obstacleKind === 'caterpillar' ? 3 : obstacleKind === 'crow' ? 2 : 0,
     })),
+    weather,
   };
 }
 

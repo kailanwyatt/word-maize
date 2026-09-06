@@ -1,4 +1,5 @@
 import { exposedKernels } from './board';
+import { wordsOfLength } from './dictionary';
 import { Kernel } from './types';
 
 export function pathWord(path: Kernel[]): string {
@@ -62,15 +63,13 @@ export function findDiscoverablePath(
   const exposed = exposedKernels(kernels);
   const counts = letterCounts(exposed);
   const found = new Set(foundWords);
-  let best: Kernel[] | undefined;
 
-  for (const word of dictionary) {
-    if (word.length < minLength || word.length > maxLength) continue;
-    if (found.has(word)) continue;
-    if (best && word.length <= best.length) continue;
-    if (!canSpell(word, counts)) continue;
-    const path = pickKernelsForWord(word, exposed);
-    if (path) best = path;
+  for (let length = maxLength; length >= minLength; length--) {
+    for (const word of wordsOfLength(length, dictionary)) {
+      if (found.has(word) || !canSpell(word, counts)) continue;
+      const path = pickKernelsForWord(word, exposed);
+      if (path) return path;
+    }
   }
-  return best;
+  return undefined;
 }

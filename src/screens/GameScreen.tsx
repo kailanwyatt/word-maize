@@ -1,19 +1,22 @@
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
+import { BumperCropModal } from '../components/BumperCropModal';
 import { CornCob } from '../components/CornCob/CornCob';
 import { DebugPanel } from '../components/DebugPanel';
 import { FarmButton, Panel } from '../components/FarmButton';
 import { HarvestMeter } from '../components/HarvestMeter';
 import { Tool, ToolBelt } from '../components/ToolBelt';
 import { WordSubmitButton } from '../components/WordSubmitButton';
+import { WeatherOverlay } from '../components/WeatherOverlay';
+import { playGameSound } from '../audio/sounds';
 import { levelById } from '../data/levels';
 import { TOOL_INFO } from '../data/shop';
 import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board';
-import { WORD_LIST, wordPrefixes } from '../game/dictionary';
+import { WORD_LIST } from '../game/dictionary';
 import { completionReward } from '../game/economy';
 import { harvestKernels, harvestPercent } from '../game/harvest';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../game/obstacles';
@@ -21,6 +24,7 @@ import { findDiscoverablePath } from '../game/powerups';
 import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
 import { canSubmitSelection, evaluateSubmission } from '../game/selection';
 import { Kernel, Tuning } from '../game/types';
+import { weatherCoinBonus, windStep } from '../game/weather';
 import { useCobRotation } from '../hooks/useCobRotation';
 import { useKernelTapSelection } from '../hooks/useKernelTapSelection';
 import { showRewardedAd } from '../monetization/ads';
@@ -66,14 +70,22 @@ export function GameScreen() {
   const [doubled, setDoubled] = useState(false);
   const [powerUpsOpen, setPowerUpsOpen] = useState(false);
   const [obstacles, setObstacles] = useState(() => savedRun?.obstacles ?? initializeObstacles(source.obstacles));
+  const [acceptedTurns, setAcceptedTurns] = useState(savedRun?.acceptedTurns ?? savedRun?.foundWords.length ?? 0);
+  const [clearingObstacleIds, setClearingObstacleIds] = useState<string[]>([]);
+  const [weatherEventKey, setWeatherEventKey] = useState(0);
+  const [weatherFeedback, setWeatherFeedback] = useState<string>();
   const busyRef = useRef(false);
   const finishingRef = useRef(false);
+  const completionSoundRef = useRef(false);
   const hydratedRef = useRef(store.ready);
   const busy = harvestingIds.length > 0 || status === 'valid' || busyRef.current;
   const gameWidth = Math.min(viewport.width, 430);
   const cobHeight = Math.min(viewport.height * 0.58, 520);
   const cobWidth = Math.min(gameWidth, cobHeight * (1024 / 1536));
   const [board, setBoard] = useState({ width: cobWidth, height: cobHeight });
+  const cobRef = useRef<View>(null);
+  const basketRef = useRef<View>(null);
+  const [harvestFlyTarget, setHarvestFlyTarget] = useState({ x: 42, y: cobHeight - 42 });
   const toolCount = store.save.inventory.scarecrow + store.save.inventory.butterBrush + store.save.inventory.cornPicker;
   const { energy } = store.energyNow();
   const cob = useCobRotation(
@@ -84,7 +96,6 @@ export function GameScreen() {
     store.save.settings.reducedMotion,
   );
   const selection = useKernelTapSelection(level.columns, busy);
-  const prefixes = useMemo(() => wordPrefixes(WORD_LIST), []);
   const percent = harvestPercent(level.kernels);
   const layersRevealed = new Set(level.kernels.filter(kernel =>
     kernel.layer > 0 && level.kernels.some(other =>
@@ -94,6 +105,7 @@ export function GameScreen() {
   const runStats = { percent, words: foundWords, toolsUsed, layersRevealed };
   const effectiveLevel = { ...source, objective: { ...source.objective, harvestPercent: tuning.harvestTarget } };
   const complete = objectiveComplete(effectiveLevel, runStats);
+  const starResult = evaluateLevelStars(effectiveLevel, runStats);
   const currentWord = selection.word;
   const canSubmit = canSubmitSelection(selection.path, { busy });
   const harvestedCount = level.kernels.filter(k => k.harvested).length;
@@ -109,10 +121,18 @@ export function GameScreen() {
   });
   const payout = reward.total;
   const blockedIds = blockedKernelIds(obstacles);
-  const gameplayBackground = source.world === 'Crow Creek' ? wordMaizeAssets.backgrounds.gameplayCrowCreek
-    : source.world === 'Orchard Hollow' ? wordMaizeAssets.backgrounds.gameplayOrchardHollow
-    : source.world === 'Moonlight Maize' ? wordMaizeAssets.backgrounds.gameplayMoonlightMaize
-    : wordMaizeAssets.backgrounds.gameplayFarmV8;
+  // Keep the shipped playfield visually identical to the approved React demo.
+  // Its full cob is part of the background composition; adding another cob or
+  // core behind CornCob makes the board look doubled and breaks its alignment.
+  const gameplayBackground = wordMaizeAssets.backgrounds.gameplayApprovedCob;
+
+  useEffect(() => {
+    if (complete && !completionSoundRef.current) {
+      completionSoundRef.current = true;
+      playGameSound('complete', 0.75);
+    }
+    if (!complete) completionSoundRef.current = false;
+  }, [complete]);
 
   useEffect(() => {
     if (!store.ready || hydratedRef.current) return;
@@ -125,6 +145,7 @@ export function GameScreen() {
     setInCoins(run.earnedCoins);
     setToolsUsed(run.toolsUsed);
     setObstacles(run.obstacles ?? initializeObstacles(source.obstacles));
+    setAcceptedTurns(run.acceptedTurns ?? run.foundWords.length);
   }, [levelId, source, store.ready, store.save.activeLevelRun]);
 
   useEffect(() => {
@@ -136,9 +157,24 @@ export function GameScreen() {
       earnedCoins: inCoins,
       toolsUsed,
       obstacles,
+      acceptedTurns,
       updatedAt: Date.now(),
     });
-  }, [foundWords, inCoins, level.kernels, levelId, obstacles, store.ready, store.saveLevelRun, toolsUsed]);
+  }, [acceptedTurns, foundWords, inCoins, level.kernels, levelId, obstacles, store.ready, store.saveLevelRun, toolsUsed]);
+
+  const measureHarvestTarget = useCallback(() => {
+    cobRef.current?.measureInWindow((cx, cy) => {
+      basketRef.current?.measureInWindow((bx, by, bw, bh) => {
+        const next = { x: bx + bw * 0.5 - cx, y: by + bh * 0.38 - cy };
+        setHarvestFlyTarget(prev => (Math.abs(prev.x - next.x) < 2 && Math.abs(prev.y - next.y) < 2 ? prev : next));
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(measureHarvestTarget);
+    return () => cancelAnimationFrame(frame);
+  }, [board.height, board.width, gameWidth, measureHarvestTarget, percent, viewport.height, viewport.width]);
 
   const pulse = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
     if (tuning.haptics && store.save.settings.haptics) Haptics.impactAsync(style).catch(() => {});
@@ -149,39 +185,78 @@ export function GameScreen() {
     }
   };
   const handleKernelTap = (kernel: Kernel) => {
+    const frost = obstacles.find(obstacle => obstacle.kernelId === kernel.id && obstacle.kind === 'frost' && obstacle.status !== 'cleared');
+    if (frost) {
+      clearObstacleAnimated(frost);
+      playGameSound('backtrack', 0.55);
+      pulse(Haptics.ImpactFeedbackStyle.Medium);
+      return;
+    }
     if (blockedIds.has(kernel.id)) { warn(); return; }
+    const previousLength = selection.pathRef.current.length;
     const result = selection.applyTap({ kernel, visible: true });
-    if (result.accepted) pulse();
+    if (result.accepted) {
+      pulse();
+      playGameSound(result.path.length < previousLength ? 'backtrack' : 'tap', 0.55);
+    }
     else warn();
+  };
+  const clearObstacleAnimated = (obstacle: typeof obstacles[number]) => {
+    setClearingObstacleIds(ids => ids.includes(obstacle.id) ? ids : [...ids, obstacle.id]);
+    setTimeout(() => {
+      setObstacles(value => clearObstacle(value, obstacle.kernelId));
+      setClearingObstacleIds(ids => ids.filter(id => id !== obstacle.id));
+    }, store.save.settings.reducedMotion ? 40 : 360);
+  };
+  const triggerWeather = (message: string) => {
+    setWeatherFeedback(message);
+    setWeatherEventKey(value => value + 1);
+    setTimeout(() => setWeatherFeedback(undefined), store.save.settings.reducedMotion ? 700 : 950);
   };
   const submit = () => {
     const result = evaluateSubmission(selection.pathRef.current, WORD_LIST, busy || busyRef.current);
     if (result.harvest) {
+      const nextAcceptedTurn = acceptedTurns + 1;
       busyRef.current = true;
       setStatus('valid');
+      playGameSound('valid');
       setHarvestingIds(result.harvestIds);
       pulse(Haptics.ImpactFeedbackStyle.Heavy);
+      setAcceptedTurns(nextAcceptedTurn);
+      const bonus = weatherCoinBonus(source.weather, result.word);
+      if (source.weather?.kind === 'rain') triggerWeather(`RAIN BONUS +${bonus}`);
+      if (source.weather?.kind === 'drought') {
+        triggerWeather(bonus ? `DROUGHT BREAKER +${bonus}` : 'DROUGHT · TRY 5+ LETTERS');
+      }
       const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, result.harvestIds.length - 1) * 70;
       setTimeout(() => {
         setLevel(prev => ({ ...prev, kernels: harvestKernels(prev.kernels, result.harvestIds) }));
         setObstacles(prev => advanceObstacles(prev, result.harvestIds));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
-        setInCoins(v => v + coinsForWord(result.word));
+        setInCoins(v => v + coinsForWord(result.word) + weatherCoinBonus(source.weather, result.word));
         setHarvestingIds([]);
         busyRef.current = false;
         selection.clear();
         setStatus('idle');
+        playGameSound('basket', 0.7);
+        const weatherStep = windStep(source.weather, nextAcceptedTurn);
+        if (weatherStep) {
+          triggerWeather(source.weather?.kind === 'storm' ? 'STORM SPIN!' : 'WIND GUST!');
+          cob.nudge(weatherStep);
+          pulse(Haptics.ImpactFeedbackStyle.Medium);
+        }
       }, harvestDuration);
       return;
     }
     if (!selection.pathRef.current.length) return;
     setStatus('invalid');
+    playGameSound('invalid', 0.65);
     if (tuning.haptics && store.save.settings.haptics) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     }
     setTimeout(() => setStatus('idle'), store.save.settings.reducedMotion ? 120 : 480);
   };
-  const unusedPath = () => findDiscoverablePath(level.kernels, level.columns, WORD_LIST, prefixes, foundWords, level.hintPaths);
+  const unusedPath = () => findDiscoverablePath(level.kernels, level.columns, WORD_LIST, WORD_LIST, foundWords, level.hintPaths);
   const useTool = (tool: Tool) => {
     if (tool === 'cornPicker') {
       if (!store.save.inventory.cornPicker) { setOutOf('cornPicker'); return; }
@@ -192,11 +267,11 @@ export function GameScreen() {
     if (!store.save.inventory[tool]) { setOutOf(tool); return; }
     const countered = obstacles.find(obstacle => obstacle.status !== 'cleared' && (
       (tool === 'scarecrow' && obstacle.kind === 'crow')
-      || (tool === 'butterBrush' && (obstacle.kind === 'weed' || obstacle.kind === 'caterpillar'))
+      || (tool === 'butterBrush' && (obstacle.kind === 'weed' || obstacle.kind === 'caterpillar' || obstacle.kind === 'web' || obstacle.kind === 'frost'))
     ));
     if (countered && store.consumeTool(tool)) {
       setToolsUsed(value => value + 1);
-      setObstacles(value => clearObstacle(value, countered.kernelId));
+      clearObstacleAnimated(countered);
       pulse();
       return;
     }
@@ -230,17 +305,17 @@ export function GameScreen() {
     setFoundWords([]); setInCoins(0); setHints([]);
     setActiveTool(undefined); setStatus('idle'); setShuffles(1); setDoubled(false);
     setHarvestingIds([]); setToolsUsed(0);
+    setAcceptedTurns(0);
     setObstacles(initializeObstacles(source.obstacles));
     busyRef.current = false;
   };
   const finish = () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
-    const result = evaluateLevelStars(effectiveLevel, runStats);
-    store.completeLevel(levelId, result.stars, percent, payout, {
+    store.completeLevel(levelId, starResult.stars, percent, payout, {
       wordsFound: foundWords.length,
       longestWord: longest === '—' ? '' : longest,
-      completedGoalIds: result.completedGoalIds,
+      completedGoalIds: starResult.completedGoalIds,
     });
     router.replace('/(tabs)/map');
   };
@@ -265,6 +340,7 @@ export function GameScreen() {
 
   const spin = (direction: 1 | -1) => {
     cob.nudge(direction);
+    playGameSound('rotate', 0.45);
     pulse();
   };
 
@@ -272,10 +348,16 @@ export function GameScreen() {
   return (
     <View style={styles.shell}>
       <ImageBackground source={gameplayBackground} style={[styles.bg, { width: gameWidth }]} resizeMode="cover">
+        <WeatherOverlay
+          weather={source.weather}
+          eventKey={weatherEventKey}
+          feedback={weatherFeedback}
+          reducedMotion={store.save.settings.reducedMotion}
+        />
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           <View style={styles.topBar}>
             <Pressable accessibilityRole="button" accessibilityLabel="Pause" style={styles.hudButton} onPress={() => setPaused(true)}>
-              <Image source={wordMaizeAssets.ui.btnHome} style={styles.hudIcon} />
+              <Image source={wordMaizeAssets.ui.btnPause} style={styles.hudIcon} />
             </Pressable>
             <View style={styles.sign}>
               <Text style={styles.level}>LEVEL {levelId}</Text>
@@ -315,9 +397,11 @@ export function GameScreen() {
               const nextHeight = Math.max(260, height);
               const nextWidth = Math.min(width, nextHeight * (1024 / 1536));
               setBoard(prev => (Math.abs(prev.width - nextWidth) < 2 && Math.abs(prev.height - nextHeight) < 2 ? prev : { width: nextWidth, height: nextHeight }));
+              requestAnimationFrame(measureHarvestTarget);
             }}
           >
             <CornCob
+              ref={cobRef}
               kernels={level.kernels}
               rows={level.rows}
               columns={level.columns}
@@ -326,6 +410,7 @@ export function GameScreen() {
               selected={selection.path}
               hints={hints}
               harvestingIds={harvestingIds}
+              harvestTarget={harvestFlyTarget}
               pickerMode={activeTool === 'cornPicker'}
               butterHints={activeTool === 'butterBrush'}
               rejectedId={selection.rejectedId}
@@ -333,18 +418,19 @@ export function GameScreen() {
               locked={busy}
               reducedMotion={store.save.settings.reducedMotion}
               obstacles={obstacles}
+              clearingObstacleIds={clearingObstacleIds}
               blockedKernelIds={blockedIds}
               onKernelTap={handleKernelTap}
               onPick={pick}
               onRotateStart={cob.begin}
               onRotateMove={cob.move}
-              onRotateEnd={cob.end}
+              onRotateEnd={() => { cob.end(); playGameSound('rotate', 0.4); }}
               width={board.width}
               height={board.height}
             />
           </View>
-          <View style={styles.dock}>
-            <HarvestMeter percent={percent} />
+          <View style={styles.dock} onLayout={measureHarvestTarget}>
+            <HarvestMeter ref={basketRef} percent={percent} catching={harvestingIds.length > 0} />
             <Pressable accessibilityRole="button" accessibilityLabel="Rotate cob left" style={styles.rotateHit} onPress={() => spin(-1)}>
               <Image source={wordMaizeAssets.ui.btnRotate} style={[styles.rotateIcon, styles.rotateFlip]} />
             </Pressable>
@@ -356,7 +442,7 @@ export function GameScreen() {
               <Image source={wordMaizeAssets.ui.btnRotate} style={styles.rotateIcon} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Shuffle letters" style={[styles.shuffle, !shuffles && styles.shuffleOff]} onPress={shuffle}>
-              <Text style={styles.shuffleText}>↻</Text>
+              <Image source={wordMaizeAssets.ui.btnShuffle} style={styles.shuffleIcon} />
             </Pressable>
           </View>
           <Modal visible={powerUpsOpen} transparent animationType="slide">
@@ -396,7 +482,7 @@ export function GameScreen() {
             <Text style={styles.modalTitle}>Paused</Text>
             <FarmButton label="RESUME" onPress={() => setPaused(false)} />
             <View style={{ height: 10 }} />
-            <FarmButton label="RESTART" onPress={() => { resetBoard(); setPaused(false); }} />
+            <FarmButton label="RESTART" onPress={() => Alert.alert('Restart level?', 'Your progress in this level will be cleared.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Restart', style: 'destructive', onPress: () => { resetBoard(); setPaused(false); } }])} />
             <View style={{ height: 10 }} />
             <FarmButton label="HOW TO PLAY" onPress={() => { setPaused(false); router.push('/how-to-play'); }} />
             <View style={{ height: 10 }} />
@@ -407,67 +493,21 @@ export function GameScreen() {
         </View>
       </Modal>
 
-      <Modal visible={complete} transparent animationType="fade">
-        <View style={styles.modalShade}>
-          <ScrollView contentContainerStyle={styles.modalScroll} bounces={false}>
-          <View style={styles.bumperWrap}>
-          <View style={styles.bumperPanel}>
-            <View style={styles.bumperHeader}>
-              <Text style={styles.bumperTitle}>BUMPER CROP!</Text>
-            </View>
-            <View style={styles.bumperSubHeader}>
-              <Text style={styles.bumperSubTitle}>Level {levelId} Complete</Text>
-            </View>
-            <View style={styles.statsContainer}>
-              <View style={styles.statRow}>
-                <Image source={wordMaizeAssets.kernels.normalV2} style={styles.statIcon} />
-                <Text style={styles.statValue}>{harvestedCount}</Text>
-                <Text style={styles.statLabel}>Kernels Harvested</Text>
-              </View>
-              <View style={styles.statRow}>
-                <View style={styles.circleIcon}><Text style={styles.circleText}>{foundWords.length}</Text></View>
-                <Text style={styles.statValue}>{foundWords.length}</Text>
-                <Text style={styles.statLabel}>Words Found</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.starIcon}>★</Text>
-                <View>
-                  <Text style={styles.statLabel}>Longest Word</Text>
-                  <Text style={styles.statLongest}>{longest}</Text>
-                </View>
-              </View>
-              <View style={styles.rewardBox}>
-                <Image source={wordMaizeAssets.ui.coin} style={styles.coinIcon} />
-                <Text style={styles.rewardText}>+{payout}</Text>
-              </View>
-              <Text style={styles.rewardDetail}>
-                {firstClear ? `Words ${reward.wordCoins} · First clear ${reward.firstClearCoins} · Bonus ${reward.performanceCoins}` : `Replay word coins ${reward.wordCoins}`}
-                {doubled ? ' · ×2' : ''}
-              </Text>
-              {source.starGoals.map(goal => (
-                <Text key={goal.id} style={styles.goalResult}>
-                  {starGoalComplete(goal, runStats) ? '★' : '☆'} {goal.label}
-                </Text>
-              ))}
-            </View>
-            
-            <Image source={wordMaizeAssets.props.harvestBasket} style={styles.bumperBasket} />
-            <Image source={wordMaizeAssets.props.tractor} style={styles.bumperTractor} />
-            <Image source={wordMaizeAssets.effects.sparkleBurst} style={styles.bumperSparkles} />
-
-            {!store.save.adFree && !doubled ? (
-              <>
-                <View style={{ height: 10 }} />
-                <FarmButton label="DOUBLE REWARD" onPress={doubleReward} />
-              </>
-            ) : null}
-            <View style={{ height: 15 }} />
-            <FarmButton label="CONTINUE" onPress={finish} />
-          </View>
-          </View>
-          </ScrollView>
-        </View>
-      </Modal>
+      <BumperCropModal
+        visible={complete}
+        levelId={levelId}
+        stars={starResult.stars}
+        payout={payout}
+        harvestedCount={harvestedCount}
+        wordsFound={foundWords.length}
+        longest={longest}
+        rewardDetail={`${firstClear ? `Words ${reward.wordCoins} · First clear ${reward.firstClearCoins} · Bonus ${reward.performanceCoins}` : `Replay word coins ${reward.wordCoins}`}${doubled ? ' · ×2' : ''}`}
+        goals={source.starGoals.map(goal => ({ id: goal.id, label: goal.label, complete: starGoalComplete(goal, runStats) }))}
+        showDouble={!store.save.adFree && !doubled}
+        reducedMotion={store.save.settings.reducedMotion}
+        onDouble={doubleReward}
+        onContinue={finish}
+      />
 
       <Modal visible={!!outOf && outOf !== 'energy'} transparent animationType="fade">
         <View style={styles.modalShade}>
@@ -487,7 +527,8 @@ export function GameScreen() {
       <Modal visible={introOpen} transparent animationType="fade">
         <View style={styles.modalShade}>
           <Panel>
-            {source.story?.speaker === 'Patch' ? <Image source={wordMaizeAssets.characters.patchSpeaking} style={styles.storyCharacter} /> : null}
+            {source.story?.speaker === 'Patch' ? <Image source={wordMaizeAssets.characters.patchPointing} style={styles.storyCharacter} /> : null}
+            {source.story?.speaker === 'Farmer May' ? <Image source={wordMaizeAssets.characters.farmerMayWelcome} style={styles.storyCharacter} /> : null}
             <Text style={styles.storySpeaker}>{source.story?.speaker ?? 'PATCH'}</Text>
             <Text style={styles.modalTitle}>{source.story?.title ?? `Level ${levelId}`}</Text>
             {source.story ? <Text style={styles.storyText}>{source.story.text}</Text> : null}
@@ -520,7 +561,7 @@ const styles = StyleSheet.create({
   level: { color: '#ffffff', fontWeight: '900', fontSize: 18, letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 2 },
   objective: { color: '#fadd74', fontWeight: '700', fontSize: 10, marginTop: 1, textAlign: 'center' },
   wordRow: { alignItems: 'center', marginTop: 8, marginBottom: 4, minHeight: 44, zIndex: 6 },
-  cob: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 240 },
+  cob: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 240, zIndex: 11, overflow: 'visible' },
   dock: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, paddingHorizontal: 2, paddingTop: 6, zIndex: 10 },
   rotateHit: { width: 48, height: 48, minWidth: 44, minHeight: 44, borderRadius: 14, overflow: 'hidden' },
   rotateIcon: { width: 48, height: 48, resizeMode: 'cover' },
@@ -530,9 +571,8 @@ const styles = StyleSheet.create({
   sessionText: { color: '#fff6c6', fontWeight: '900', fontSize: 16, marginLeft: 4 },
   shuffle: { width: 48, height: 48, minWidth: 44, minHeight: 44, borderRadius: 24, backgroundColor: '#4c3515', borderWidth: 3, borderColor: '#e5b72f', alignItems: 'center', justifyContent: 'center' },
   shuffleOff: { opacity: 0.4 },
-  shuffleText: { color: '#ffe676', fontSize: 22, fontWeight: '900' },
+  shuffleIcon: { width: 48, height: 48, resizeMode: 'contain' },
   modalShade: { flex: 1, backgroundColor: 'rgba(10,25,18,0.85)', alignItems: 'center', justifyContent: 'center' },
-  modalScroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40, paddingBottom: 28, paddingHorizontal: 8 },
   modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 12 },
   stats: { fontSize: 16, lineHeight: 25, textAlign: 'center', color: '#51351f', fontWeight: '700' },
   storySpeaker: { color: '#98702c', fontWeight: '900', fontSize: 12, letterSpacing: 1.5, textAlign: 'center', marginBottom: 4 },
@@ -540,31 +580,4 @@ const styles = StyleSheet.create({
   storyText: { color: '#51351f', fontWeight: '700', fontSize: 16, lineHeight: 23, textAlign: 'center', marginBottom: 12 },
   tutorialLine: { color: '#51351f', fontWeight: '700', fontSize: 14, lineHeight: 21, marginBottom: 5 },
   goalHeading: { color: '#5d8b31', fontWeight: '900', fontSize: 13, letterSpacing: 1.5, textAlign: 'center', marginTop: 8 },
-  goalResult: { color: '#51351f', fontWeight: '800', fontSize: 13 },
-  
-  bumperWrap: { width: '92%', maxWidth: 380, paddingTop: 22, alignItems: 'center' },
-  bumperPanel: { backgroundColor: '#fdf1cd', borderWidth: 4, borderColor: '#73441f', borderRadius: 22, padding: 22, paddingTop: 36, paddingBottom: 20, width: '100%', alignItems: 'center', overflow: 'visible', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.6, shadowRadius: 8, elevation: 8, zIndex: 10 },
-  bumperHeader: { position: 'absolute', top: -22, backgroundColor: '#58c22e', paddingHorizontal: 22, paddingTop: 10, paddingBottom: 10, borderRadius: 28, borderWidth: 4, borderColor: '#7ee04a', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 5, zIndex: 20 },
-  bumperTitle: { fontSize: 24, lineHeight: 28, fontWeight: '900', color: '#ffffff', letterSpacing: 1, textShadowColor: 'rgba(40,100,20,0.6)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 2 },
-  bumperSubHeader: { backgroundColor: '#38220f', paddingHorizontal: 20, paddingVertical: 6, borderRadius: 16, marginBottom: 20, marginTop: -15, borderWidth: 2, borderColor: '#e4bb40' },
-  bumperSubTitle: { fontSize: 16, fontWeight: '800', color: '#ffffff' },
-  
-  statsContainer: { width: '100%', backgroundColor: 'rgba(215, 180, 130, 0.3)', borderRadius: 12, padding: 16, gap: 12, borderWidth: 1, borderColor: '#c9a572' },
-  statRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statIcon: { width: 32, height: 32, resizeMode: 'contain' },
-  circleIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#58c22e', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#ffffff' },
-  circleText: { color: '#ffffff', fontWeight: '900', fontSize: 14 },
-  starIcon: { fontSize: 32, color: '#ffb300', textShadowColor: '#c27600', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1 },
-  statValue: { fontSize: 20, fontWeight: '900', color: '#4c2e17' },
-  statLabel: { fontSize: 16, fontWeight: '700', color: '#684525' },
-  statLongest: { fontSize: 20, fontWeight: '900', color: '#3f7c19' },
-  
-  rewardBox: { flexDirection: 'row', backgroundColor: '#6e431f', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 8, borderWidth: 2, borderColor: '#a86f37' },
-  coinIcon: { width: 28, height: 28, resizeMode: 'contain', marginRight: 8 },
-  rewardText: { color: '#ffffff', fontSize: 24, fontWeight: '900' },
-  rewardDetail: { color: '#684525', fontSize: 11, fontWeight: '700', textAlign: 'center' },
-  
-  bumperBasket: { position: 'absolute', bottom: 8, left: 4, width: 88, height: 70, resizeMode: 'contain', zIndex: 30 },
-  bumperTractor: { position: 'absolute', bottom: 8, right: 4, width: 90, height: 70, resizeMode: 'contain', zIndex: 30 },
-  bumperSparkles: { position: 'absolute', width: '100%', height: 220, resizeMode: 'contain', opacity: 0.28, zIndex: 5, pointerEvents: 'none' },
 });

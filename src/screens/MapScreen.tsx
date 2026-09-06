@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
@@ -14,27 +14,27 @@ import { useGameStore } from '../store/GameStore';
 const MAP_HEIGHT = 1540;
 type MapPoint = { x: number; y: number };
 
-// Bottom-to-top positions follow the painted road or creek on each chapter illustration.
+// Bottom-to-top waypoints traced on the 1024×1536 chapter paintings (dirt road / bridges).
 const CHAPTER_PATHS: MapPoint[][] = [
   [
-    { x: .52, y: .91 }, { x: .63, y: .85 }, { x: .69, y: .78 }, { x: .58, y: .71 }, { x: .38, y: .65 },
-    { x: .28, y: .58 }, { x: .38, y: .51 }, { x: .56, y: .45 }, { x: .62, y: .38 }, { x: .54, y: .31 },
-    { x: .46, y: .25 }, { x: .50, y: .19 }, { x: .61, y: .14 }, { x: .57, y: .09 }, { x: .48, y: .055 },
+    { x: .50, y: .935 }, { x: .43, y: .88 }, { x: .34, y: .825 }, { x: .28, y: .76 }, { x: .38, y: .69 },
+    { x: .48, y: .64 }, { x: .51, y: .57 }, { x: .50, y: .51 }, { x: .47, y: .45 }, { x: .48, y: .38 },
+    { x: .52, y: .32 }, { x: .56, y: .25 }, { x: .57, y: .185 }, { x: .53, y: .13 }, { x: .50, y: .09 },
   ],
   [
-    { x: .43, y: .92 }, { x: .54, y: .86 }, { x: .58, y: .79 }, { x: .48, y: .72 }, { x: .57, y: .65 },
-    { x: .70, y: .58 }, { x: .73, y: .50 }, { x: .63, y: .43 }, { x: .47, y: .37 }, { x: .31, y: .31 },
-    { x: .27, y: .24 }, { x: .37, y: .18 }, { x: .48, y: .13 }, { x: .44, y: .085 }, { x: .52, y: .05 },
+    { x: .55, y: .94 }, { x: .58, y: .90 }, { x: .48, y: .85 }, { x: .40, y: .80 }, { x: .46, y: .74 },
+    { x: .52, y: .68 }, { x: .42, y: .62 }, { x: .40, y: .55 }, { x: .50, y: .47 }, { x: .50, y: .40 },
+    { x: .42, y: .34 }, { x: .34, y: .28 }, { x: .30, y: .22 }, { x: .40, y: .15 }, { x: .50, y: .09 },
   ],
   [
-    { x: .45, y: .92 }, { x: .34, y: .86 }, { x: .30, y: .79 }, { x: .42, y: .73 }, { x: .58, y: .67 },
-    { x: .65, y: .60 }, { x: .57, y: .53 }, { x: .44, y: .47 }, { x: .36, y: .40 }, { x: .43, y: .33 },
-    { x: .54, y: .27 }, { x: .59, y: .20 }, { x: .52, y: .14 }, { x: .44, y: .09 }, { x: .50, y: .05 },
+    { x: .55, y: .93 }, { x: .56, y: .86 }, { x: .52, y: .80 }, { x: .50, y: .73 }, { x: .48, y: .67 },
+    { x: .48, y: .60 }, { x: .50, y: .54 }, { x: .40, y: .48 }, { x: .38, y: .42 }, { x: .42, y: .36 },
+    { x: .48, y: .28 }, { x: .52, y: .22 }, { x: .55, y: .16 }, { x: .52, y: .12 }, { x: .50, y: .08 },
   ],
   [
-    { x: .50, y: .92 }, { x: .43, y: .86 }, { x: .39, y: .79 }, { x: .47, y: .72 }, { x: .60, y: .66 },
-    { x: .63, y: .59 }, { x: .55, y: .52 }, { x: .43, y: .46 }, { x: .38, y: .39 }, { x: .47, y: .32 },
-    { x: .58, y: .26 }, { x: .61, y: .19 }, { x: .53, y: .13 }, { x: .45, y: .085 }, { x: .50, y: .05 },
+    { x: .50, y: .94 }, { x: .50, y: .87 }, { x: .50, y: .80 }, { x: .50, y: .73 }, { x: .50, y: .66 },
+    { x: .54, y: .58 }, { x: .58, y: .50 }, { x: .52, y: .42 }, { x: .48, y: .36 }, { x: .45, y: .28 },
+    { x: .48, y: .22 }, { x: .52, y: .18 }, { x: .45, y: .14 }, { x: .42, y: .11 }, { x: .40, y: .08 },
   ],
 ];
 
@@ -59,18 +59,24 @@ export function MapScreen() {
   const nextWorld = CAMPAIGN_WORLDS[chapter + 1];
   const nextChapterUnlocked = !nextWorld || isLevelUnlocked(chapter * 15 + 16, store.completedIds);
 
-  const centerLevel = (levelId: number, animated: boolean) => {
-    const localIndex = (levelId - 1) % 15;
-    const top = CHAPTER_PATHS[chapter][localIndex].y * MAP_HEIGHT;
-    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: Math.max(0, top - height * 0.42), animated }));
-  };
+  const scrollToLevel = useCallback((levelId: number, chapterIndex: number, animated: boolean) => {
+    const localIndex = Math.max(0, Math.min(14, (levelId - 1) % 15));
+    const top = CHAPTER_PATHS[chapterIndex][localIndex].y * MAP_HEIGHT;
+    const visible = Math.max(220, height - 280);
+    scrollRef.current?.scrollTo({ y: Math.max(0, Math.min(MAP_HEIGHT - visible, top - visible * 0.42)), animated });
+  }, [height]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const currentChapter = Math.min(3, Math.floor((store.currentLevelId - 1) / 15));
-    if (currentChapter !== chapter) return;
+    setChapter(currentChapter);
     setSelectedId(store.currentLevelId);
-    centerLevel(store.currentLevelId, false);
-  }, [chapter, height, store.currentLevelId]);
+    const frame = requestAnimationFrame(() => scrollToLevel(store.currentLevelId, currentChapter, false));
+    const later = setTimeout(() => scrollToLevel(store.currentLevelId, currentChapter, false), 80);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(later);
+    };
+  }, [scrollToLevel, store.currentLevelId]));
 
   const changeChapter = (next: number) => {
     if (next < 0 || next > 3) return;
@@ -79,7 +85,7 @@ export function MapScreen() {
     const preferred = LEVELS.find(level => level.id >= firstId && level.id <= firstId + 14 && level.id === store.currentLevelId)?.id ?? fallbackId;
     setChapter(next);
     setSelectedId(preferred);
-    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: next < chapter ? 0 : MAP_HEIGHT, animated: false }));
+    requestAnimationFrame(() => scrollToLevel(preferred, next, false));
   };
 
   const play = (id: number) => {
@@ -105,29 +111,45 @@ export function MapScreen() {
           <Text style={styles.world} numberOfLines={1}>{CAMPAIGN_WORLDS[chapter]}</Text>
           <Text style={styles.dragHint}>SCROLL · LEVELS {chapter * 15 + 1}–{chapter * 15 + 15}</Text>
         </View>
-        <ScrollView ref={scrollRef} style={styles.scroller} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces>
+        <ScrollView ref={scrollRef} style={styles.scroller} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces onLayout={() => scrollToLevel(selectedId, chapter, false)}>
           <View style={styles.mapCanvas}>
-            <Image source={backgrounds[chapter]} style={styles.mapBackground} resizeMode="stretch" />
+            <Image source={backgrounds[chapter]} style={styles.mapBackground} resizeMode="cover" />
             {chapterLevels.map((level, index) => {
               const point = CHAPTER_PATHS[chapter][index];
               const unlocked = isLevelUnlocked(level.id, store.completedIds);
               const progress = store.save.levels[level.id];
               const selected = selectedId === level.id;
               const current = store.currentLevelId === level.id;
-              const nextPoint = CHAPTER_PATHS[chapter][index + 1];
-              const angle = nextPoint ? Math.atan2((nextPoint.y - point.y) * MAP_HEIGHT, (nextPoint.x - point.x) * 430) * 180 / Math.PI + 90 : 0;
+              const earned = progress?.stars ?? 0;
+              const nodeArt = !unlocked
+                ? wordMaizeAssets.ui.mapNodeLocked
+                : earned > 0
+                  ? wordMaizeAssets.ui.mapNodeComplete
+                  : wordMaizeAssets.ui.mapNodeCurrent;
               return (
                 <View key={level.id} style={[styles.nodeSlot, { left: `${point.x * 100}%` as const, top: point.y * MAP_HEIGHT }]}>
-                  {nextPoint ? <View style={[styles.trail, { transform: [{ rotate: `${angle}deg` }] }]} /> : null}
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${unlocked ? '' : 'Locked '}Level ${level.id}`}
+                    accessibilityLabel={`${unlocked ? '' : 'Locked '}Level ${level.id}${earned ? `, ${earned} stars` : ''}`}
                     onPress={() => unlocked && setSelectedId(level.id)}
-                    style={[styles.node, !unlocked && styles.nodeLocked, current && styles.nodeCurrent, selected && styles.nodeSelected]}
+                    style={[styles.node, current && styles.nodeCurrent, selected && styles.nodeSelected]}
                   >
-                    <Text style={styles.nodeText}>{unlocked ? level.id : '🔒'}</Text>
+                    <Image
+                      source={nodeArt}
+                      style={styles.nodeKernel}
+                    />
+                    {unlocked ? <Text style={styles.nodeText}>{level.id}</Text> : null}
                   </Pressable>
-                  {progress?.stars ? <Text style={styles.stars}>{'★'.repeat(progress.stars)}{'☆'.repeat(3 - progress.stars)}</Text> : current ? <Text style={styles.currentLabel}>NEXT</Text> : null}
+                  <View style={styles.starRow}>
+                    {unlocked ? [0, 1, 2].map(star => (
+                      <Image
+                        key={star}
+                        source={star < earned ? wordMaizeAssets.ui.mapStarFilled : wordMaizeAssets.ui.mapStarEmpty}
+                        style={[styles.starMark, star < earned && styles.starMarkOn]}
+                      />
+                    )) : null}
+                  </View>
+                  {current && !earned ? <Text style={styles.currentLabel}>NEXT</Text> : null}
                 </View>
               );
             })}
@@ -187,14 +209,15 @@ const styles = StyleSheet.create({
   scrollContent: { minHeight: MAP_HEIGHT },
   mapCanvas: { height: MAP_HEIGHT, overflow: 'hidden' },
   mapBackground: { position: 'absolute', left: 0, top: 0, width: '100%', height: MAP_HEIGHT },
-  nodeSlot: { position: 'absolute', width: 86, marginLeft: -43, marginTop: -31, alignItems: 'center', zIndex: 2 },
-  trail: { position: 'absolute', width: 7, height: 104, top: -78, borderRadius: 4, backgroundColor: 'rgba(255,225,126,0.74)', borderWidth: 2, borderColor: 'rgba(96,61,24,0.55)' },
-  node: { width: 60, height: 60, borderRadius: 30, borderWidth: 4, borderColor: '#f8dc83', backgroundColor: '#5fae35', alignItems: 'center', justifyContent: 'center', shadowColor: '#221308', shadowOpacity: 0.55, shadowRadius: 5, shadowOffset: { width: 0, height: 4 } },
-  nodeLocked: { backgroundColor: '#756548', borderColor: '#d3c18b' },
-  nodeCurrent: { borderColor: '#fff36a', transform: [{ scale: 1.08 }] },
-  nodeSelected: { borderColor: '#ffffff', shadowColor: '#fff36a', shadowOpacity: 0.95, shadowRadius: 10 },
-  nodeText: { color: 'white', fontWeight: '900', fontSize: 18, textShadowColor: '#254312', textShadowRadius: 2 },
-  stars: { color: '#ffe676', fontSize: 13, fontWeight: '900', marginTop: 1, textShadowColor: '#5b3714', textShadowRadius: 2 },
+  nodeSlot: { position: 'absolute', width: 72, marginLeft: -36, marginTop: -28, alignItems: 'center', zIndex: 2 },
+  node: { width: 54, height: 54, alignItems: 'center', justifyContent: 'center' },
+  nodeCurrent: { transform: [{ scale: 1.12 }] },
+  nodeSelected: { transform: [{ scale: 1.16 }] },
+  nodeKernel: { position: 'absolute', width: 62, height: 62, resizeMode: 'contain' },
+  nodeText: { color: '#fff8cf', fontWeight: '900', fontSize: 14, textShadowColor: 'rgba(27,62,12,0.95)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 2 },
+  starRow: { flexDirection: 'row', gap: 2, marginTop: 1 },
+  starMark: { width: 13, height: 13, resizeMode: 'contain' },
+  starMarkOn: { opacity: 1 },
   currentLabel: { color: '#fff6c6', fontSize: 9, fontWeight: '900', marginTop: 2, backgroundColor: '#533318', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
   chapterGate: { position: 'absolute', top: 14, left: 22, right: 22, padding: 13, borderRadius: 18, borderWidth: 3, borderColor: '#d7ad4b', backgroundColor: 'rgba(55,34,14,0.95)', alignItems: 'center', zIndex: 4 },
   gateEyebrow: { color: '#e7c867', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },

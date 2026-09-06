@@ -12,11 +12,14 @@ import { wrapColumn, signedColumnOffset, snapRotation, rotationFromDrag, finishR
 import { coinsForWord, starsForLevel } from '../scoring';
 import { canSubmitSelection, evaluateSubmission, tapKernel } from '../selection';
 import { ENERGY_REGEN_MS, Kernel } from '../types';
-import { LEVELS } from '../../data/levels';
+import { isLevelUnlocked, LEVELS } from '../../data/levels';
 import { migrateSave, nextDailyDay, SAVE_VERSION } from '../../store/types';
 import { validateLevels } from '../levelValidation';
 import { evaluateLevelStars, objectiveComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
+import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
+import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
+import { SHOP_PRODUCTS, validateShopProducts } from '../../data/shop';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
   id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'yellow',
@@ -222,7 +225,7 @@ describe('harvest and layers', () => {
 });
 
 describe('dictionary', () => {
-  it('accepts curated and bundled words', () => {
+  it('accepts curated, farm, and common English words', () => {
     expect(validateWord('corn').valid).toBe(true);
     expect(validateWord('harvest').valid).toBe(true);
     expect(WORD_LIST.has('MAIZE')).toBe(true);
@@ -230,8 +233,13 @@ describe('dictionary', () => {
     expect(validateWord('oats').valid).toBe(true);
     expect(validateWord('rye').valid).toBe(true);
     expect(validateWord('popcorn').valid).toBe(true);
+    expect(validateWord('tomato').valid).toBe(true);
+    expect(validateWord('sunflower').valid).toBe(true);
+    expect(validateWord('watermelon').valid).toBe(true);
+    expect(WORD_LIST.size).toBeGreaterThan(20000);
   });
   it('rejects unknown and short words', () => {
+    expect(validateWord('xyz').valid).toBe(false);
     expect(validateWord('xyz')).toMatchObject({ valid: false, reason: 'not-found' });
     expect(validateWord('to')).toMatchObject({ valid: false, reason: 'too-short' });
   });
@@ -305,6 +313,11 @@ describe('levels and powerup search', () => {
       expect(level.rows).toBe(level.kernels.filter(k => k.layer === 0 && k.column === 0).length);
     });
   });
+  it('unlocks the next field after a completed harvest', () => {
+    expect(isLevelUnlocked(1, [])).toBe(true);
+    expect(isLevelUnlocked(2, [])).toBe(false);
+    expect(isLevelUnlocked(2, [1])).toBe(true);
+  });
   it('finds a planted word on level 1', () => {
     const level = LEVELS[0];
     const path = findDiscoverablePath(level.kernels, level.columns, new Set(['SEED', 'CORN']), new Set(['S', 'SE', 'SEE', 'C', 'CO', 'COR']), [], level.hintPaths);
@@ -331,6 +344,15 @@ describe('levels and powerup search', () => {
 });
 
 describe('farm obstacles', () => {
+  it('introduces caterpillars in chapter one with a story beat', () => {
+    const seven = LEVELS.find(level => level.id === 7)!;
+    const eight = LEVELS.find(level => level.id === 8)!;
+    expect(seven.obstacles).toHaveLength(0);
+    expect(eight.obstacles.some(obstacle => obstacle.kind === 'caterpillar')).toBe(true);
+    expect(eight.story?.title).toBe('Hungry Visitors');
+    expect(eight.tutorial.join(' ')).toMatch(/Caterpillar/i);
+  });
+
   it('counts down moving pests and blocks their kernel when they trigger', () => {
     let states = initializeObstacles([{ id: 'bug-1', kind: 'caterpillar', kernelId: '0-0-0', countdown: 2 }]);
     states = advanceObstacles(states, []);
@@ -350,6 +372,64 @@ describe('farm obstacles', () => {
     expect(blockedKernelIds(states).has('2-1-0')).toBe(true);
     expect(blockedKernelIds(clearObstacle(states, '2-1-0')).has('2-1-0')).toBe(false);
   });
+
+  it('treats webs as blockers while frost remains available to crack on tap', () => {
+    const states = initializeObstacles([
+      { id: 'web-1', kind: 'web', kernelId: '2-1-0', countdown: 0 },
+      { id: 'frost-1', kind: 'frost', kernelId: '2-2-0', countdown: 0 },
+    ]);
+    expect(blockedKernelIds(states).has('2-1-0')).toBe(true);
+    expect(blockedKernelIds(states).has('2-2-0')).toBe(false);
+  });
+
+  it('authors web and frost introductions on their planned levels', () => {
+    expect(LEVELS.find(level => level.id === 36)?.obstacles.some(obstacle => obstacle.kind === 'web')).toBe(true);
+    expect(LEVELS.find(level => level.id === 36)?.tutorial.join(' ')).toMatch(/Spider webs/i);
+    expect(LEVELS.find(level => level.id === 48)?.obstacles.some(obstacle => obstacle.kind === 'frost')).toBe(true);
+    expect(LEVELS.find(level => level.id === 48)?.tutorial.join(' ')).toMatch(/Tap a frozen kernel/i);
+  });
+});
+
+describe('turn-based weather', () => {
+  it('alternates deterministic wind steps at its configured interval', () => {
+    const weather = { kind: 'wind' as const, interval: 2 };
+    expect(windStep(weather, 1)).toBe(0);
+    expect(windStep(weather, 2)).toBe(1);
+    expect(windStep(weather, 4)).toBe(-1);
+  });
+
+  it('awards rain coins by word length and exposes a player-facing label', () => {
+    const weather = { kind: 'rain' as const, interval: 2, coinBonusPerLetter: 1 };
+    expect(weatherCoinBonus(weather, 'HARVEST')).toBe(7);
+    expect(weatherLabel(weather)).toBe('RAIN BONUS');
+  });
+
+  it('rewards long drought words and gives storms deterministic rotation beats', () => {
+    const drought = { kind: 'drought' as const, interval: 1 };
+    const storm = { kind: 'storm' as const, interval: 2 };
+    expect(weatherCoinBonus(drought, 'CORN')).toBe(0);
+    expect(weatherCoinBonus(drought, 'FIELD')).toBe(5);
+    expect(weatherLabel(drought)).toMatch(/DROUGHT/);
+    expect(windStep(storm, 1)).toBe(0);
+    expect(windStep(storm, 2)).toBe(1);
+    expect(weatherLabel(storm)).toMatch(/STORM/);
+  });
+
+  it('declares weather in authored level data before gameplay', () => {
+    expect(LEVELS.find(level => level.id === 38)?.weather?.kind).toBe('rain');
+    expect(LEVELS.find(level => level.id === 47)?.weather?.kind).toBe('wind');
+    expect(LEVELS.find(level => level.id === 37)?.weather?.kind).toBe('drought');
+    expect(LEVELS.find(level => level.id === 54)?.weather?.kind).toBe('storm');
+    expect(LEVELS.find(level => level.id === 47)?.tutorial.join(' ')).toMatch(/Wind rotates/i);
+  });
+
+  it('keeps mastery levels readable with no more than two obstacle families', () => {
+    const mastery = LEVELS.filter(level => level.id >= 46);
+    expect(mastery.every(level => new Set(level.obstacles.map(obstacle => obstacle.kind)).size <= 2)).toBe(true);
+    expect(LEVELS.find(level => level.id === 54)?.obstacles.map(obstacle => obstacle.kind)).toEqual(['crow', 'frost']);
+    expect(LEVELS.find(level => level.id === 59)?.obstacles.map(obstacle => obstacle.kind)).toEqual(['crow', 'web']);
+    expect(LEVELS.find(level => level.id === 60)?.weather?.kind).toBe('storm');
+  });
 });
 
 describe('daily harvest calendar', () => {
@@ -361,12 +441,35 @@ describe('daily harvest calendar', () => {
   });
 });
 
+describe('farm restoration progression', () => {
+  it('unlocks projects at deterministic level milestones', () => {
+    expect(completedRestorationStage([1, 2])).toBe(0);
+    expect(claimableRestorationMilestone([1, 2, 3], [])?.id).toBe('lower-field');
+    expect(completedRestorationStage([3, 6, 10, 12, 15])).toBe(RESTORATION_MILESTONES.length);
+  });
+
+  it('advances to the next unclaimed project without duplicating rewards', () => {
+    expect(nextRestorationMilestone([3, 6], ['lower-field'])?.id).toBe('farm-road');
+    expect(claimableRestorationMilestone([3, 6], ['lower-field'])?.id).toBe('farm-road');
+    expect(claimableRestorationMilestone([3, 6], ['lower-field', 'farm-road'])).toBeUndefined();
+  });
+});
+
+describe('store catalog', () => {
+  it('has unique purchasable products with valid grants and display prices', () => {
+    expect(validateShopProducts()).toEqual([]);
+    expect(SHOP_PRODUCTS.some(product => product.entitlement === 'ad_free')).toBe(true);
+    expect(SHOP_PRODUCTS.filter(product => product.tools).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe('save migration', () => {
   it('preserves progress while filling fields introduced by newer builds', () => {
     const migrated = migrateSave({ coins: 275, currentLevelId: 4, inventory: { scarecrow: 9 } });
     expect(migrated.version).toBe(SAVE_VERSION);
     expect(migrated.coins).toBe(275);
     expect(migrated.currentLevelId).toBe(4);
+    expect(migrated.claimedRestorations).toEqual([]);
     expect(migrated.inventory).toEqual({ scarecrow: 9, butterBrush: 2, cornPicker: 3 });
     expect(migrated.seenLevelIntros).toEqual([]);
   });

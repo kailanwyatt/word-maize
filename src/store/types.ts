@@ -21,6 +21,7 @@ export type ActiveLevelRun = {
   earnedCoins: number;
   toolsUsed: number;
   obstacles?: ObstacleState[];
+  acceptedTurns?: number;
   updatedAt: number;
 };
 
@@ -38,10 +39,11 @@ export type GameSave = {
   seenLevelIntros: number[];
   activeLevelRun: ActiveLevelRun | null;
   adFree: boolean;
+  claimedRestorations: string[];
 };
 
 export const SAVE_KEY = 'word-maize.save.v1';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export const defaultSave = (): GameSave => ({
   version: SAVE_VERSION,
@@ -57,6 +59,7 @@ export const defaultSave = (): GameSave => ({
   seenLevelIntros: [],
   activeLevelRun: null,
   adFree: false,
+  claimedRestorations: [],
 });
 
 export function migrateSave(value: unknown): GameSave {
@@ -73,6 +76,7 @@ export function migrateSave(value: unknown): GameSave {
     levels: saved.levels && typeof saved.levels === 'object' ? saved.levels : {},
     seenLevelIntros: Array.isArray(saved.seenLevelIntros) ? saved.seenLevelIntros.filter(Number.isFinite) : [],
     activeLevelRun: saved.activeLevelRun && typeof saved.activeLevelRun === 'object' ? saved.activeLevelRun : null,
+    claimedRestorations: Array.isArray(saved.claimedRestorations) ? saved.claimedRestorations.filter(value => typeof value === 'string') : [],
   };
 }
 

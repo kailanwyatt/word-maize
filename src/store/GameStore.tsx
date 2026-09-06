@@ -5,6 +5,7 @@ import { DAILY_REWARDS } from '../data/shop';
 import { LEVELS } from '../data/levels';
 import { replenishEnergy } from '../game/energy';
 import { clampInventoryAmount } from '../game/economy';
+import { RESTORATION_MILESTONES } from '../game/restoration';
 import { ENERGY_MAX, Inventory, LevelProgress, ToolId } from '../game/types';
 import { ActiveLevelRun, defaultSave, GameSave, localDateString, migrateSave, nextDailyDay, SAVE_KEY } from './types';
 
@@ -28,6 +29,7 @@ type GameStoreValue = {
   saveLevelRun: (run: ActiveLevelRun) => void;
   clearLevelRun: () => void;
   setAdFree: (value: boolean) => void;
+  claimRestoration: (id: string) => boolean;
   completedIds: number[];
   currentLevelId: number;
 };
@@ -172,6 +174,24 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
   })), [patch]);
   const saveLevelRun = useCallback((run: ActiveLevelRun) => patch(prev => ({ ...prev, activeLevelRun: run })), [patch]);
   const clearLevelRun = useCallback(() => patch(prev => ({ ...prev, activeLevelRun: null })), [patch]);
+  const claimRestoration = useCallback((id: string) => {
+    const milestone = RESTORATION_MILESTONES.find(item => item.id === id);
+    if (!milestone || !save.levels[milestone.requiredLevel]?.completed || save.claimedRestorations.includes(id)) return false;
+    patch(prev => {
+      if (!prev.levels[milestone.requiredLevel]?.completed || prev.claimedRestorations.includes(id)) return prev;
+      return {
+        ...prev,
+        coins: prev.coins + milestone.coins,
+        claimedRestorations: [...prev.claimedRestorations, id],
+        inventory: {
+          scarecrow: clampInventoryAmount(prev.inventory.scarecrow + (milestone.tools?.scarecrow ?? 0)),
+          butterBrush: clampInventoryAmount(prev.inventory.butterBrush + (milestone.tools?.butterBrush ?? 0)),
+          cornPicker: clampInventoryAmount(prev.inventory.cornPicker + (milestone.tools?.cornPicker ?? 0)),
+        },
+      };
+    });
+    return true;
+  }, [patch, save.claimedRestorations, save.levels]);
 
   const claimDaily = useCallback(() => {
     const today = localDateString();
@@ -203,9 +223,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<GameStoreValue>(() => ({
     ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool,
-    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree,
+    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration,
     completedIds, currentLevelId: save.currentLevelId,
-  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, completedIds]);
+  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, completedIds]);
 
   return <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>;
 }

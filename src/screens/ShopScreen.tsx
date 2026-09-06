@@ -8,6 +8,7 @@ import { FarmButton, Panel } from '../components/FarmButton';
 import { SHOP_PRODUCTS, ShopProduct, TOOL_INFO } from '../data/shop';
 import { ToolId } from '../game/types';
 import { purchaseProduct } from '../monetization/purchases';
+import { showRewardedAd } from '../monetization/ads';
 import { useGameStore } from '../store/GameStore';
 
 export function ShopScreen() {
@@ -16,6 +17,7 @@ export function ShopScreen() {
   const [detail, setDetail] = useState<ShopProduct | ToolId | undefined>();
   const [confirm, setConfirm] = useState<ShopProduct | undefined>();
   const [purchasing, setPurchasing] = useState(false);
+  const [rewarding, setRewarding] = useState(false);
   const purchaseBusy = useRef(false);
   const buy = async (product: ShopProduct) => {
     if (purchaseBusy.current) return;
@@ -36,6 +38,19 @@ export function ShopScreen() {
   };
   const productDetail = typeof detail === 'object' ? detail : undefined;
   const toolDetail = typeof detail === 'string' ? detail : undefined;
+  const toolContents = (product: ShopProduct) => product.tools
+    ? `${product.tools.scarecrow ?? 0} Scarecrows · ${product.tools.butterBrush ?? 0} Brushes · ${product.tools.cornPicker ?? 0} Pickers`
+    : 'Permanent account upgrade';
+  const watchForTool = async (tool: ToolId) => {
+    if (rewarding) return;
+    setRewarding(true);
+    const result = await showRewardedAd('tool', store.save.adFree);
+    if (result.rewarded) {
+      store.addTools({ [tool]: 1 });
+      Alert.alert('Tool earned', `1 ${TOOL_INFO[tool].title} was added to your tool belt.`);
+    } else Alert.alert('Reward unavailable', result.message ?? 'The rewarded ad could not be shown.');
+    setRewarding(false);
+  };
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.shopBarn} style={styles.bg} resizeMode="cover">
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -46,8 +61,15 @@ export function ShopScreen() {
           <Text style={styles.subtitle}>Stock up before the next harvest</Text>
         </View>
         <ScrollView contentContainerStyle={styles.list}>
+          <View style={styles.featureCard}>
+            <Image source={wordMaizeAssets.ui.storeFeature} style={styles.featureArt} />
+            <View style={styles.featureShade} />
+            <View style={styles.featureCopy}><Text style={styles.featureEyebrow}>FARMER MAY'S PICK</Text><Text style={styles.featureTitle}>Ready for stubborn cobs</Text><Text style={styles.featureText}>Tool packs work across every chapter.</Text></View>
+          </View>
+          {__DEV__ ? <View style={styles.devNotice}><Text style={styles.devNoticeText}>DEVELOPMENT PREVIEW · STORE PURCHASES GRANT TEST ITEMS</Text></View> : null}
           {SHOP_PRODUCTS.map(product => (
-            <Pressable key={product.id} style={styles.card} onPress={() => setDetail(product)}>
+            <Pressable key={product.id} style={[styles.card, product.id === 'farmers_toolbox' && styles.featuredProduct]} onPress={() => setDetail(product)}>
+              {product.id === 'farmers_toolbox' ? <View style={styles.valueRibbon}><Text style={styles.valueRibbonText}>BEST VALUE</Text></View> : null}
               <View style={styles.productArt}>
                 {product.entitlement === 'ad_free' ? <Text style={styles.noAds}>ADS{`\n`}OFF</Text> : (
                   <View style={styles.bundleArt}>
@@ -60,11 +82,9 @@ export function ShopScreen() {
               <View style={styles.productCopy}>
                 <Text style={styles.cardTitle}>{product.title}</Text>
                 <Text style={styles.blurb}>{product.blurb}</Text>
-                {product.tools && !product.blurb.includes('Scarecrows') ? <Text style={styles.contents}>
-                  {product.tools.scarecrow ?? 0} Scarecrows · {product.tools.butterBrush ?? 0} Brushes · {product.tools.cornPicker ?? 0} Pickers
-                </Text> : null}
+                <Text style={styles.contents}>{toolContents(product)}</Text>
               </View>
-              <View style={styles.priceButton}><Text style={styles.price}>{product.displayPrice}</Text></View>
+              <View style={[styles.priceButton, product.entitlement === 'ad_free' && store.save.adFree && styles.ownedPrice]}><Text style={styles.price}>{product.entitlement === 'ad_free' && store.save.adFree ? 'OWNED' : product.displayPrice}</Text></View>
             </Pressable>
           ))}
           <View style={styles.sectionBoard}><Text style={styles.section}>YOUR TOOL BELT</Text></View>
@@ -99,6 +119,8 @@ export function ShopScreen() {
             <Text style={styles.body}>{toolDetail ? TOOL_INFO[toolDetail].blurb : ''}</Text>
             <Text style={styles.body}>Owned: {toolDetail ? store.save.inventory[toolDetail] : 0}</Text>
             <View style={{ height: 12 }} />
+            <FarmButton label={rewarding ? 'LOADING REWARD…' : store.save.adFree ? 'CLAIM 1 FREE' : 'WATCH AD · GET 1'} onPress={() => toolDetail && watchForTool(toolDetail)} dim={rewarding} />
+            <View style={{ height: 10 }} />
             <FarmButton label="CLOSE" onPress={() => setDetail(undefined)} />
           </Panel>
         </View>
@@ -127,7 +149,19 @@ const styles = StyleSheet.create({
   title: { color: '#fff6c6', fontWeight: '900', fontSize: 27, lineHeight: 31, textShadowColor: '#1d1408', textShadowRadius: 4 },
   subtitle: { color: '#ead9a7', fontWeight: '700', fontSize: 11 },
   list: { padding: 12, paddingBottom: 28, gap: 10 },
+  featureCard: { height: 126, borderRadius: 19, borderWidth: 3, borderColor: '#d6a43d', overflow: 'hidden', backgroundColor: '#3b240f' },
+  featureArt: { width: '100%', height: '100%', resizeMode: 'cover' },
+  featureShade: { position: 'absolute', inset: 0, backgroundColor: 'rgba(35,18,6,.34)' },
+  featureCopy: { position: 'absolute', left: 13, bottom: 11, right: 13 },
+  featureEyebrow: { color: '#ffd968', fontWeight: '900', fontSize: 9, letterSpacing: 1.5 },
+  featureTitle: { color: '#fff8cf', fontWeight: '900', fontSize: 20, textShadowColor: '#231205', textShadowRadius: 4 },
+  featureText: { color: '#fff1ba', fontWeight: '700', fontSize: 10 },
+  devNotice: { borderRadius: 9, paddingVertical: 6, paddingHorizontal: 9, backgroundColor: 'rgba(41,62,29,.94)', borderWidth: 1, borderColor: '#87b950' },
+  devNoticeText: { color: '#e7f5c5', fontWeight: '900', fontSize: 8, textAlign: 'center', letterSpacing: .6 },
   card: { minHeight: 104, backgroundColor: 'rgba(255,242,189,0.96)', borderWidth: 3, borderColor: '#73441f', borderRadius: 18, padding: 10, flexDirection: 'row', alignItems: 'center', shadowColor: '#201007', shadowOpacity: 0.34, shadowRadius: 4, shadowOffset: { width: 0, height: 3 } },
+  featuredProduct: { borderColor: '#efbd3d', backgroundColor: 'rgba(255,247,202,.98)' },
+  valueRibbon: { position: 'absolute', right: 10, top: -7, zIndex: 3, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8, backgroundColor: '#d88122', borderWidth: 1, borderColor: '#fff0a0' },
+  valueRibbonText: { color: 'white', fontWeight: '900', fontSize: 7, letterSpacing: .7 },
   productArt: { width: 76, height: 82, borderRadius: 14, borderWidth: 2, borderColor: '#d3a24d', backgroundColor: '#f0c75d', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   bundleArt: { width: 74, height: 74, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   bundleIcon: { width: 30, height: 46, resizeMode: 'contain', marginHorizontal: -6 },
@@ -139,6 +173,7 @@ const styles = StyleSheet.create({
   contents: { color: '#477126', fontWeight: '900', fontSize: 9, marginTop: 5 },
   priceButton: { backgroundColor: '#5b9f2c', borderWidth: 2, borderColor: '#386b19', borderRadius: 12, minWidth: 72, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 8 },
   price: { color: 'white', fontWeight: '900', fontSize: 14 },
+  ownedPrice: { backgroundColor: '#7d765f', borderColor: '#5d5747' },
   sectionBoard: { alignSelf: 'center', marginTop: 8, backgroundColor: 'rgba(68,36,15,0.94)', borderRadius: 12, borderWidth: 2, borderColor: '#c78a32', paddingHorizontal: 22, paddingVertical: 7 },
   section: { color: '#fff6c6', fontWeight: '900', letterSpacing: 1.2 },
   toolCard: { minHeight: 92, backgroundColor: 'rgba(255,242,189,0.96)', borderWidth: 3, borderColor: '#73441f', borderRadius: 18, padding: 10, flexDirection: 'row', alignItems: 'center' },

@@ -17,6 +17,7 @@ export function KernelTile({
   onPress,
   reducedMotion = false,
   obstacle,
+  clearing = false,
   blocked = false,
   pickerMode = false,
 }: {
@@ -32,12 +33,48 @@ export function KernelTile({
   onPress?: () => void;
   reducedMotion?: boolean;
   obstacle?: ObstacleState;
+  clearing?: boolean;
   blocked?: boolean;
   pickerMode?: boolean;
 }) {
   const { kernel, x, y, scaleX, scale, shade } = layout;
+  const activeObstacle = obstacle && obstacle.status !== 'cleared' ? obstacle : undefined;
+  const isKernelObstacle = activeObstacle?.kind === 'weed' || activeObstacle?.kind === 'caterpillar' || activeObstacle?.kind === 'frost';
+  const isBoardActorTarget = activeObstacle?.kind === 'crow' || activeObstacle?.kind === 'squirrel';
+  const kernelArt = activeObstacle?.kind === 'weed'
+    ? wordMaizeAssets.obstacles.weed
+    : activeObstacle?.kind === 'caterpillar'
+      ? wordMaizeAssets.obstacles.caterpillar
+      : activeObstacle?.kind === 'frost'
+        ? wordMaizeAssets.obstacles.frostKernel
+      : wordMaizeAssets.kernels.approvedNormal;
   const harvest = useRef(new Animated.Value(0)).current;
   const reject = useRef(new Animated.Value(0)).current;
+  const obstaclePulse = useRef(new Animated.Value(0)).current;
+  const obstacleExit = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!activeObstacle || reducedMotion) {
+      obstaclePulse.stopAnimation();
+      obstaclePulse.setValue(0);
+      return;
+    }
+    const duration = activeObstacle.kind === 'caterpillar' ? 360 : 700;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(obstaclePulse, { toValue: 1, duration, useNativeDriver: true }),
+      Animated.timing(obstaclePulse, { toValue: 0, duration, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [activeObstacle?.id, activeObstacle?.kind, activeObstacle?.status, obstaclePulse, reducedMotion]);
+
+  useEffect(() => {
+    if (!clearing) {
+      obstacleExit.setValue(0);
+      return;
+    }
+    Animated.timing(obstacleExit, { toValue: 1, duration: reducedMotion ? 1 : 340, useNativeDriver: true }).start();
+  }, [clearing, obstacleExit, reducedMotion]);
 
   useEffect(() => {
     if (!harvesting) {
@@ -104,22 +141,45 @@ export function KernelTile({
           },
         ]}
       >
+        {isBoardActorTarget ? (
+          <Image
+            source={wordMaizeAssets.obstacles.crowTarget}
+            style={[styles.actorTarget, activeObstacle?.status === 'triggered' && styles.actorTargetTriggered]}
+          />
+        ) : null}
         {(selected || hinted) ? <Image source={wordMaizeAssets.kernels.approvedNormal} style={[styles.kernelGlow, hinted && styles.hintGlow]} /> : null}
         <Animated.Image
-          source={wordMaizeAssets.kernels.approvedNormal}
+          source={kernelArt}
           style={[
             styles.kernel,
             faulted && styles.kernelFaulted,
             rejected && { opacity: reject.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] }) },
+            isKernelObstacle && {
+              opacity: obstacleExit.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] }),
+              transform: [
+                { scale: obstacleExit.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 1.12, 0.3] }) },
+                { rotate: obstacleExit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', activeObstacle?.kind === 'frost' ? '16deg' : '-10deg'] }) },
+              ],
+            },
           ]}
         />
-        <Text style={[styles.letter, { fontSize: size * 0.42 }, faulted && styles.letterFaulted]}>
+        <Text style={[styles.letter, { fontSize: size * 0.42 }]}>
           {kernel.letter}
         </Text>
-        {obstacle && obstacle.status !== 'cleared' ? <View style={styles.obstacleWrap}>
-          <Image source={wordMaizeAssets.obstacles[obstacle.kind]} style={styles.obstacle} />
-          {obstacle.turnsRemaining > 0 ? <Text style={styles.countdown}>{obstacle.turnsRemaining}</Text> : null}
-        </View> : null}
+        {activeObstacle && !isKernelObstacle && !isBoardActorTarget ? <Animated.View style={[
+          activeObstacle.kind === 'web' ? styles.webWrap : styles.obstacleWrap,
+          activeObstacle.kind === 'web' && {
+            opacity: obstacleExit.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+            transform: [
+              { scale: obstacleExit.interpolate({ inputRange: [0, 0.3, 1], outputRange: [1, 1.15, 0.25] }) },
+              { rotate: obstacleExit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '22deg'] }) },
+            ],
+          },
+        ]}>
+          <Image source={wordMaizeAssets.obstacles[activeObstacle.kind]} style={styles.obstacle} />
+          {activeObstacle.turnsRemaining > 0 ? <Text style={styles.countdown}>{activeObstacle.turnsRemaining}</Text> : null}
+        </Animated.View> : null}
+        {isKernelObstacle && activeObstacle.turnsRemaining > 0 ? <Text style={styles.kernelCountdown}>{activeObstacle.turnsRemaining}</Text> : null}
       </Animated.View> : null}
     </Pressable>
   );
@@ -131,9 +191,13 @@ const styles = StyleSheet.create({
   fullKernel: { position: 'absolute', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   kernelGlow: { position: 'absolute', width: '164%', height: '164%', resizeMode: 'contain', tintColor: '#fffdf0', opacity: 0.9 },
   hintGlow: { tintColor: '#fff07a', opacity: 0.72 },
+  actorTarget: { position: 'absolute', width: '172%', height: '172%', resizeMode: 'contain', opacity: 0.82, zIndex: 3 },
+  actorTargetTriggered: { opacity: 1, tintColor: '#ff6945' },
   obstacleWrap: { position: 'absolute', right: '-28%', top: '-48%', width: '84%', height: '84%', zIndex: 8 },
+  webWrap: { position: 'absolute', left: '-44%', top: '-44%', width: '188%', height: '188%', zIndex: 8 },
   obstacle: { width: '100%', height: '100%', resizeMode: 'contain' },
   countdown: { position: 'absolute', right: 0, top: 0, minWidth: 17, height: 17, borderRadius: 9, backgroundColor: '#b43b24', color: 'white', textAlign: 'center', fontWeight: '900', fontSize: 11, overflow: 'hidden' },
+  kernelCountdown: { position: 'absolute', right: '-17%', top: '-17%', zIndex: 10, minWidth: 19, height: 19, borderRadius: 10, borderWidth: 1.5, borderColor: '#fff3c4', backgroundColor: '#b43b24', color: 'white', textAlign: 'center', fontWeight: '900', fontSize: 12, overflow: 'hidden' },
   kernel: { position: 'absolute', width: '154%', height: '154%', resizeMode: 'contain' },
   kernelFaulted: { tintColor: '#c45a32' },
   letter: {
@@ -142,11 +206,5 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255,236,150,0.55)',
     textShadowOffset: { width: 0, height: 1.5 },
     textShadowRadius: 1.5,
-  },
-  letterFaulted: {
-    color: '#fff1e8',
-    textShadowColor: '#8a2a12',
-    textShadowOffset: { width: 0, height: 1.5 },
-    textShadowRadius: 2,
   },
 });

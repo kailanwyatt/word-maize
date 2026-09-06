@@ -1,3 +1,4 @@
+import COMMON_WORDS from '../data/commonWords.json';
 import { ENGLISH_WORDS } from '../data/englishWords';
 
 export const MIN_WORD_LENGTH = 3;
@@ -25,7 +26,19 @@ const EXTRA_WORDS = [
   'SWEETCORN', 'CORNCOB', 'EARCORN', 'SHUCK', 'SHUCKS', 'TASSEL', 'TASSELS',
   'POPCORN', 'CORNBREAD', 'HOMINY', 'GRITS',
 ];
-export const WORD_LIST = new Set<string>([...ENGLISH_WORDS, ...EXTRA_WORDS]);
+export const WORD_LIST = new Set<string>([...ENGLISH_WORDS, ...COMMON_WORDS, ...EXTRA_WORDS]);
+
+const wordsByLength = new Map<number, string[]>();
+WORD_LIST.forEach(word => {
+  const bucket = wordsByLength.get(word.length);
+  if (bucket) bucket.push(word);
+  else wordsByLength.set(word.length, [word]);
+});
+
+export function wordsOfLength(length: number, dictionary: Set<string> = WORD_LIST): readonly string[] {
+  if (dictionary === WORD_LIST) return wordsByLength.get(length) ?? [];
+  return [...dictionary].filter(word => word.length === length);
+}
 
 let prefixCache: Set<string> | undefined;
 export function wordPrefixes(dictionary: Set<string> = WORD_LIST): Set<string> {
