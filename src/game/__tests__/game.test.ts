@@ -3,7 +3,9 @@ import { areAdjacent } from '../adjacency';
 import { exposedKernels, kernelId, resetLevel, shuffleExposedLetters } from '../board';
 import { validateWord, WORD_LIST } from '../dictionary';
 import { canSpendEnergy, replenishEnergy } from '../energy';
-import { clampInventoryAmount, completionReward } from '../economy';
+import { CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, chapterStarCount, farmQuote, isChapterUnlocked, secondaryObjective } from '../campaign';
+import { SHOP_PRODUCTS, COIN_TOOL_OFFERS, validateShopProducts, validateCoinOffers } from '../../data/shop';
+import { clampInventoryAmount, completionReward, purchaseCoinOffer } from '../economy';
 import { hitKernel } from '../../components/CornCob/layout';
 import { classifyMovement, resolvePointerRelease } from '../gestures';
 import { harvestKernels, harvestPercent } from '../harvest';
@@ -19,10 +21,9 @@ import { evaluateLevelStars, objectiveComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
-import { SHOP_PRODUCTS, validateShopProducts } from '../../data/shop';
 
 const k = (id: string, row: number, column: number, layer = 0): Kernel => ({
-  id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'yellow',
+  id, row, column, layer, letter: id[0].toUpperCase(), harvested: false, variety: 'sweet',
 });
 
 describe('cylindrical adjacency', () => {
@@ -313,6 +314,17 @@ describe('levels and powerup search', () => {
       expect(level.rows).toBe(level.kernels.filter(k => k.layer === 0 && k.column === 0).length);
     });
   });
+  it('assigns the six corn varieties in their planned campaign ranges', () => {
+    expect(LEVELS.map(level => level.cornType).filter((type, index, all) => index === 0 || type !== all[index - 1]))
+      .toEqual(['sweet', 'white', 'flint', 'popcorn', 'blue', 'golden']);
+    expect(LEVELS.find(level => level.id === 12)?.cornType).toBe('sweet');
+    expect(LEVELS.find(level => level.id === 13)?.cornType).toBe('white');
+    expect(LEVELS.find(level => level.id === 21)?.cornType).toBe('flint');
+    expect(LEVELS.find(level => level.id === 31)?.cornType).toBe('popcorn');
+    expect(LEVELS.find(level => level.id === 41)?.cornType).toBe('blue');
+    expect(LEVELS.find(level => level.id === 51)?.cornType).toBe('golden');
+    LEVELS.forEach(level => expect(level.kernels.every(kernel => kernel.variety === level.cornType)).toBe(true));
+  });
   it('unlocks the next field after a completed harvest', () => {
     expect(isLevelUnlocked(1, [])).toBe(true);
     expect(isLevelUnlocked(2, [])).toBe(false);
@@ -445,7 +457,9 @@ describe('farm restoration progression', () => {
   it('unlocks projects at deterministic level milestones', () => {
     expect(completedRestorationStage([1, 2])).toBe(0);
     expect(claimableRestorationMilestone([1, 2, 3], [])?.id).toBe('lower-field');
-    expect(completedRestorationStage([3, 6, 10, 12, 15])).toBe(RESTORATION_MILESTONES.length);
+    expect(completedRestorationStage([3, 6, 10, 12, 15])).toBe(5);
+    expect(RESTORATION_MILESTONES.some(milestone => milestone.requiredLevel === 30)).toBe(true);
+    expect(RESTORATION_MILESTONES.some(milestone => milestone.requiredLevel === 60)).toBe(true);
   });
 
   it('advances to the next unclaimed project without duplicating rewards', () => {
@@ -460,6 +474,51 @@ describe('store catalog', () => {
     expect(validateShopProducts()).toEqual([]);
     expect(SHOP_PRODUCTS.some(product => product.entitlement === 'ad_free')).toBe(true);
     expect(SHOP_PRODUCTS.filter(product => product.tools).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('lets harvested coins buy tools and refuses a short purse', () => {
+    expect(validateCoinOffers()).toEqual([]);
+    const offer = COIN_TOOL_OFFERS[0];
+    const inventory = { scarecrow: 1, butterBrush: 0, cornPicker: 0 };
+    expect(purchaseCoinOffer(20, inventory, offer.coins, offer.tools).ok).toBe(false);
+    expect(purchaseCoinOffer(80, inventory, offer.coins, offer.tools)).toEqual({
+      ok: true,
+      coins: 0,
+      inventory: { scarecrow: 2, butterBrush: 0, cornPicker: 0 },
+    });
+  });
+});
+
+describe('campaign hub and late harvests', () => {
+  it('names the farm from the current chapter, not always Sweet Corn Fields', () => {
+    expect(chapterIndexForLevel(1)).toBe(0);
+    expect(chapterIndexForLevel(16)).toBe(1);
+    expect(chapterIndexForLevel(46)).toBe(3);
+    expect(CHAPTER_TITLES[1]).toBe('CHAPTER TWO');
+    expect(chapterHarvests([16, 17, 18], 1).clears).toBe(3);
+    expect(isChapterUnlocked(0, [])).toBe(true);
+    expect(isChapterUnlocked(1, [])).toBe(false);
+    expect(isChapterUnlocked(1, [15])).toBe(true);
+    expect(isChapterUnlocked(2, [15])).toBe(false);
+    expect(isChapterUnlocked(2, [30])).toBe(true);
+    expect(chapterStarCount({ 1: { stars: 3 }, 16: { stars: 2 } }, 0)).toBe(3);
+    expect(chapterStarCount({ 1: { stars: 3 }, 16: { stars: 2 } }, 1)).toBe(2);
+    expect(farmQuote({ levelId: 16, world: 'Crow Creek', chapterComplete: false })).toMatch(/creek/i);
+    expect(farmQuote({ levelId: 15, world: 'Sweet Corn Fields', chapterComplete: true })).toMatch(/Crow Creek/);
+  });
+
+  it('gives levels 16-60 more than one kind of harvest goal', () => {
+    const late = LEVELS.filter(level => level.id >= 16);
+    const kinds = new Set(late.map(level => {
+      if (level.objective.minLayersRevealed) return 'layers';
+      if (level.objective.minWords && level.objective.minLongestWord) return 'combo';
+      if (level.objective.minWords) return 'words';
+      return 'longest';
+    }));
+    expect(kinds.size).toBeGreaterThanOrEqual(4);
+    expect(new Set(late.map(level => level.objective.harvestPercent)).size).toBeGreaterThan(6);
+    expect(late.some(level => !level.shuffleOnStart)).toBe(true);
+    expect(secondaryObjective(LEVELS.find(level => level.id === 18)!).label).toBeTruthy();
   });
 });
 

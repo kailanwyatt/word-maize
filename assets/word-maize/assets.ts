@@ -24,6 +24,46 @@ export const wordMaizeAssets = {
     emptySocket: require('./kernels/yellow/kernel-empty-socket.png'),
     emptySocketV2: require('./kernels/yellow/kernel-empty-socket-v2.png'),
     flying: require('./kernels/yellow/kernel-flying.png'),
+    varieties: {
+      sweet: {
+        full: require('./corn/asset-set-v1/kernel-full.png'),
+        socket: require('./corn/asset-set-v1/kernel-empty-socket.png'),
+      },
+      white: {
+        full: require('./corn/varieties/white/kernel-full.png'),
+        socket: require('./corn/varieties/white/kernel-empty-socket.png'),
+      },
+      flint: [
+        {
+          full: require('./corn/varieties/flint-red/kernel-full.png'),
+          socket: require('./corn/varieties/flint-red/kernel-empty-socket.png'),
+        },
+        {
+          full: require('./corn/varieties/flint-orange/kernel-full.png'),
+          socket: require('./corn/varieties/flint-orange/kernel-empty-socket.png'),
+        },
+        {
+          full: require('./corn/varieties/flint-blue/kernel-full.png'),
+          socket: require('./corn/varieties/flint-blue/kernel-empty-socket.png'),
+        },
+        {
+          full: require('./corn/varieties/flint-gold/kernel-full.png'),
+          socket: require('./corn/varieties/flint-gold/kernel-empty-socket.png'),
+        },
+      ],
+      popcorn: {
+        full: require('./corn/varieties/popcorn/kernel-full.png'),
+        socket: require('./corn/varieties/popcorn/kernel-empty-socket.png'),
+      },
+      blue: {
+        full: require('./corn/varieties/blue/kernel-full.png'),
+        socket: require('./corn/varieties/blue/kernel-empty-socket.png'),
+      },
+      golden: {
+        full: require('./corn/varieties/golden/kernel-full.png'),
+        socket: require('./corn/varieties/golden/kernel-empty-socket.png'),
+      },
+    },
   },
   props: {
     harvestBasket: require('./props/harvest-basket-v2.png'),

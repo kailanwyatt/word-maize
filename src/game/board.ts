@@ -16,7 +16,7 @@ export function resetLevel(level: Level, rng: () => number = Math.random): Level
   return { ...level, kernels: level.shuffleOnStart ? shuffleExposedLetters(restored, rng) : restored };
 }
 
-export function kernelsFromRows(rows: string[], variety: Kernel['variety'] = 'yellow'): Kernel[] {
+export function kernelsFromRows(rows: string[], variety: Kernel['variety'] = 'sweet'): Kernel[] {
   return rows.flatMap((letters, row) =>
     [...letters].map((letter, column) => ({
       id: kernelId(row, column, 0),
@@ -32,7 +32,7 @@ export function kernelsFromRows(rows: string[], variety: Kernel['variety'] = 'ye
 
 export function underKernels(
   cells: { row: number; column: number; letter: string }[],
-  variety: Kernel['variety'] = 'yellow',
+  variety: Kernel['variety'] = 'sweet',
 ): Kernel[] {
   return cells.map(({ row, column, letter }) => ({
     id: kernelId(row, column, 1),

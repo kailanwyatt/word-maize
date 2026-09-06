@@ -1,4 +1,4 @@
-export type CornVariety = 'yellow' | 'red' | 'white' | 'purple' | 'glass_gem';
+export type CornVariety = 'sweet' | 'white' | 'flint' | 'popcorn' | 'blue' | 'golden';
 
 export type ToolId = 'scarecrow' | 'butterBrush' | 'cornPicker';
 export type ObstacleKind = 'caterpillar' | 'crow' | 'squirrel' | 'weed' | 'web' | 'frost';
@@ -34,6 +34,7 @@ export type StarGoal =
 
 export type Level = {
   id: number;
+  cornType: CornVariety;
   world: string;
   name: string;
   rows: number;

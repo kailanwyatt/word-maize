@@ -1,5 +1,5 @@
 import { kernelsFromRows, pathIds, underKernels } from '../game/board';
-import { Level, StarGoal } from '../game/types';
+import { CornVariety, Level, StarGoal } from '../game/types';
 
 const LEVEL_NAMES = [
   'The First Field',
@@ -43,17 +43,24 @@ function worldForLevel(id: number) {
   return WORLD_NAMES[Math.min(3, Math.floor((id - 1) / 15))];
 }
 
-function lateProgression(id: number) {
+export function cornTypeForLevel(id: number): CornVariety {
+  if (id <= 12) return 'sweet';
+  if (id <= 20) return 'white';
+  if (id <= 30) return 'flint';
+  if (id <= 40) return 'popcorn';
+  if (id <= 50) return 'blue';
+  return 'golden';
+}
+
+function chapterOneLate(id: number) {
   const words = LATE_CAMPAIGN_WORDS[id - 11] ?? ['CORN', 'FARM', 'HARVEST'];
   const chapterIndex = (id - 1) % 15;
   const target = Math.min(78, 58 + Math.floor((id - 1) / 10) * 3 + Math.floor(chapterIndex / 4) * 2);
   const longest = Math.min(8, 5 + Math.floor((id - 11) / 15));
-  const story = [15, 16, 30, 31, 45, 46, 60].includes(id) ? {
-    speaker: id === 60 ? 'Farmer May' : 'Patch',
+  const story = id === 15 ? {
+    speaker: 'Patch',
     title: LEVEL_NAMES[id - 1],
-    text: id === 60
-      ? 'Every farm is shining again. The Harvest Festival can finally begin!'
-      : `The road through ${worldForLevel(id)} is changing. One strong harvest will carry us forward.`,
+    text: 'The road through Sweet Corn Fields is changing. One strong harvest will carry us forward.',
   } : undefined;
   return {
     target,
@@ -66,13 +73,120 @@ function lateProgression(id: number) {
         ? { id: 'no-tools', kind: 'noTools' as const, label: 'Finish without a tool' }
         : { id: `harvest-${Math.min(90, target + 10)}`, kind: 'harvestPercent' as const, value: Math.min(90, target + 10), label: `Harvest ${Math.min(90, target + 10)}%` },
     ],
-    tutorial: id === 11 ? ['Caterpillars are back. Harvest their kernel or use the Butter Brush before they settle in.']
-      : id === 16 ? ['Crows swoop in after two valid words. The Scarecrow clears one before it blocks a letter.']
-      : id === 20 ? ['Squirrels guard a kernel immediately. Use a Corn Picker to remove it.']
-      : id === 31 ? ['Weeds lock a kernel in place. The Butter Brush clears them without harvesting the letter.']
-      : id === 46 ? ['Moonlight Maize combines every skill from the valley.'] : [],
+    tutorial: id === 11 ? ['Caterpillars are back. Harvest their kernel or use the Butter Brush before they settle in.'] : [],
     story,
+    layers: 0,
+    shuffle: true,
   };
+}
+
+function varietyProgression(id: number) {
+  const words = LATE_CAMPAIGN_WORDS[id - 11] ?? ['CORN', 'FARM', 'HARVEST'];
+  const chapter = Math.floor((id - 1) / 15);
+  const slot = (id - 1) % 15;
+  const archetype = slot % 5;
+  const longest = Math.min(8, 4 + chapter);
+  const harvest = Math.min(78, 54 + chapter * 4 + Math.floor(slot / 5) * 3);
+  const story = [16, 30, 31, 45, 46, 60].includes(id) ? {
+    speaker: id === 60 ? 'Farmer May' : 'Patch',
+    title: LEVEL_NAMES[id - 1],
+    text: id === 60
+      ? 'Every farm is shining again. The Harvest Festival can finally begin!'
+      : `The road through ${worldForLevel(id)} is changing. One strong harvest will carry us forward.`,
+  } : undefined;
+  const tutorial = id === 16 ? ['Crows swoop in after two valid words. The Scarecrow clears one before it blocks a letter.']
+    : id === 20 ? ['Squirrels guard a kernel immediately. Use a Corn Picker to remove it.']
+    : id === 31 ? ['Weeds lock a kernel in place. The Butter Brush clears them without harvesting the letter.']
+    : id === 46 ? ['Moonlight Maize combines every skill from the valley.'] : [];
+
+  if (archetype === 1) {
+    const minWords = 6 + chapter;
+    return {
+      target: Math.min(80, harvest + 4),
+      reward: 140 + id * 12,
+      words,
+      objective: { harvestPercent: Math.min(80, harvest + 4), minWords },
+      stars: [
+        { id: `max-words-${minWords + 3}`, kind: 'maxWords' as const, value: minWords + 3, label: `Finish in ${minWords + 3} words or fewer` },
+        { id: 'no-tools', kind: 'noTools' as const, label: 'Finish without a tool' },
+      ],
+      tutorial,
+      story,
+      layers: 0,
+      shuffle: true,
+    };
+  }
+  if (archetype === 2) {
+    const layers = chapter === 1 ? 2 : 3;
+    return {
+      target: Math.max(52, harvest - 4),
+      reward: 140 + id * 12,
+      words,
+      objective: { harvestPercent: Math.max(52, harvest - 4), minLayersRevealed: layers },
+      stars: [
+        { id: `layers-${layers + 1}`, kind: 'layersRevealed' as const, value: layers + 1, label: `Reveal ${layers + 1} hidden kernels` },
+        { id: `long-word-${longest}`, kind: 'longestWord' as const, value: longest, label: `Find a ${longest}-letter word` },
+      ],
+      tutorial,
+      story,
+      layers: layers + 1,
+      shuffle: true,
+    };
+  }
+  if (archetype === 3) {
+    const longWord = Math.min(8, longest + 1);
+    const target = Math.max(50, harvest - 10);
+    return {
+      target,
+      reward: 140 + id * 12,
+      words,
+      objective: { harvestPercent: target, minLongestWord: longWord },
+      stars: [
+        { id: 'no-tools', kind: 'noTools' as const, label: 'Finish without a tool' },
+        { id: `harvest-${Math.min(88, harvest + 6)}`, kind: 'harvestPercent' as const, value: Math.min(88, harvest + 6), label: `Harvest ${Math.min(88, harvest + 6)}%` },
+      ],
+      tutorial,
+      story,
+      layers: 0,
+      shuffle: false,
+    };
+  }
+  if (archetype === 4) {
+    const minWords = 5 + chapter;
+    return {
+      target: harvest,
+      reward: 140 + id * 12,
+      words,
+      objective: { harvestPercent: harvest, minWords, minLongestWord: longest },
+      stars: [
+        { id: `harvest-${Math.min(90, harvest + 10)}`, kind: 'harvestPercent' as const, value: Math.min(90, harvest + 10), label: `Harvest ${Math.min(90, harvest + 10)}%` },
+        { id: 'no-tools', kind: 'noTools' as const, label: 'Finish without a tool' },
+      ],
+      tutorial,
+      story,
+      layers: chapter >= 2 ? 2 : 0,
+      shuffle: true,
+    };
+  }
+  return {
+    target: harvest,
+    reward: 140 + id * 12,
+    words,
+    objective: { harvestPercent: harvest, minLongestWord: longest },
+    stars: [
+      { id: `long-word-${Math.min(8, longest + 1)}`, kind: 'longestWord' as const, value: Math.min(8, longest + 1), label: `Find a ${Math.min(8, longest + 1)}-letter word` },
+      { id: `harvest-${Math.min(90, harvest + 10)}`, kind: 'harvestPercent' as const, value: Math.min(90, harvest + 10), label: `Harvest ${Math.min(90, harvest + 10)}%` },
+    ],
+    tutorial,
+    story,
+    layers: 0,
+    shuffle: true,
+  };
+}
+
+function lateProgression(id: number) {
+  if (id <= 15) return chapterOneLate(id);
+  return varietyProgression(id);
 }
 
 const CHAPTER_ONE = {
@@ -206,6 +320,7 @@ function makeLevel(
 ): Level {
   const columns = rows[0].length;
   const config = progression(id, targetHarvestPercent);
+  const cornType = cornTypeForLevel(id);
   const baseObstacleKind = id === 36 ? 'web'
     : id === 48 || id === 52 ? 'frost'
     : id >= 8 && id <= 15 ? 'caterpillar'
@@ -249,11 +364,12 @@ function makeLevel(
       : [];
   return {
     id,
+    cornType,
     world: worldForLevel(id),
     name: LEVEL_NAMES[id - 1] ?? `Level ${id}`,
     rows: rows.length,
     columns,
-    kernels: [...kernelsFromRows(rows), ...underKernels(under)],
+    kernels: [...kernelsFromRows(rows, cornType), ...underKernels(under, cornType)],
     targetHarvestPercent: config.target,
     objective: config.objective,
     starGoals: [...config.stars] as [StarGoal, StarGoal],
@@ -261,7 +377,7 @@ function makeLevel(
     guaranteedWords: [...config.words],
     tutorial: [...config.tutorial, ...obstacleTutorial, ...weatherTutorial],
     story: 'story' in config ? config.story : undefined,
-    shuffleOnStart: id > 10,
+    shuffleOnStart: 'shuffle' in config ? config.shuffle : id > 10,
     rotationEnabled: true,
     hintPaths: planted
       .map(coords => pathIds(coords.filter(([row, column]) => row < rows.length && column < columns)))
@@ -492,9 +608,12 @@ const CORE_LEVELS: Level[] = [
 ];
 
 function makeGeneratedCampaignLevel(id: number): Level {
-  const columns = id % 3 === 0 ? 10 : 9;
+  const config = lateProgression(id);
+  const columns = config.objective.minLongestWord && !config.objective.minWords && !config.shuffle ? 8
+    : config.objective.minWords && !config.objective.minLongestWord ? 10
+    : id % 3 === 0 ? 10 : 9;
   const rowsCount = 7;
-  const words = lateProgression(id).words;
+  const words = config.words;
   const filler = 'CORNFIELDHARVESTMAIZEGOLDENBASKETRIVERAPPLEMOONLIGHT';
   const capacity = columns * rowsCount;
   const authored = words.join('');
@@ -507,11 +626,16 @@ function makeGeneratedCampaignLevel(id: number): Level {
       return [Math.floor(index / columns), index % columns] as [number, number];
     });
   });
-  const under = id % 4 === 0 ? [
-    { row: 2, column: 2, letter: 'E' },
-    { row: 4, column: columns - 3, letter: 'A' },
-  ] : [];
-  return makeLevel(id, lateProgression(id).target, rows, paths, under);
+  const layerCount = Math.max(
+    config.layers,
+    'minLayersRevealed' in config.objective ? (config.objective.minLayersRevealed ?? 0) : 0,
+  );
+  const under = Array.from({ length: layerCount }, (_, index) => ({
+    row: 1 + index,
+    column: (2 + index) % columns,
+    letter: ['E', 'A', 'R', 'S'][index % 4],
+  }));
+  return makeLevel(id, config.target, rows, paths, under);
 }
 
 export const LEVELS: Level[] = [

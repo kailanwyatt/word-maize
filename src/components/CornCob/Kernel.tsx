@@ -4,6 +4,14 @@ import { wordMaizeAssets } from '../../../assets/word-maize/assets';
 import { KernelLayout } from './layout';
 import { ObstacleState } from '../../game/obstacles';
 
+function varietyArt(kernel: KernelLayout['kernel']) {
+  const varieties = wordMaizeAssets.kernels.varieties;
+  if (kernel.variety === 'flint') {
+    return varieties.flint[(kernel.row * 11 + kernel.column) % varieties.flint.length];
+  }
+  return varieties[kernel.variety];
+}
+
 export function KernelTile({
   layout,
   size,
@@ -41,13 +49,14 @@ export function KernelTile({
   const activeObstacle = obstacle && obstacle.status !== 'cleared' ? obstacle : undefined;
   const isKernelObstacle = activeObstacle?.kind === 'weed' || activeObstacle?.kind === 'caterpillar' || activeObstacle?.kind === 'frost';
   const isBoardActorTarget = activeObstacle?.kind === 'crow' || activeObstacle?.kind === 'squirrel';
+  const cornArt = varietyArt(kernel);
   const kernelArt = activeObstacle?.kind === 'weed'
     ? wordMaizeAssets.obstacles.weed
     : activeObstacle?.kind === 'caterpillar'
       ? wordMaizeAssets.obstacles.caterpillar
       : activeObstacle?.kind === 'frost'
         ? wordMaizeAssets.obstacles.frostKernel
-      : wordMaizeAssets.kernels.approvedNormal;
+      : cornArt.full;
   const harvest = useRef(new Animated.Value(0)).current;
   const reject = useRef(new Animated.Value(0)).current;
   const obstaclePulse = useRef(new Animated.Value(0)).current;
@@ -125,7 +134,7 @@ export function KernelTile({
       ]}
       pointerEvents={(layout.opacity ?? 1) < 0.35 ? 'none' : 'auto'}
     >
-      <Image source={wordMaizeAssets.kernels.approvedSocket} style={styles.socket} />
+      <Image source={cornArt.socket} style={styles.socket} />
       {!kernel.harvested ? <Animated.View
         pointerEvents="none"
         style={[
@@ -147,7 +156,7 @@ export function KernelTile({
             style={[styles.actorTarget, activeObstacle?.status === 'triggered' && styles.actorTargetTriggered]}
           />
         ) : null}
-        {(selected || hinted) ? <Image source={wordMaizeAssets.kernels.approvedNormal} style={[styles.kernelGlow, hinted && styles.hintGlow]} /> : null}
+        {(selected || hinted) ? <Image source={cornArt.full} style={[styles.kernelGlow, hinted && styles.hintGlow]} /> : null}
         <Animated.Image
           source={kernelArt}
           style={[
