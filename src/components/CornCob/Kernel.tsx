@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { wordMaizeAssets } from '../../../assets/word-maize/assets';
 import { KernelLayout } from './layout';
-import { ObstacleState } from '../../game/obstacles';
+import { obstacleBadge, ObstacleState } from '../../game/obstacles';
 import { isMoonlitHidden } from '../../game/cornVarieties';
 
 function varietyArt(kernel: KernelLayout['kernel']) {
@@ -28,6 +28,7 @@ export function KernelTile({
   obstacle,
   clearing = false,
   blocked = false,
+  webAnchor = false,
   pickerMode = false,
 }: {
   layout: KernelLayout;
@@ -44,6 +45,7 @@ export function KernelTile({
   obstacle?: ObstacleState;
   clearing?: boolean;
   blocked?: boolean;
+  webAnchor?: boolean;
   pickerMode?: boolean;
 }) {
   const { kernel, x, y, scaleX, scale, shade } = layout;
@@ -120,7 +122,7 @@ export function KernelTile({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${moonlitHidden ? 'Hidden moonlit letter' : `Letter ${kernel.letter}`}, row ${kernel.row + 1}, column ${kernel.column + 1}${dormant ? ', sleeping White Corn kernel' : ''}${obstacle && obstacle.status !== 'cleared' ? `, ${obstacle.kind} obstacle` : ''}`}
+      accessibilityLabel={`${moonlitHidden ? 'Hidden moonlit letter' : `Letter ${kernel.letter}`}, row ${kernel.row + 1}, column ${kernel.column + 1}${webAnchor ? ', web anchor: harvest to release trapped letter' : ''}${dormant ? ', sleeping White Corn kernel' : ''}${obstacle && obstacle.status !== 'cleared' ? `, ${obstacle.kind} obstacle ${obstacleBadge(obstacle)}` : ''}`}
       accessibilityState={{ selected, disabled: kernel.harvested || moonlitHidden || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35 }}
       disabled={kernel.harvested || moonlitHidden || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35}
       style={[
@@ -183,6 +185,8 @@ export function KernelTile({
           dormant && styles.dormantLetter,
           moonlitHidden && styles.moonlitLetter,
           { fontSize: size * 0.42 },
+          activeObstacle?.kind === 'caterpillar' && { opacity: Math.max(0.4, (activeObstacle.secondsRemaining ?? 20) / activeObstacle.countdown) },
+          activeObstacle?.kind === 'crow' && activeObstacle.status === 'triggered' && { opacity: 0 },
         ]}>
           {moonlitHidden ? '✦' : kernel.letter}
         </Text>
@@ -210,9 +214,10 @@ export function KernelTile({
           },
         ]}>
           <Image source={wordMaizeAssets.obstacles[activeObstacle.kind]} style={styles.obstacle} />
-          {activeObstacle.turnsRemaining > 0 ? <Text style={styles.countdown}>{activeObstacle.turnsRemaining}</Text> : null}
+          <Text style={styles.countdown}>{obstacleBadge(activeObstacle)}</Text>
         </Animated.View> : null}
-        {isKernelObstacle && activeObstacle.turnsRemaining > 0 ? <Text style={styles.kernelCountdown}>{activeObstacle.turnsRemaining}</Text> : null}
+        {isKernelObstacle && activeObstacle ? <Text style={styles.kernelCountdown}>{obstacleBadge(activeObstacle)}</Text> : null}
+        {webAnchor ? <Text style={styles.kernelCountdown}>⚓</Text> : null}
       </Animated.View> : null}
     </Pressable>
   );

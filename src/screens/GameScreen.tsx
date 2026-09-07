@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AppState, Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { BumperCropModal } from '../components/BumperCropModal';
@@ -22,7 +22,7 @@ import { WORD_LIST } from '../game/dictionary';
 import { completionReward } from '../game/economy';
 import { harvestKernels, harvestPercent } from '../game/harvest';
 import { advancePopCharge, dormantKernelIds, festivalCoinBonus, isDormantKernel, reducePopCharge, resolveFlintHarvest, restoreCornVarietyState, restoreFlintState, restorePopCharge, wakeDormantNeighbors } from '../game/cornVarieties';
-import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../game/obstacles';
+import { advanceObstacles, blockedKernelIds, clearObstacle, clearHarvestObstacles, frostProtectedIds, initializeObstacles, regrowEatenKernels, restoreObstacles, tickCaterpillars } from '../game/obstacles';
 import { findDiscoverablePath } from '../game/powerups';
 import { coinsForWord, evaluateLevelStars, objectiveComplete, starGoalComplete } from '../game/scoring';
 import { canSubmitSelection, evaluateSubmission } from '../game/selection';
@@ -65,7 +65,7 @@ export function GameScreen() {
       ...fresh,
       kernels: restoreCornVarietyState(
         restorePopCharge(
-          restoreFlintState(harvestKernels(fresh.kernels, savedRun.harvestedIds), savedRun.crackedIds),
+          restoreFlintState(harvestKernels(fresh.kernels, savedRun.harvestedIds).map(k => ({ ...k, eaten: savedRun.eatenIds?.includes(k.id) ?? false })), savedRun.crackedIds),
           savedRun.popCharges,
         ),
         fresh.columns,
@@ -83,12 +83,19 @@ export function GameScreen() {
   const [tuning, setTuning] = useState({ ...defaultTuning, harvestTarget: source.targetHarvestPercent, haptics: store.save.settings.haptics });
   const [debugOpen, setDebugOpen] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [focused, setFocused] = useState(true);
+  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
+  useEffect(() => {
+    const listener = AppState.addEventListener('change', state => setAppActive(state === 'active'));
+    return () => listener.remove();
+  }, []);
   const [outOf, setOutOf] = useState<Tool | 'energy' | undefined>();
   const [introOpen, setIntroOpen] = useState(!store.save.seenLevelIntros.includes(levelId) && (!!source.story || source.tutorial.length > 0));
   const [toolsUsed, setToolsUsed] = useState(savedRun?.toolsUsed ?? 0);
   const [doubled, setDoubled] = useState(false);
   const [powerUpsOpen, setPowerUpsOpen] = useState(false);
-  const [obstacles, setObstacles] = useState(() => savedRun?.obstacles ?? initializeObstacles(source.obstacles));
+  const [obstacles, setObstacles] = useState(() => restoreObstacles(source.obstacles, savedRun?.obstacles));
   const [acceptedTurns, setAcceptedTurns] = useState(savedRun?.acceptedTurns ?? savedRun?.foundWords.length ?? 0);
   const [clearingObstacleIds, setClearingObstacleIds] = useState<string[]>([]);
   const [weatherEventKey, setWeatherEventKey] = useState(0);
@@ -118,7 +125,7 @@ export function GameScreen() {
   const percent = harvestPercent(level.kernels);
   const layersRevealed = new Set(level.kernels.filter(kernel =>
     kernel.layer > 0 && level.kernels.some(other =>
-      other.row === kernel.row && other.column === kernel.column && other.layer < kernel.layer && other.harvested,
+      other.row === kernel.row && other.column === kernel.column && other.layer < kernel.layer && other.harvested && !other.eaten,
     ),
   ).map(kernel => `${kernel.row}:${kernel.column}`)).size;
   const runStats = { percent, words: foundWords, toolsUsed, layersRevealed };
@@ -127,7 +134,7 @@ export function GameScreen() {
   const starResult = evaluateLevelStars(effectiveLevel, runStats);
   const currentWord = selection.word;
   const canSubmit = canSubmitSelection(selection.path, { busy });
-  const harvestedCount = level.kernels.filter(k => k.harvested).length;
+  const harvestedCount = level.kernels.filter(k => k.harvested && !k.eaten).length;
   const longest = foundWords.reduce((a, b) => (a.length >= b.length ? a : b), '—');
   const firstClear = !store.save.levels[levelId]?.completed;
   const reward = completionReward({
@@ -162,7 +169,7 @@ export function GameScreen() {
       ...fresh,
       kernels: restoreCornVarietyState(
         restorePopCharge(
-          restoreFlintState(harvestKernels(fresh.kernels, run.harvestedIds), run.crackedIds),
+          restoreFlintState(harvestKernels(fresh.kernels, run.harvestedIds).map(k => ({ ...k, eaten: run.eatenIds?.includes(k.id) ?? false })), run.crackedIds),
           run.popCharges,
         ),
         fresh.columns,
@@ -171,7 +178,7 @@ export function GameScreen() {
     setFoundWords(run.foundWords);
     setInCoins(run.earnedCoins);
     setToolsUsed(run.toolsUsed);
-    setObstacles(run.obstacles ?? initializeObstacles(source.obstacles));
+    setObstacles(restoreObstacles(source.obstacles, run.obstacles));
     setAcceptedTurns(run.acceptedTurns ?? run.foundWords.length);
   }, [levelId, source, store.ready, store.save.activeLevelRun]);
 
@@ -182,7 +189,7 @@ export function GameScreen() {
     setLevel(run ? {
       ...fresh,
       kernels: restoreCornVarietyState(
-        restorePopCharge(restoreFlintState(harvestKernels(fresh.kernels, run.harvestedIds), run.crackedIds), run.popCharges),
+        restorePopCharge(restoreFlintState(harvestKernels(fresh.kernels, run.harvestedIds).map(k => ({ ...k, eaten: run.eatenIds?.includes(k.id) ?? false })), run.crackedIds), run.popCharges),
         fresh.columns,
       ),
     } : fresh);
@@ -190,7 +197,7 @@ export function GameScreen() {
     setInCoins(run?.earnedCoins ?? 0);
     setToolsUsed(run?.toolsUsed ?? 0);
     setAcceptedTurns(run?.acceptedTurns ?? run?.foundWords.length ?? 0);
-    setObstacles(run?.obstacles ?? initializeObstacles(source.obstacles));
+    setObstacles(restoreObstacles(source.obstacles, run?.obstacles));
     setHarvestingIds([]); setHints([]); setActiveTool(undefined); setStatus('idle'); setShuffles(1); setDoubled(false);
     selection.clear();
     finishingRef.current = false;
@@ -202,6 +209,7 @@ export function GameScreen() {
     store.saveLevelRun({
       levelId,
       harvestedIds: level.kernels.filter(kernel => kernel.harvested).map(kernel => kernel.id),
+      eatenIds: level.kernels.filter(kernel => kernel.eaten).map(kernel => kernel.id),
       crackedIds: level.kernels.filter(kernel => kernel.cracked && !kernel.harvested).map(kernel => kernel.id),
       popCharges: Object.fromEntries(level.kernels.filter(kernel => kernel.popKernel && !kernel.harvested).map(kernel => [kernel.id, kernel.popCharge ?? 0])),
       foundWords,
@@ -212,6 +220,23 @@ export function GameScreen() {
       updatedAt: Date.now(),
     });
   }, [acceptedTurns, foundWords, inCoins, level.kernels, levelId, obstacles, store.ready, store.saveLevelRun, toolsUsed]);
+
+  useEffect(() => {
+    if (!store.ready || !focused || !appActive || paused || introOpen || powerUpsOpen || outOf || debugOpen || clearingObstacleIds.length > 0 || busy || complete) return;
+    if (!obstacles.some(s => s.kind === 'caterpillar' && s.status !== 'cleared')) return;
+    const timer = setInterval(() => {
+      if (busyRef.current || finishingRef.current || AppState.currentState !== 'active') return;
+      const next = tickCaterpillars(obstacles, level.kernels, 1);
+      setObstacles(next.obstacles);
+      if (next.eatenIds.length) {
+        setLevel(prev => ({ ...prev, kernels: wakeDormantNeighbors(next.kernels, next.eatenIds, prev.columns) }));
+        selection.clear();
+        setHints([]);
+        playGameSound('obstacle', 0.7);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [store.ready, focused, appActive, paused, introOpen, powerUpsOpen, outOf, debugOpen, clearingObstacleIds, busy, complete, obstacles, level.kernels]);
 
   const measureHarvestTarget = useCallback(() => {
     cobRef.current?.measureInWindow((cx, cy) => {
@@ -236,12 +261,6 @@ export function GameScreen() {
     }
   };
   const handleKernelTap = (kernel: Kernel) => {
-    const frost = obstacles.find(obstacle => obstacle.kernelId === kernel.id && obstacle.kind === 'frost' && obstacle.status !== 'cleared');
-    if (frost) {
-      clearObstacleAnimated(frost);
-      pulse(Haptics.ImpactFeedbackStyle.Medium);
-      return;
-    }
     if (blockedIds.has(kernel.id)) { warn(); return; }
     const previousLength = selection.pathRef.current.length;
     const result = selection.applyTap({ kernel, visible: true });
@@ -268,15 +287,17 @@ export function GameScreen() {
   const submit = () => {
     const result = evaluateSubmission(selection.pathRef.current, WORD_LIST, busy || busyRef.current);
     if (result.harvest) {
-      const flint = resolveFlintHarvest(level.kernels, result.harvestIds);
+      const frozen = frostProtectedIds(obstacles);
+      const wordHarvestIds = result.harvestIds.filter(id => !frozen.has(id));
+      const flint = resolveFlintHarvest(level.kernels, wordHarvestIds);
       const popcorn = advancePopCharge(flint.kernels, level.columns);
-      const actualHarvestIds = [...new Set([...flint.harvestIds, ...popcorn.poppedIds])];
+      const actualHarvestIds = [...new Set([...flint.harvestIds, ...popcorn.poppedIds])].filter(id => !frozen.has(id) && !blockedIds.has(id));
       const nextAcceptedTurn = acceptedTurns + 1;
       busyRef.current = true;
       setStatus('valid');
       playGameSound('valid');
       setLevel(prev => {
-        const nextFlint = resolveFlintHarvest(prev.kernels, result.harvestIds);
+        const nextFlint = resolveFlintHarvest(prev.kernels, wordHarvestIds);
         return { ...prev, kernels: advancePopCharge(nextFlint.kernels, prev.columns).kernels };
       });
       setHarvestingIds(actualHarvestIds);
@@ -288,6 +309,7 @@ export function GameScreen() {
       if (source.weather?.kind === 'drought') {
         triggerWeather(bonus ? `DROUGHT BREAKER +${bonus}` : 'DROUGHT · TRY 5+ LETTERS', bonus ? 'reward' : undefined);
       }
+      if (result.harvestIds.some(id => frozen.has(id))) triggerWeather('FROST CRACKED!');
       if (flint.newlyCrackedIds.length) triggerWeather(`${flint.newlyCrackedIds.length > 1 ? 'ARMOR' : 'KERNEL'} CRACKED!`);
       if (popcorn.poppedIds.length) triggerWeather(`POP! +${popcorn.poppedIds.length} KERNEL${popcorn.poppedIds.length > 1 ? 'S' : ''}`);
       if (goldenBonus) triggerWeather(`FESTIVAL BONUS +${goldenBonus}`, 'reward');
@@ -297,7 +319,7 @@ export function GameScreen() {
           const harvested = harvestKernels(prev.kernels, actualHarvestIds);
           return { ...prev, kernels: wakeDormantNeighbors(harvested, actualHarvestIds, prev.columns) };
         });
-        setObstacles(prev => advanceObstacles(prev, actualHarvestIds));
+        setObstacles(prev => advanceObstacles(prev, actualHarvestIds, { kernels: level.kernels, columns: level.columns, wordIds: result.harvestIds }));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
         setInCoins(v => v + coinsForWord(result.word) + weatherCoinBonus(source.weather, result.word) + goldenBonus);
         setHarvestingIds([]);
@@ -327,7 +349,7 @@ export function GameScreen() {
     setTimeout(() => setStatus('idle'), store.save.settings.reducedMotion ? 120 : 480);
   };
   const unusedPath = () => findDiscoverablePath(
-    level.kernels.map(kernel => isDormantKernel(kernel) ? { ...kernel, harvested: true } : kernel),
+    exposedKernels(level.kernels).filter(kernel => !isDormantKernel(kernel) && !blockedIds.has(kernel.id)),
     level.columns,
     WORD_LIST,
     WORD_LIST,
@@ -368,7 +390,7 @@ export function GameScreen() {
     if (!store.consumeTool('cornPicker')) return;
     setToolsUsed(value => value + 1);
     setHarvestingIds([kernel.id]);
-    setObstacles(value => clearObstacle(value, kernel.id));
+    setObstacles(value => clearHarvestObstacles(value, [kernel.id], level.kernels, level.columns));
     setTimeout(() => {
       setLevel(prev => {
         const harvested = harvestKernels(prev.kernels, [kernel.id]);
@@ -431,6 +453,18 @@ export function GameScreen() {
     pulse();
   };
 
+  const stranded = useMemo(() => {
+    if (!obstacles.some(s => s.status !== 'cleared') && !level.kernels.some(k => k.eaten)) return false;
+    const available = exposedKernels(level.kernels).filter(k => !blockedIds.has(k.id));
+    return !findDiscoverablePath(available, level.columns, WORD_LIST, WORD_LIST, [], [], 3);
+  }, [level.kernels, obstacles]);
+  const recoverLetters = () => {
+    if (busy) return;
+    selection.clear(); setHints([]);
+    setLevel(prev => ({ ...prev, kernels: regrowEatenKernels(prev.kernels) }));
+    if (stranded) setObstacles(prev => prev.map(s => ({ ...s, status: 'cleared' })));
+  };
+
   const spin = (direction: 1 | -1) => {
     cob.nudge(direction);
     playGameSound('rotate', 0.45);
@@ -483,6 +517,11 @@ export function GameScreen() {
               reducedMotion={store.save.settings.reducedMotion}
             />
           </View>
+          {level.kernels.some(k => k.eaten) || stranded ? (
+            <Pressable accessibilityRole="button" onPress={recoverLetters} disabled={busy} style={{ alignSelf: 'center', padding: 8 }}>
+              <Text style={{ color: '#fff6c6', fontWeight: '800' }}>{stranded ? 'FREE RESCUE · CLEAR BLOCKERS' : 'REGROW EATEN LETTERS · FREE'}</Text>
+            </Pressable>
+          ) : null}
           <View
             style={styles.cob}
             onLayout={event => {

@@ -118,9 +118,9 @@ function varietyProgression(id: number) {
       ? 'Every farm is shining again. The Harvest Festival can finally begin!'
       : `The road through ${worldForLevel(id)} is changing. One strong harvest will carry us forward.`,
   } : undefined;
-  const tutorial = id === 16 ? ['Crows swoop in after two valid words. Harvest the marked letter first, or use a Scarecrow to chase the crow away.']
-    : id === 20 ? ['A squirrel guards one letter immediately. Use a Corn Picker on that kernel before building your word.']
-    : id === 32 ? ['Weeds lock one kernel. Activate the Butter Brush, then tap the vine-covered kernel to clear it.']
+  const tutorial = id === 16 ? ['Crows swoop after two valid words. Save the marked kernel first, or wait two more words for its return. Scarecrow clears a crow immediately.']
+    : id === 20 ? ['A squirrel guards a letter. Each word of 5 or more letters releases one guarded kernel. Corn Picker harvests it immediately.']
+    : id === 32 ? ['Weeds block letters and spread every three valid words, at most twice per level. Harvest beside a weed to cut it back, even across the cob seam. Butter Brush clears a weed.']
     : id === 46 ? ['Moonlight Maize combines every skill from the valley.'] : [];
 
   if (archetype === 1) {
@@ -289,9 +289,9 @@ const CHAPTER_ONE = {
     ],
     tutorial: [
       'Newly revealed kernels can be used immediately in later words.',
-      'A caterpillar counts down after each valid word. Harvest its marked kernel, or activate the Butter Brush and tap it before the letter locks.',
+      'Caterpillars eat their marked kernels when the seconds run out! Harvest threatened letters in a word to save them. Butter Brush clears a caterpillar. Eaten letters can be regrown for free.',
     ],
-    story: { speaker: 'Patch', title: 'Hungry Visitors', text: 'Something is chewing the stalks! Harvest those caterpillars or brush them off before they lock a letter.' },
+    story: { speaker: 'Patch', title: 'Hungry Visitors', text: 'Something is chewing the stalks! Save those letters before the caterpillars finish their snack.' },
   },
   9: {
     target: 62, reward: 200, words: ['HONEY', 'BEES', 'POLLEN', 'CLOVER'],
@@ -381,7 +381,7 @@ function makeLevel(
   const obstacleKinds = masteryObstacles
     ? [...masteryObstacles]
     : baseObstacleKind
-      ? Array.from({ length: id % 5 === 0 ? 2 : 1 }, () => baseObstacleKind)
+      ? Array.from({ length: baseObstacleKind === 'caterpillar' ? (id >= 13 ? 3 : 2) : id % 5 === 0 ? 2 : 1 }, () => baseObstacleKind)
       : [];
   const weather = [54, 57, 59, 60].includes(id)
     ? { kind: 'storm' as const, interval: 2 }
@@ -402,9 +402,9 @@ function makeLevel(
         ? ['A storm combines rain with a sudden cob rotation every two accepted words. Watch the gust warning after submitting.']
       : [];
   const obstacleTutorial = id === 36
-    ? ['A spider web locks its covered kernel. Activate the Butter Brush, then tap the web before choosing that letter.']
+    ? ['A spider web traps a letter. Harvest both kernels marked with an anchor to release it, or use Butter Brush. The badge counts anchors remaining.']
     : id === 48
-      ? ['Frost coats one kernel. Tap it once to crack the ice, then tap it again to choose the revealed letter.']
+      ? ['Frost coats one kernel. Use its letter in a valid word to crack the ice; the kernel stays until the ice is gone and you use it again. Butter Brush removes all ice.']
       : [];
   return {
     id,
@@ -440,7 +440,9 @@ function makeLevel(
       id: `${obstacleKind}-${id}-${index}`,
       kind: obstacleKind,
       kernelId: `${1 + index}-${index === 0 ? 2 % columns : 1 % columns}-0`,
-      countdown: obstacleKind === 'caterpillar' ? 3 : obstacleKind === 'crow' ? 2 : 0,
+      countdown: obstacleKind === 'caterpillar' ? 20 + index * 7 : obstacleKind === 'crow' ? 2 : 0,
+      strength: obstacleKind === 'frost' ? (id >= 54 ? 2 : 1) : undefined,
+      anchorIds: obstacleKind === 'web' ? [`0-${index % columns}-0`, `0-${(index + 1) % columns}-0`] : undefined,
     })),
     weather,
   };

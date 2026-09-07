@@ -17,6 +17,7 @@ export type DailyState = {
 export type ActiveLevelRun = {
   levelId: number;
   harvestedIds: string[];
+  eatenIds?: string[];
   foundWords: string[];
   earnedCoins: number;
   toolsUsed: number;

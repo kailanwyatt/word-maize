@@ -47,6 +47,7 @@ export function validateLevels(levels: Level[], dictionary: Set<string> = WORD_L
     const kernelIds = new Set(level.kernels.map(kernel => kernel.id));
     level.obstacles.forEach(obstacle => {
       if (!kernelIds.has(obstacle.kernelId)) add(`Obstacle ${obstacle.id} targets a missing kernel.`);
+      if (obstacle.anchorIds?.some(id => !kernelIds.has(id) || id === obstacle.kernelId)) add(`Obstacle ${obstacle.id} has an invalid anchor.`);
       if (obstacle.countdown < 0) add(`Obstacle ${obstacle.id} has an invalid countdown.`);
     });
 

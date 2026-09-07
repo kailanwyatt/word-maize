@@ -7,5 +7,5 @@ export function harvestKernels(kernels: Kernel[], ids: string[]): Kernel[] {
 
 export function harvestPercent(kernels: Kernel[]): number {
   if (!kernels.length) return 0;
-  return Math.round(kernels.filter(k => k.harvested).length / kernels.length * 100);
+  return Math.round(kernels.filter(k => k.harvested && !k.eaten).length / kernels.length * 100);
 }

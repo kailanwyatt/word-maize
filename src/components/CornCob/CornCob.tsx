@@ -4,7 +4,7 @@ import { wordMaizeAssets } from '../../../assets/word-maize/assets';
 import { positionKey } from '../../game/board';
 import { Kernel, Point, Tuning } from '../../game/types';
 import { KernelTile } from './Kernel';
-import { ObstacleState } from '../../game/obstacles';
+import { obstacleBadge, ObstacleState } from '../../game/obstacles';
 import { cobMetrics, hitKernel, layoutKernels } from './layout';
 import { TapGestureArbitrator } from './TapGestureArbitrator';
 import { isMoonlitHidden } from '../../game/cornVarieties';
@@ -93,9 +93,9 @@ function BoardActor({
         source={crow ? wordMaizeAssets.obstacles.crow : wordMaizeAssets.obstacles.squirrel}
         style={[styles.actorImage, { transform: [{ scaleX: faceRight ? 1 : -1 }] }]}
       />
-      {obstacle.turnsRemaining > 0 ? (
+      {obstacle.status !== 'cleared' ? (
         <Text style={[styles.actorCountdown, obstacle.status === 'triggered' && styles.actorCountdownTriggered]}>
-          {obstacle.turnsRemaining}
+          {obstacleBadge(obstacle)}
         </Text>
       ) : null}
     </Animated.View>
@@ -185,8 +185,9 @@ export const CornCob = forwardRef<View, Props>(function CornCob(props, ref) {
             faulted={props.faulted && selectedIds.has(item.kernel.id)}
             rejected={props.rejectedId === item.kernel.id}
             reducedMotion={props.reducedMotion}
-            obstacle={props.obstacles?.find(obstacle => obstacle.kernelId === item.kernel.id)}
-            clearing={props.clearingObstacleIds?.includes(props.obstacles?.find(obstacle => obstacle.kernelId === item.kernel.id)?.id ?? '')}
+            obstacle={props.obstacles?.find(obstacle => obstacle.kernelId === item.kernel.id && obstacle.status !== 'cleared')}
+            clearing={props.clearingObstacleIds?.includes(props.obstacles?.find(obstacle => obstacle.kernelId === item.kernel.id && obstacle.status !== 'cleared')?.id ?? '')}
+            webAnchor={props.obstacles?.some(o => o.kind === 'web' && o.status !== 'cleared' && o.anchorIds?.includes(item.kernel.id))}
             blocked={props.blockedKernelIds?.has(item.kernel.id)}
             pickerMode={props.pickerMode}
             onPress={() => handlePress(item.kernel)}

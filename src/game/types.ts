@@ -2,7 +2,7 @@ export type CornVariety = 'sweet' | 'white' | 'flint' | 'popcorn' | 'blue' | 'go
 
 export type ToolId = 'scarecrow' | 'butterBrush' | 'cornPicker';
 export type ObstacleKind = 'caterpillar' | 'crow' | 'squirrel' | 'weed' | 'web' | 'frost';
-export type LevelObstacle = { id: string; kind: ObstacleKind; kernelId: string; countdown: number };
+export type LevelObstacle = { id: string; kind: ObstacleKind; kernelId: string; countdown: number; anchorIds?: string[]; strength?: number };
 export type WeatherKind = 'rain' | 'wind' | 'drought' | 'storm';
 export type LevelWeather = { kind: WeatherKind; interval: number; coinBonusPerLetter?: number };
 
@@ -13,6 +13,7 @@ export type Kernel = {
   layer: number;
   letter: string;
   harvested: boolean;
+  eaten?: boolean;
   variety: CornVariety;
   dormant?: boolean;
   armored?: boolean;

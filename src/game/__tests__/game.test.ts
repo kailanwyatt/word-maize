@@ -573,12 +573,12 @@ describe('farm obstacles', () => {
     expect(eight.tutorial.join(' ')).toMatch(/Caterpillar/i);
   });
 
-  it('counts down moving pests and blocks their kernel when they trigger', () => {
-    let states = initializeObstacles([{ id: 'bug-1', kind: 'caterpillar', kernelId: '0-0-0', countdown: 2 }]);
+  it('counts down crows and blocks their kernel when they swoop', () => {
+    let states = initializeObstacles([{ id: 'bug-1', kind: 'crow', kernelId: '0-0-0', countdown: 2 }]);
     states = advanceObstacles(states, []);
     expect(states[0]).toMatchObject({ turnsRemaining: 1, status: 'active' });
     states = advanceObstacles(states, []);
-    expect(states[0]).toMatchObject({ turnsRemaining: 0, status: 'triggered' });
+    expect(states[0]).toMatchObject({ turnsRemaining: 2, status: 'triggered' });
     expect(blockedKernelIds(states).has('0-0-0')).toBe(true);
   });
 
@@ -593,7 +593,7 @@ describe('farm obstacles', () => {
     expect(blockedKernelIds(clearObstacle(states, '2-1-0')).has('2-1-0')).toBe(false);
   });
 
-  it('treats webs as blockers while frost remains available to crack on tap', () => {
+  it('treats webs as blockers while frost remains selectable in words', () => {
     const states = initializeObstacles([
       { id: 'web-1', kind: 'web', kernelId: '2-1-0', countdown: 0 },
       { id: 'frost-1', kind: 'frost', kernelId: '2-2-0', countdown: 0 },

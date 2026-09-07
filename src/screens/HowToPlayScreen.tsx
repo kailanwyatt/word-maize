@@ -10,8 +10,8 @@ const STEPS = [
   { title: '2. Rotate the cob', body: 'Drag left or right, or tap the rotate buttons, to spin the ear and hunt the next letter. Your current word stays selected.' },
   { title: '3. Use tools', body: 'Scarecrow shows a start letter, Butter Brush highlights the letters of a hidden word around the cob, Corn Picker plucks one kernel.' },
   { title: '4. Hit the harvest goal', body: 'Clear enough kernels to fill the basket and bring in a bumper crop.' },
-  { title: '5. Watch the pests', body: 'Caterpillars, crows, squirrels, and weeds can lock a letter. Harvest the kernel they sit on, or use the matching tool, before they settle in.', pest: true },
-  { title: '6. Break webs and frost', body: 'Butter Brush clears webbed letters. Tap a frozen kernel once to crack its ice, then tap again to use the letter.' },
+  { title: '5. Watch the pests', body: 'Caterpillars eat letters on a seconds timer; save them in a word or regrow them for free. Crows hide a letter after two words and return it two words later. A 5+ letter word releases one squirrel target. Harvest beside weeds to stop their spread.', pest: true },
+  { title: '6. Break webs and frost', body: 'Harvest marked anchor kernels to break webs. Use frozen letters in successful words to crack ice, then use them again to harvest. Butter Brush clears weeds, caterpillars, webs, or frost. Timers pause in menus and in the background.' },
   { title: '7. Read the weather', body: 'Rain pays bonus coins, drought rewards words with 5 or more letters, and wind or storms can rotate the cob after accepted words.' },
 ];
 
