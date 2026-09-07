@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, Image, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, ImageBackground, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
@@ -10,6 +10,7 @@ import { ToolId } from '../game/types';
 import { playGameSound } from '../audio/sounds';
 import { purchaseProduct } from '../monetization/purchases';
 import { showRewardedAd } from '../monetization/ads';
+import { PRIVACY_POLICY_URL, TERMS_URL } from '../monetization/config';
 import { useGameStore } from '../store/GameStore';
 
 export function ShopScreen() {
@@ -48,6 +49,7 @@ export function ShopScreen() {
     const result = await showRewardedAd('tool', store.save.adFree);
     if (result.rewarded) {
       store.addTools({ [tool]: 1 });
+      playGameSound('reward', 0.72);
       Alert.alert('Tool earned', `1 ${TOOL_INFO[tool].title} was added to your tool belt.`);
     } else Alert.alert('Reward unavailable', result.message ?? 'The rewarded ad could not be shown.');
     setRewarding(false);
@@ -133,6 +135,11 @@ export function ShopScreen() {
               <View style={styles.ownedBadge}><Text style={styles.ownedCount}>×{store.save.inventory[tool]}</Text><Text style={styles.ownedLabel}>OWNED</Text></View>
             </Pressable>
           ))}
+          <View style={styles.legalRow}>
+            <Pressable accessibilityRole="link" onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}><Text style={styles.legalLink}>Privacy Policy</Text></Pressable>
+            <Text style={styles.legalDot}>•</Text>
+            <Pressable accessibilityRole="link" onPress={() => Linking.openURL(TERMS_URL)}><Text style={styles.legalLink}>Terms of Use</Text></Pressable>
+          </View>
         </ScrollView>
       </SafeAreaView>
       <Modal visible={!!productDetail} transparent animationType="fade">
@@ -235,4 +242,7 @@ const styles = StyleSheet.create({
   shade: { flex: 1, backgroundColor: 'rgba(20,40,30,0.68)', alignItems: 'center', justifyContent: 'center' },
   modalTitle: { fontSize: 22, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 8 },
   body: { fontSize: 16, lineHeight: 24, textAlign: 'center', color: '#51351f', fontWeight: '700' },
+  legalRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  legalLink: { color: '#fff3ba', fontWeight: '800', textDecorationLine: 'underline' },
+  legalDot: { color: '#e5bd63', fontWeight: '900' },
 });

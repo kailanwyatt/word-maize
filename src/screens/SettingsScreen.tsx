@@ -22,7 +22,6 @@ export function SettingsScreen() {
           <View style={styles.board}>
             <Text style={styles.title}>Settings</Text>
             {([
-              ['music', 'Music'],
               ['sfx', 'Sound Effects'],
               ['haptics', 'Haptics'],
               ['notifications', 'Notifications'],

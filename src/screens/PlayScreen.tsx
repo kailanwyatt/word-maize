@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
+import { playGameSound } from '../audio/sounds';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { FarmButton, Panel, PlayButton } from '../components/FarmButton';
 import { WoodPanel } from '../components/WoodPanel';
@@ -55,6 +56,7 @@ export function PlayScreen() {
     const result = await showRewardedAd('energy', store.save.adFree);
     if (result.rewarded) {
       store.addEnergy(1);
+      playGameSound('reward', 0.72);
       setNeedEnergy(false);
     }
   };
@@ -70,6 +72,7 @@ export function PlayScreen() {
   );
   const claimRestoration = () => {
     if (!claimableRestoration || !store.claimRestoration(claimableRestoration.id)) return;
+    playGameSound('reward', 0.72);
     Alert.alert('Farm restored!', `${claimableRestoration.title}\n+${claimableRestoration.coins} coins added to your harvest.`);
   };
   return (

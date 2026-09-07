@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { isExpoGo } from '../src/monetization/config';
 import { configurePurchases, refreshAdFree } from '../src/monetization/purchases';
+import { configureAds } from '../src/monetization/ads';
 import { SplashView } from '../src/screens/SplashView';
 import { RuntimeBridge } from '../src/components/RuntimeBridge';
 import { GameStoreProvider, useGameStore } from '../src/store/GameStore';
@@ -21,6 +22,7 @@ function Gate({ children }: { children: ReactNode }) {
     const tick = setInterval(() => setProgress(value => Math.min(0.9, value + 0.07)), 110);
     const wait = setTimeout(() => { setMinTime(true); setProgress(1); }, 1300);
     if (nativeStores) {
+      configureAds().catch(() => {});
       configurePurchases()
         .then(refreshAdFree)
         .then(adFree => { if (adFree) setAdFree(true); })

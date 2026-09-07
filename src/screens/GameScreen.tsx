@@ -239,7 +239,6 @@ export function GameScreen() {
     const frost = obstacles.find(obstacle => obstacle.kernelId === kernel.id && obstacle.kind === 'frost' && obstacle.status !== 'cleared');
     if (frost) {
       clearObstacleAnimated(frost);
-      playGameSound('backtrack', 0.55);
       pulse(Haptics.ImpactFeedbackStyle.Medium);
       return;
     }
@@ -253,13 +252,15 @@ export function GameScreen() {
     else warn();
   };
   const clearObstacleAnimated = (obstacle: typeof obstacles[number]) => {
+    playGameSound('obstacle', 0.72);
     setClearingObstacleIds(ids => ids.includes(obstacle.id) ? ids : [...ids, obstacle.id]);
     setTimeout(() => {
       setObstacles(value => clearObstacle(value, obstacle.kernelId));
       setClearingObstacleIds(ids => ids.filter(id => id !== obstacle.id));
     }, store.save.settings.reducedMotion ? 40 : 360);
   };
-  const triggerWeather = (message: string) => {
+  const triggerWeather = (message: string, sound?: 'weatherRain' | 'weatherWind' | 'weatherStorm' | 'reward') => {
+    if (sound) playGameSound(sound, 0.62);
     setWeatherFeedback(message);
     setWeatherEventKey(value => value + 1);
     setTimeout(() => setWeatherFeedback(undefined), store.save.settings.reducedMotion ? 700 : 950);
@@ -283,13 +284,13 @@ export function GameScreen() {
       setAcceptedTurns(nextAcceptedTurn);
       const bonus = weatherCoinBonus(source.weather, result.word);
       const goldenBonus = festivalCoinBonus(level.kernels, result.harvestIds, result.word);
-      if (source.weather?.kind === 'rain') triggerWeather(`RAIN BONUS +${bonus}`);
+      if (source.weather?.kind === 'rain') triggerWeather(`RAIN BONUS +${bonus}`, 'weatherRain');
       if (source.weather?.kind === 'drought') {
-        triggerWeather(bonus ? `DROUGHT BREAKER +${bonus}` : 'DROUGHT · TRY 5+ LETTERS');
+        triggerWeather(bonus ? `DROUGHT BREAKER +${bonus}` : 'DROUGHT · TRY 5+ LETTERS', bonus ? 'reward' : undefined);
       }
       if (flint.newlyCrackedIds.length) triggerWeather(`${flint.newlyCrackedIds.length > 1 ? 'ARMOR' : 'KERNEL'} CRACKED!`);
       if (popcorn.poppedIds.length) triggerWeather(`POP! +${popcorn.poppedIds.length} KERNEL${popcorn.poppedIds.length > 1 ? 'S' : ''}`);
-      if (goldenBonus) triggerWeather(`FESTIVAL BONUS +${goldenBonus}`);
+      if (goldenBonus) triggerWeather(`FESTIVAL BONUS +${goldenBonus}`, 'reward');
       const harvestDuration = store.save.settings.reducedMotion ? 80 : 720 + Math.max(0, actualHarvestIds.length - 1) * 70;
       setTimeout(() => {
         setLevel(prev => {
@@ -306,7 +307,10 @@ export function GameScreen() {
         playGameSound(actualHarvestIds.length ? 'basket' : 'backtrack', 0.7);
         const weatherStep = windStep(source.weather, nextAcceptedTurn);
         if (weatherStep) {
-          triggerWeather(source.weather?.kind === 'storm' ? 'STORM SPIN!' : 'WIND GUST!');
+          triggerWeather(
+            source.weather?.kind === 'storm' ? 'STORM SPIN!' : 'WIND GUST!',
+            source.weather?.kind === 'storm' ? 'weatherStorm' : 'weatherWind',
+          );
           cob.nudge(weatherStep);
           pulse(Haptics.ImpactFeedbackStyle.Medium);
         }
@@ -334,6 +338,7 @@ export function GameScreen() {
     if (tool === 'cornPicker') {
       if (!store.save.inventory.cornPicker) { setOutOf('cornPicker'); return; }
       setActiveTool(activeTool === 'cornPicker' ? undefined : 'cornPicker');
+      playGameSound('tool', 0.62);
       setHints([]);
       return;
     }
@@ -346,6 +351,7 @@ export function GameScreen() {
       setToolsUsed(value => value + 1);
       clearObstacleAnimated(countered);
       pulse();
+      playGameSound('tool', 0.62);
       return;
     }
     const path = unusedPath();
@@ -355,6 +361,7 @@ export function GameScreen() {
     setHints(tool === 'scarecrow' ? [path[0].id] : path.map(k => k.id));
     setActiveTool(tool);
     pulse();
+    playGameSound('tool', 0.62);
   };
   const pick = (kernel: Kernel) => {
     if (activeTool !== 'cornPicker' || busy || busyRef.current) return;
@@ -371,6 +378,7 @@ export function GameScreen() {
       setHarvestingIds([]);
     }, 380);
     setActiveTool(undefined);
+    playGameSound('tool', 0.68);
     pulse(Haptics.ImpactFeedbackStyle.Heavy);
   };
   const resetBoard = () => {
@@ -402,12 +410,16 @@ export function GameScreen() {
   };
   const doubleReward = async () => {
     const result = await showRewardedAd('double_coins', store.save.adFree);
-    if (result.rewarded) setDoubled(true);
+    if (result.rewarded) {
+      setDoubled(true);
+      playGameSound('reward', 0.72);
+    }
   };
   const grantToolFromAd = async (tool: Tool) => {
     const result = await showRewardedAd('tool', store.save.adFree);
     if (result.rewarded) {
       store.addTools({ [tool]: 1 });
+      playGameSound('reward', 0.72);
       setOutOf(undefined);
     }
   };

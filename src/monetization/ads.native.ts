@@ -1,4 +1,4 @@
-import { ADMOB_REWARDED_UNIT_ID, isExpoGo } from './config';
+import { ADMOB_CONFIGURED, ADMOB_REWARDED_UNIT_ID, DEVELOPMENT_STORE_GRANTS, isExpoGo } from './config';
 
 type RewardKind = 'energy' | 'double_coins' | 'tool';
 
@@ -19,7 +19,7 @@ export async function configureAds(): Promise<void> {
   if (configuring) return configuring;
   const task = (async () => {
     const ads = loadAds();
-    if (!ads) return;
+    if (!ads || !ADMOB_CONFIGURED) return;
     await ads.default().initialize();
     adsReady = true;
   })();
@@ -32,7 +32,7 @@ export async function showRewardedAd(kind: RewardKind, adFree: boolean): Promise
   await configureAds();
   const ads = loadAds();
   if (!ads || !adsReady) {
-    if (__DEV__) return { rewarded: true, message: 'Dev reward (ads unavailable in this build).' };
+    if (DEVELOPMENT_STORE_GRANTS) return { rewarded: true, message: 'Development reward (AdMob is not configured).' };
     return { rewarded: false, message: 'Ads need a development build with AdMob.' };
   }
   try {
@@ -62,7 +62,7 @@ export async function showRewardedAd(kind: RewardKind, adFree: boolean): Promise
       });
     });
   } catch (error) {
-    if (__DEV__) return { rewarded: true, message: `Dev reward (${kind}).` };
+    if (DEVELOPMENT_STORE_GRANTS) return { rewarded: true, message: `Development reward (${kind}).` };
     return { rewarded: false, message: error instanceof Error ? error.message : 'Ad failed to play.' };
   }
 }

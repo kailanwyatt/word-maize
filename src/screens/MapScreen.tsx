@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
+import { playGameSound } from '../audio/sounds';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { FarmButton, Panel } from '../components/FarmButton';
 import { CAMPAIGN_WORLDS, isLevelUnlocked, LEVELS } from '../data/levels';
@@ -112,7 +113,7 @@ export function MapScreen() {
   };
   const refill = async () => {
     const result = await showRewardedAd('energy', store.save.adFree);
-    if (result.rewarded) { store.addEnergy(1); setNeedEnergy(false); }
+    if (result.rewarded) { store.addEnergy(1); playGameSound('reward', 0.72); setNeedEnergy(false); }
   };
   const selectedUnlocked = isLevelUnlocked(selectedLevel.id, store.completedIds);
 

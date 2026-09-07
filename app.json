@@ -55,6 +55,13 @@
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
       ]
     ],
     "experiments": {
@@ -67,14 +74,11 @@
       },
       "revenueCatIosKey": "",
       "revenueCatAndroidKey": "",
-      "privacyPolicyUrl": "https://wordmaize.com/privacy",
-      "termsOfUseUrl": "https://wordmaize.com/terms",
+      "privacyPolicyUrl": "https://wordmaize.com/privacy-policy",
+      "termsOfUseUrl": "https://wordmaize.com/terms-of-use",
+      "enableDevelopmentStoreGrants": true,
       "admobRewardedUnitIdIos": "ca-app-pub-3940256099942544/1712485313",
       "admobRewardedUnitIdAndroid": "ca-app-pub-3940256099942544/5224354917"
     }
-  },
-  "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
-    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
   }
 }

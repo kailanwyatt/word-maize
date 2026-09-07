@@ -6,6 +6,7 @@ import { FarmButton } from '../components/FarmButton';
 import { DAILY_REWARDS } from '../data/shop';
 import { useGameStore } from '../store/GameStore';
 import { nextDailyDay } from '../store/types';
+import { playGameSound } from '../audio/sounds';
 
 function rewardIcon(reward: (typeof DAILY_REWARDS)[number]) {
   if (reward.chest) return wordMaizeAssets.props.chest;
@@ -29,7 +30,10 @@ export function DailyHarvestScreen() {
   const status = nextDailyDay(store.save.daily);
   const claim = () => {
     const result = store.claimDaily();
-    if (result.ok) Alert.alert('Daily Harvest', `Day ${result.day} gathered.`);
+    if (result.ok) {
+      playGameSound('reward', 0.72);
+      Alert.alert('Daily Harvest', `Day ${result.day} gathered.`);
+    }
     else Alert.alert('Daily Harvest', 'Come back tomorrow, farmer.');
   };
   return (

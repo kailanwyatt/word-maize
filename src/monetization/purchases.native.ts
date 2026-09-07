@@ -1,6 +1,6 @@
 import { SHOP_PRODUCTS, ShopProduct } from '../data/shop';
 import { Inventory } from '../game/types';
-import { AD_FREE_ENTITLEMENT, REVENUECAT_API_KEY, isExpoGo } from './config';
+import { AD_FREE_ENTITLEMENT, DEVELOPMENT_STORE_GRANTS, REVENUECAT_API_KEY, isExpoGo } from './config';
 
 type PurchaseResult = { ok: boolean; adFree?: boolean; tools?: Partial<Inventory>; message?: string };
 
@@ -59,8 +59,8 @@ export async function purchaseProduct(product: ShopProduct): Promise<PurchaseRes
   await configurePurchases();
   const Purchases = loadPurchases();
   if (!Purchases || !configured) {
-    if (__DEV__) {
-      return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, message: 'Dev grant (store not configured).' };
+    if (DEVELOPMENT_STORE_GRANTS) {
+      return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, message: 'Development grant (store not configured).' };
     }
     return { ok: false, message: 'Store unavailable. Use a development build with RevenueCat keys.' };
   }
@@ -69,7 +69,7 @@ export async function purchaseProduct(product: ShopProduct): Promise<PurchaseRes
     const pack = offerings.current?.availablePackages.find(item => item.product.identifier === product.storeProductId)
       ?? Object.values(offerings.all ?? {}).flatMap(offering => offering.availablePackages).find(item => item.product.identifier === product.storeProductId);
     if (!pack) {
-      if (__DEV__) return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, message: 'Dev grant (product missing from offering).' };
+      if (DEVELOPMENT_STORE_GRANTS) return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, message: 'Development grant (product missing from offering).' };
       return { ok: false, message: 'This pack is not available on the store yet.' };
     }
     const { customerInfo } = await Purchases.purchasePackage(pack);
