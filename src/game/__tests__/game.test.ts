@@ -5,7 +5,7 @@ import { validateWord, WORD_LIST } from '../dictionary';
 import { canSpendEnergy, replenishEnergy } from '../energy';
 import { CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, chapterStarCount, farmQuote, isChapterUnlocked, secondaryObjective } from '../campaign';
 import { SHOP_PRODUCTS, COIN_TOOL_OFFERS, TOOL_INFO, validateShopProducts, validateCoinOffers } from '../../data/shop';
-import { clampInventoryAmount, completionReward, purchaseCoinOffer } from '../economy';
+import { EMPTY_INVENTORY, addToInventory, clampInventoryAmount, completionReward, fairPuzzleCoins, mazeClearCoins, purchaseCoinOffer } from '../economy';
 import { hitKernel } from '../../components/CornCob/layout';
 import { classifyMovement, resolvePointerRelease } from '../gestures';
 import { harvestKernels, harvestPercent } from '../harvest';
@@ -299,6 +299,15 @@ describe('economy policy', () => {
     expect(completionReward({ wordCoins: 40, levelReward: 100, harvestPercent: 45, harvestTarget: 45, firstClear: true, doubled: true }).total).toBe(380);
   });
 
+  it('pays maze first-clear coins by chapter and storm ribbon', () => {
+    expect(mazeClearCoins(1)).toBe(50);
+    expect(mazeClearCoins(4)).toBe(70);
+    expect(mazeClearCoins(6)).toBe(90);
+    expect(mazeClearCoins(8, true)).toBe(140);
+    expect(fairPuzzleCoins(true)).toBe(40);
+    expect(fairPuzzleCoins(false)).toBe(20);
+  });
+
   it('keeps inventory grants within safe integer bounds', () => {
     expect(clampInventoryAmount(-3)).toBe(0);
     expect(clampInventoryAmount(1200)).toBe(999);
@@ -331,6 +340,7 @@ describe('levels and powerup search', () => {
     expect(isLevelUnlocked(1, [])).toBe(true);
     expect(isLevelUnlocked(2, [])).toBe(false);
     expect(isLevelUnlocked(2, [1])).toBe(true);
+    expect(isLevelUnlocked(60, [], true)).toBe(true);
   });
   it('finds a planted word on level 1', () => {
     const level = LEVELS[0];
@@ -687,13 +697,30 @@ describe('store catalog', () => {
   it('lets harvested coins buy tools and refuses a short purse', () => {
     expect(validateCoinOffers()).toEqual([]);
     const offer = COIN_TOOL_OFFERS[0];
-    const inventory = { scarecrow: 1, butterBrush: 0, cornPicker: 0 };
+    const inventory = addToInventory(EMPTY_INVENTORY, { scarecrow: 1, mower: 2 });
     expect(purchaseCoinOffer(20, inventory, offer.coins, offer.tools).ok).toBe(false);
     expect(purchaseCoinOffer(offer.coins, inventory, offer.coins, offer.tools)).toEqual({
       ok: true,
       coins: 0,
-      inventory: { scarecrow: 2, butterBrush: 0, cornPicker: 0 },
+      inventory: addToInventory(EMPTY_INVENTORY, { scarecrow: 2, mower: 2 }),
     });
+  });
+
+  it('buys a mower without wiping cob tools', () => {
+    const offer = COIN_TOOL_OFFERS.find(item => item.id === 'coin-mower')!;
+    const inventory = addToInventory(EMPTY_INVENTORY, { scarecrow: 3, butterBrush: 1, cornPicker: 2 });
+    expect(purchaseCoinOffer(offer.coins, inventory, offer.coins, offer.tools)).toEqual({
+      ok: true,
+      coins: 0,
+      inventory: addToInventory(EMPTY_INVENTORY, { scarecrow: 3, butterBrush: 1, cornPicker: 2, mower: 1 }),
+    });
+  });
+
+  it('sells maze helpers, coin packs, and a field kit', () => {
+    expect(SHOP_PRODUCTS.some(product => product.id === 'coin_sack' && product.coins === 500)).toBe(true);
+    expect(SHOP_PRODUCTS.some(product => product.id === 'field_kit' && product.tools?.tractor === 1)).toBe(true);
+    expect(TOOL_INFO.lantern.title).toBe('Lantern');
+    expect(COIN_TOOL_OFFERS.some(offer => offer.tools.raincoat === 1 && offer.coins === 260)).toBe(true);
   });
 });
 
@@ -709,6 +736,7 @@ describe('campaign hub and late harvests', () => {
     expect(isChapterUnlocked(1, [15])).toBe(true);
     expect(isChapterUnlocked(2, [15])).toBe(false);
     expect(isChapterUnlocked(2, [30])).toBe(true);
+    expect(isChapterUnlocked(3, [], true)).toBe(true);
     expect(chapterStarCount({ 1: { stars: 3 }, 16: { stars: 2 } }, 0)).toBe(3);
     expect(chapterStarCount({ 1: { stars: 3 }, 16: { stars: 2 } }, 1)).toBe(2);
     expect(farmQuote({ levelId: 16, world: 'Crow Creek', chapterComplete: false })).toMatch(/creek/i);
@@ -737,9 +765,14 @@ describe('save migration', () => {
     expect(migrated.coins).toBe(275);
     expect(migrated.currentLevelId).toBe(4);
     expect(migrated.claimedRestorations).toEqual([]);
-    expect(migrated.inventory).toEqual({ scarecrow: 9, butterBrush: 2, cornPicker: 1 });
+    expect(migrated.inventory).toEqual(addToInventory(EMPTY_INVENTORY, { scarecrow: 9, butterBrush: 2, cornPicker: 1, mower: 1 }));
     expect(migrated.seenLevelIntros).toEqual([]);
     expect(migrated.endlessHarvest).toEqual({ bestStage: 0, active: null });
+    expect(migrated.maze).toEqual({ runs: {}, rewardedIds: [], unlockedIds: ['sunny-acres-corn'], ribbons: {}, freePlay: null });
+    expect(migrated.fair).toEqual({ rewardedIds: [] });
+    expect(migrated.seenStoryBeatIds).toEqual([]);
+    expect(migrated.settings.skipStory).toBe(false);
+    expect(migrated.settings.devUnlock).toBe(false);
   });
 
   it('preserves a valid endless harvest and sanitizes its counters', () => {

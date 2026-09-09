@@ -2,7 +2,7 @@ import { SHOP_PRODUCTS, ShopProduct } from '../data/shop';
 import { Inventory } from '../game/types';
 import { AD_FREE_ENTITLEMENT, DEVELOPMENT_STORE_GRANTS, REVENUECAT_API_KEY, isExpoGo } from './config';
 
-type PurchaseResult = { ok: boolean; adFree?: boolean; tools?: Partial<Inventory>; message?: string };
+type PurchaseResult = { ok: boolean; adFree?: boolean; tools?: Partial<Inventory>; coins?: number; message?: string };
 
 let configured = false;
 let configuring: Promise<void> | null = null;
@@ -60,7 +60,7 @@ export async function purchaseProduct(product: ShopProduct): Promise<PurchaseRes
   const Purchases = loadPurchases();
   if (!Purchases || !configured) {
     if (DEVELOPMENT_STORE_GRANTS) {
-      return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, message: 'Development grant (store not configured).' };
+      return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, coins: product.coins, message: 'Development grant (store not configured).' };
     }
     return { ok: false, message: 'Store unavailable. Use a development build with RevenueCat keys.' };
   }
@@ -69,7 +69,7 @@ export async function purchaseProduct(product: ShopProduct): Promise<PurchaseRes
     const pack = offerings.current?.availablePackages.find(item => item.product.identifier === product.storeProductId)
       ?? Object.values(offerings.all ?? {}).flatMap(offering => offering.availablePackages).find(item => item.product.identifier === product.storeProductId);
     if (!pack) {
-      if (DEVELOPMENT_STORE_GRANTS) return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, message: 'Development grant (product missing from offering).' };
+      if (DEVELOPMENT_STORE_GRANTS) return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, coins: product.coins, message: 'Development grant (product missing from offering).' };
       return { ok: false, message: 'This pack is not available on the store yet.' };
     }
     const { customerInfo } = await Purchases.purchasePackage(pack);
@@ -77,6 +77,7 @@ export async function purchaseProduct(product: ShopProduct): Promise<PurchaseRes
       ok: true,
       adFree: !!customerInfo.entitlements.active[AD_FREE_ENTITLEMENT],
       tools: product.tools,
+      coins: product.coins,
     };
   } catch (error) {
     const cancelled = typeof error === 'object' && error !== null && 'userCancelled' in error && Boolean((error as { userCancelled?: boolean }).userCancelled);

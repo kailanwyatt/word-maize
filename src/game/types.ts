@@ -1,6 +1,8 @@
 export type CornVariety = 'sweet' | 'white' | 'flint' | 'popcorn' | 'blue' | 'golden';
 
-export type ToolId = 'scarecrow' | 'butterBrush' | 'cornPicker';
+export type ToolId = 'scarecrow' | 'butterBrush' | 'cornPicker' | 'mower' | 'tractor' | 'lantern' | 'raincoat' | 'huskClip';
+export const TOOL_IDS: ToolId[] = ['scarecrow', 'butterBrush', 'cornPicker', 'mower', 'tractor', 'lantern', 'raincoat', 'huskClip'];
+export const MAZE_TOOL_IDS: ToolId[] = ['lantern', 'mower', 'tractor', 'raincoat', 'huskClip', 'scarecrow'];
 export type ObstacleKind = 'caterpillar' | 'crow' | 'squirrel' | 'weed' | 'web' | 'frost';
 export type LevelObstacle = { id: string; kind: ObstacleKind; kernelId: string; countdown: number; anchorIds?: string[]; strength?: number };
 export type WeatherKind = 'rain' | 'wind' | 'drought' | 'storm';

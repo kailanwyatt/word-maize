@@ -14,7 +14,53 @@ For each gap, include:
 
 ## Open requests
 
-None recorded. Add new requests below this line without deleting resolved history; mark completed requests as **Resolved** and reference the supplied asset path.
+None. Generated and wired 2026-09-08. History below is marked **Resolved**.
+
+### MW-023 — Maze revealed cob without letter pad — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/maze/open-v4.png` (magenta knockout). `mazeAssets.plants.open` uses it. Native letter still floats above the cob.
+
+### MW-022 — Maze letter-plant closed cob (distinct from wall corn) — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/maze/closed-letter-v1.png`. `mazeAssets.plants.closed` uses it.
+
+### MW-021 — World Maize chapter thumbnails — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/ui/chapter-thumb-01.png` through `chapter-thumb-08.png`. `MazeLevelsScreen` reads `wordMaizeAssets.ui.chapterThumbs`.
+
+### MW-013 — Home hero farm background — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/backgrounds/home-hero-v1.jpg`. Play screen uses it as the home backdrop.
+
+### MW-014 — Home farmer host (idle) — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/characters/home-farmer-idle.png`. Play uses it until 80/80 fields, then Farmer May celebration.
+
+### MW-015 — Continue Maize card thumbnail — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/ui/home-continue-thumb.png` on the Continue card.
+
+### MW-016 — World Map card thumbnail — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/ui/home-world-map-thumb.png` on the Chapters card.
+
+### MW-017 — World 1 barn thumbnail — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/ui/home-world-thumb.png` on the WORLD chip.
+
+### MW-018 — Free Play gamepad icon — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/ui/icon-gamepad.png` on the Chapters Free Play row.
+
+### MW-019 — Fair carnival tent icon — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/ui/icon-fair-tent.png` for the Fair tab and Fair screen header.
+
+### MW-020 — Optional hanging logo tagline plaque — **Resolved**
+
+- **Resolution:** Added `assets/word-maize/ui/logo-tagline-plaque.png`. Native “EXPLORE • SOLVE • HARVEST” sits on the empty face.
+
+Home-screen pack for the Play tab mockup. Full ChatGPT paste prompts live in `docs/art-pipeline/HOME_SCREEN_CHATGPT.md`. Mockup: `docs/art-pipeline/home-screen-mockup.jpg`.
 
 ### MW-001 — Selected / hinted / invalid kernel treatments — **Resolved**
 

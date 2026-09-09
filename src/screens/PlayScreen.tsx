@@ -1,256 +1,191 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
-import { playGameSound } from '../audio/sounds';
 import { CurrencyBar } from '../components/CurrencyBar';
-import { FarmButton, Panel, PlayButton } from '../components/FarmButton';
-import { WoodPanel } from '../components/WoodPanel';
-import { isLevelUnlocked, LEVELS, worldNameForLevel } from '../data/levels';
-import { CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, farmQuote, secondaryObjective } from '../game/campaign';
-import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../game/restoration';
-import { showRewardedAd } from '../monetization/ads';
+import { RaisedPill } from '../components/FarmButton';
+import { Chevron } from '../components/HomeGlyphs';
+import { MAZE_PUZZLES } from '../data/mazeLevels';
+import { continueMazeLevel, maizeHomeQuote, MAZE_CHAPTERS } from '../game/mazeCampaign';
 import { useGameStore } from '../store/GameStore';
-import { nextDailyDay } from '../store/types';
 
 export function PlayScreen() {
   const router = useRouter();
   const store = useGameStore();
-  const [needEnergy, setNeedEnergy] = useState(false);
-  const level = LEVELS.find(item => item.id === store.currentLevelId) ?? LEVELS[0];
-  const daily = nextDailyDay(store.save.daily);
-  const chapterIndex = chapterIndexForLevel(level.id);
-  const world = worldNameForLevel(level.id);
-  const harvests = chapterHarvests(store.completedIds, chapterIndex);
-  const restorationStage = completedRestorationStage(store.completedIds);
-  const claimableRestoration = claimableRestorationMilestone(store.completedIds, store.save.claimedRestorations);
-  const nextRestoration = claimableRestoration ?? nextRestorationMilestone(store.completedIds, store.save.claimedRestorations);
-  const chapterOneRestored = store.save.claimedRestorations.includes('sweet-corn-restored') || store.completedIds.includes(15);
-  const farmBackground = chapterIndex === 0
-    ? (chapterOneRestored ? wordMaizeAssets.backgrounds.homeFarmRestored : wordMaizeAssets.backgrounds.homeFarmUnrestored)
-    : chapterIndex === 1
-      ? wordMaizeAssets.backgrounds.gameplayCrowCreek
-      : chapterIndex === 2
-        ? wordMaizeAssets.backgrounds.gameplayOrchardHollow
-        : wordMaizeAssets.backgrounds.gameplayMoonlightMaize;
-  const levelProgress = store.save.levels[level.id];
-  const extraGoal = secondaryObjective(level);
-  const quote = farmQuote({
-    levelId: level.id,
-    world,
-    chapterComplete: harvests.complete,
-    claimableTitle: claimableRestoration?.title,
-  });
-  const endlessUnlocked = !!store.save.levels[60]?.completed;
-  const endlessRun = store.save.endlessHarvest.active;
-  const play = () => {
-    const continuing = store.save.activeLevelRun?.levelId === level.id;
-    const { energy } = store.energyNow();
-    if (!continuing && energy < 1) { setNeedEnergy(true); return; }
-    if (!isLevelUnlocked(level.id, store.completedIds) && level.id !== 1) return;
-    if (!continuing) store.spendEnergy();
-    router.push(`/game/${level.id}`);
-  };
-  const refill = async () => {
-    const result = await showRewardedAd('energy', store.save.adFree);
-    if (result.rewarded) {
-      store.addEnergy(1);
-      playGameSound('reward', 0.72);
-      setNeedEnergy(false);
-    }
-  };
-  const playEndless = () => {
-    const run = store.startEndlessHarvest();
-    if (!run) return;
-    router.push({ pathname: '/game/[id]', params: { id: 'endless', seed: run.seed, stage: String(run.stage) } });
-  };
-  const abandonEndless = () => Alert.alert(
-    'End this harvest?',
-    `Your best remains ${store.save.endlessHarvest.bestStage} cob${store.save.endlessHarvest.bestStage === 1 ? '' : 's'}, but the current run will end.`,
-    [{ text: 'Keep playing', style: 'cancel' }, { text: 'End run', style: 'destructive', onPress: store.abandonEndlessHarvest }],
-  );
-  const claimRestoration = () => {
-    if (!claimableRestoration || !store.claimRestoration(claimableRestoration.id)) return;
-    playGameSound('reward', 0.72);
-    Alert.alert('Farm restored!', `${claimableRestoration.title}\n+${claimableRestoration.coins} coins added to your harvest.`);
-  };
+  const next = continueMazeLevel(MAZE_PUZZLES, store.save.maze.rewardedIds, store.save.maze.unlockedIds, store.save.maze.runs);
+  const chapter = MAZE_CHAPTERS.find(item => item.id === next.chapter) ?? MAZE_CHAPTERS[0];
+  const cleared = store.save.maze.rewardedIds.length;
+  const quote = maizeHomeQuote(next, cleared);
+  const resume = store.save.maze.runs[next.id] && !store.save.maze.runs[next.id]?.completed && !store.save.maze.rewardedIds.includes(next.id);
+  const farmer = cleared >= 80 ? wordMaizeAssets.characters.farmerMayCelebration : wordMaizeAssets.characters.homeFarmerIdle;
+
   return (
     <View style={styles.root}>
-      <ImageBackground
-        source={farmBackground}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
+      <ImageBackground source={wordMaizeAssets.backgrounds.homeHero} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={styles.scrim} />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <CurrencyBar onSettings={() => router.push('/settings')} />
-        <View style={styles.hero}>
-          <Image source={wordMaizeAssets.ui.logo} style={styles.logo} />
-          <WoodPanel style={styles.chapterBadge}>
-            <Text style={styles.chapterEyebrow}>{CHAPTER_TITLES[chapterIndex]}</Text>
-            <Text style={styles.world}>{world}</Text>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${Math.max(4, (harvests.clears / harvests.total) * 100)}%` }]} />
+        <CurrencyBar tone="glass" onSettings={() => router.push('/settings')} />
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.brand}>
+            <View style={styles.logoCol}>
+              <Image source={wordMaizeAssets.ui.logo} style={styles.logo} />
+              <View style={styles.tag}>
+                <Image source={wordMaizeAssets.ui.logoTaglinePlaque} style={styles.tagArt} />
+                <Text style={styles.tagText}>EXPLORE • SOLVE • HARVEST</Text>
+              </View>
             </View>
-            <Text style={styles.chapterProgress}>{harvests.clears}/{harvests.total} HARVESTS</Text>
-          </WoodPanel>
-        </View>
-        <View style={styles.dashboard}>
-          <View style={styles.storyCard}>
-            <Image source={harvests.complete ? wordMaizeAssets.characters.patchCelebrating : wordMaizeAssets.characters.patchIdle} style={styles.patch} />
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open World Maize chapters, ${chapter.title}`} onPress={() => router.push('/maze')} style={styles.worldCard}>
+              <Image source={wordMaizeAssets.ui.homeWorldThumb} style={styles.worldThumb} />
+              <View style={styles.worldCopy}>
+                <View style={styles.worldTitleRow}>
+                  <Text style={styles.worldKicker}>CHAPTER {chapter.id}</Text>
+                  <Chevron size={12} color="#6a4420" />
+                </View>
+                <Text style={styles.worldName} numberOfLines={1}>{chapter.title}</Text>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.max(6, (cleared / 80) * 100)}%` }]} />
+                </View>
+                <Text style={styles.worldFields}>{cleared} / 80 Fields</Text>
+              </View>
+            </Pressable>
+          </View>
+
+          <View style={styles.hero}>
+            <Image source={farmer} style={styles.farmer} />
             <View style={styles.speech}>
-              <Text style={styles.speaker}>PATCH</Text>
-              <Text style={styles.quote} numberOfLines={3}>{quote}</Text>
+              <View style={styles.speechTail} />
+              <Text style={styles.quote} numberOfLines={4}>{quote}</Text>
             </View>
           </View>
 
-          {nextRestoration ? (
-            <View style={[styles.restorationCard, claimableRestoration && styles.restorationReady]}>
-              <Image source={claimableRestoration ? wordMaizeAssets.characters.farmerMayCelebration : wordMaizeAssets.characters.farmerMayWelcome} style={styles.farmerMay} />
-              <View style={styles.restorationCopy}>
-                <Text style={styles.restorationEyebrow}>FARM PROJECT {Math.min(restorationStage + 1, RESTORATION_MILESTONES.length)}/{RESTORATION_MILESTONES.length}</Text>
-                <Text style={styles.restorationTitle}>{nextRestoration.title}</Text>
-                <Text style={styles.restorationText} numberOfLines={1}>
-                  {claimableRestoration ? `Ready · +${nextRestoration.coins} coins` : `Complete Level ${nextRestoration.requiredLevel} to restore`}
-                </Text>
-              </View>
-              {claimableRestoration ? <Pressable accessibilityRole="button" accessibilityLabel={`Claim ${claimableRestoration.title}`} onPress={claimRestoration} style={styles.restoreButton}><Text style={styles.restoreButtonText}>RESTORE</Text></Pressable> : <Text style={styles.restoreLock}>🔒</Text>}
-            </View>
-          ) : null}
-
-          <WoodPanel style={styles.levelPanel}>
-            <View style={styles.levelTopline}>
-              <View>
-                <Text style={styles.levelLabel}>LEVEL {level.id}</Text>
-                <Text style={styles.levelName}>{level.name}</Text>
-              </View>
-              <View style={styles.starsBadge}>
-                <Text style={styles.starsText}>{'★'.repeat(levelProgress?.stars ?? 0)}{'☆'.repeat(3 - (levelProgress?.stars ?? 0))}</Text>
-              </View>
-            </View>
-            <View style={styles.objectives}>
-              <View style={styles.objectiveChip}>
-                <Text style={styles.objectiveValue}>{level.objective.harvestPercent}%</Text>
-                <Text style={styles.objectiveLabel}>HARVEST</Text>
-              </View>
-              <View style={styles.objectiveChip}>
-                <Text style={styles.objectiveValue}>{extraGoal.value}</Text>
-                <Text style={styles.objectiveLabel}>{extraGoal.label}</Text>
-              </View>
-              <View style={styles.rewardChip}>
-                <Image source={wordMaizeAssets.ui.coin} style={styles.rewardCoin} />
-                <Text style={styles.rewardValue}>+{level.rewardCoins}</Text>
-              </View>
-            </View>
-            <PlayButton onPress={play} />
-          </WoodPanel>
-
-          <View style={styles.quickRow}>
-            <Pressable accessibilityRole="button" accessibilityLabel={daily.alreadyClaimed ? 'Daily harvest already claimed' : `Daily harvest, day ${daily.day} ready`} style={styles.quickCard} onPress={() => router.push('/daily-harvest')}>
-              <Image source={wordMaizeAssets.props.chest} style={styles.chest} />
-              <View>
-                <Text style={styles.quickTitle}>DAILY HARVEST</Text>
-                <Text style={styles.quickText}>{daily.alreadyClaimed ? 'Claimed today' : `Day ${daily.day} is ready`}</Text>
-              </View>
+          <View style={styles.featureRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={resume ? `Continue World Maize, ${next.displayAnswer}` : `Play World Maize, ${next.displayAnswer}`}
+              onPress={() => router.push(`/maze/${next.id}`)}
+              style={styles.continueCard}
+            >
+              {({ pressed }) => (
+                <>
+                  <Text style={styles.continueKicker}>{resume ? 'RESUME FIELD' : 'CONTINUE MAIZE'}</Text>
+                  <Text style={styles.continueMeta}>{chapter.title} • Field {next.order}</Text>
+                  <Image source={wordMaizeAssets.ui.homeContinueThumb} style={styles.featureArt} />
+                  <RaisedPill label={resume ? 'RESUME' : 'PLAY'} pressed={pressed} />
+                </>
+              )}
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="View all chapters" style={styles.quickCard} onPress={() => router.push('/(tabs)/map')}>
-              <Image source={wordMaizeAssets.ui.mapNodeCurrent} style={styles.mapIcon} />
-              <View>
-                <Text style={styles.quickTitle}>FARM MAP</Text>
-                <Text style={styles.quickText}>Choose a chapter</Text>
-              </View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Open World Maize chapters" onPress={() => router.push('/maze')} style={styles.mapCard}>
+              {({ pressed }) => (
+                <>
+                  <Text style={styles.mapKicker}>CHAPTERS</Text>
+                  <Image source={wordMaizeAssets.ui.homeWorldMapThumb} style={styles.featureArt} />
+                  <Text style={styles.mapMeta}>Eight chapters</Text>
+                  <RaisedPill label="VIEW" tone="tan" pressed={pressed} />
+                </>
+              )}
             </Pressable>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={endlessUnlocked ? (endlessRun ? `Continue Endless Harvest cob ${endlessRun.stage}` : 'Start Endless Harvest') : 'Endless Harvest unlocks after level 60'}
-            disabled={!endlessUnlocked}
-            onPress={playEndless}
-            onLongPress={endlessRun ? abandonEndless : undefined}
-            style={[styles.endlessCard, !endlessUnlocked && styles.endlessLocked]}
-          >
-            <View style={styles.endlessIcon}><Text style={styles.endlessIconText}>∞</Text></View>
-            <View style={styles.endlessCopy}>
-              <Text style={styles.endlessTitle}>ENDLESS HARVEST</Text>
-              <Text style={styles.endlessText}>{!endlessUnlocked ? 'Complete Level 60 to unlock' : endlessRun ? `Continue cob ${endlessRun.stage} · Best ${store.save.endlessHarvest.bestStage}` : `New run · Best ${store.save.endlessHarvest.bestStage}`}</Text>
-            </View>
-            <Text style={styles.endlessAction}>{endlessUnlocked ? (endlessRun ? 'CONTINUE' : 'START') : '🔒'}</Text>
-          </Pressable>
-        </View>
+        </ScrollView>
       </SafeAreaView>
-      <Modal visible={needEnergy} transparent animationType="fade">
-        <View style={styles.shade}>
-          <Panel>
-            <Text style={styles.modalTitle}>Out of energy</Text>
-            <Text style={styles.body}>Energy grows back every 20 minutes, or watch a harvest ad for one extra ear.</Text>
-            <View style={{ height: 12 }} />
-            <FarmButton label={store.save.adFree ? 'GET 1 ENERGY' : 'WATCH AD FOR ENERGY'} onPress={refill} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="BACK TO FARM" onPress={() => setNeedEnergy(false)} />
-          </Panel>
-        </View>
-      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, minHeight: 0, overflow: 'hidden', backgroundColor: '#16381e' },
-  scrim: { position: 'absolute', inset: 0, backgroundColor: 'rgba(8,28,20,0.12)' },
-  safe: { flex: 1, minHeight: 0 },
-  hero: { height: 112, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 },
-  logo: { width: 142, height: 96, resizeMode: 'contain' },
-  chapterBadge: { flex: 1, backgroundColor: 'rgba(51,31,12,0.92)', borderWidth: 2, borderColor: '#d7ad4b', borderRadius: 15, paddingHorizontal: 10, paddingVertical: 7 },
-  chapterEyebrow: { color: '#e7c867', fontWeight: '900', fontSize: 9, letterSpacing: 1.2 },
-  world: { color: '#fff6c6', fontWeight: '900', fontSize: 15, marginTop: 1 },
-  progressTrack: { height: 7, backgroundColor: '#1d2914', borderRadius: 5, overflow: 'hidden', marginTop: 6 },
-  progressFill: { height: '100%', backgroundColor: '#69c83a', borderRadius: 5 },
-  chapterProgress: { color: '#f5dda0', fontSize: 8, fontWeight: '900', marginTop: 3 },
-  dashboard: { flex: 1, minHeight: 0, paddingHorizontal: 12, paddingBottom: 8, gap: 8 },
-  storyCard: { minHeight: 92, flexDirection: 'row', alignItems: 'flex-end' },
-  patch: { width: 78, height: 96, resizeMode: 'contain', zIndex: 2, marginRight: -7 },
-  speech: { flex: 1, backgroundColor: 'rgba(255,242,189,0.96)', borderWidth: 2, borderColor: '#73441f', borderRadius: 16, paddingLeft: 14, paddingRight: 10, paddingVertical: 8 },
-  speaker: { color: '#98702c', fontWeight: '900', fontSize: 11, letterSpacing: 1.4 },
-  quote: { color: '#51351f', fontWeight: '800', fontSize: 12, lineHeight: 16, marginTop: 2 },
-  restorationCard: { minHeight: 64, flexDirection: 'row', alignItems: 'center', borderRadius: 15, borderWidth: 2, borderColor: '#87652d', backgroundColor: 'rgba(49,74,30,.94)', paddingHorizontal: 8, gap: 7 },
-  restorationReady: { borderColor: '#f4cf55', backgroundColor: 'rgba(58,105,28,.96)' },
-  farmerMay: { width: 48, height: 58, resizeMode: 'contain', alignSelf: 'flex-end' },
-  restorationCopy: { flex: 1, minWidth: 0 },
-  restorationEyebrow: { color: '#d7bd73', fontWeight: '900', fontSize: 7, letterSpacing: 1 },
-  restorationTitle: { color: '#fff4bb', fontWeight: '900', fontSize: 12, marginTop: 1 },
-  restorationText: { color: '#dbe9b7', fontWeight: '700', fontSize: 8, marginTop: 2 },
-  restoreButton: { minWidth: 68, paddingHorizontal: 8, paddingVertical: 9, borderRadius: 11, borderWidth: 2, borderColor: '#ffdd65', backgroundColor: '#65b934' },
-  restoreButtonText: { color: 'white', fontWeight: '900', fontSize: 9, letterSpacing: .6 },
-  restoreLock: { fontSize: 20, opacity: .75 },
-  levelPanel: { backgroundColor: 'rgba(52,31,12,0.95)', borderWidth: 3, borderColor: '#d09b38', borderRadius: 20, padding: 11, gap: 9, alignItems: 'center' },
-  levelTopline: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  levelLabel: { color: '#ffffff', fontWeight: '900', fontSize: 18, letterSpacing: 1.2 },
-  levelName: { color: '#fadd74', fontWeight: '800', fontSize: 12, marginTop: 1 },
-  starsBadge: { borderRadius: 12, backgroundColor: '#251707', paddingHorizontal: 8, paddingVertical: 5 },
-  starsText: { color: '#ffd759', fontWeight: '900', fontSize: 16, letterSpacing: 1 },
-  objectives: { width: '100%', flexDirection: 'row', gap: 6 },
-  objectiveChip: { flex: 1, minHeight: 47, borderRadius: 12, backgroundColor: '#fff1bd', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#d6aa54' },
-  objectiveValue: { color: '#4f7f26', fontWeight: '900', fontSize: 17 },
-  objectiveLabel: { color: '#60401f', fontWeight: '900', fontSize: 7, letterSpacing: .5 },
-  rewardChip: { flex: 1, minHeight: 47, flexDirection: 'row', gap: 4, borderRadius: 12, backgroundColor: '#6b431a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#d6aa54' },
-  rewardCoin: { width: 24, height: 24, resizeMode: 'contain' },
-  rewardValue: { color: '#fff1a0', fontWeight: '900', fontSize: 15 },
-  quickRow: { flexDirection: 'row', gap: 8 },
-  quickCard: { flex: 1, minHeight: 61, flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 14, paddingHorizontal: 8, backgroundColor: 'rgba(255,242,189,0.95)', borderWidth: 2, borderColor: '#73441f' },
-  chest: { width: 39, height: 39, resizeMode: 'contain' },
-  mapIcon: { width: 38, height: 38, resizeMode: 'contain' },
-  quickTitle: { color: '#51351f', fontWeight: '900', fontSize: 9 },
-  quickText: { color: '#7a582c', fontWeight: '800', fontSize: 9, marginTop: 2 },
-  endlessCard: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 15, paddingHorizontal: 10, backgroundColor: 'rgba(42,28,61,0.96)', borderWidth: 2, borderColor: '#e4bb40' },
-  endlessLocked: { opacity: 0.72 },
-  endlessIcon: { width: 37, height: 37, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#6c3d91', borderWidth: 2, borderColor: '#f1cf5d' },
-  endlessIconText: { color: '#fff4b4', fontWeight: '900', fontSize: 27, lineHeight: 30 },
-  endlessCopy: { flex: 1 },
-  endlessTitle: { color: '#fff4b4', fontWeight: '900', fontSize: 11, letterSpacing: .8 },
-  endlessText: { color: '#d9c7ea', fontWeight: '700', fontSize: 9, marginTop: 2 },
-  endlessAction: { color: '#f7d85a', fontWeight: '900', fontSize: 9 },
-  shade: { flex: 1, backgroundColor: 'rgba(20,40,30,0.68)', alignItems: 'center', justifyContent: 'center' },
-  modalTitle: { fontSize: 24, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 8 },
-  body: { fontSize: 16, lineHeight: 24, textAlign: 'center', color: '#51351f', fontWeight: '700' },
+  root: { flex: 1, backgroundColor: '#16381e' },
+  scrim: { position: 'absolute', inset: 0, backgroundColor: 'rgba(10, 28, 18, 0.08)' },
+  safe: { flex: 1 },
+  scroll: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 24, gap: 12 },
+  brand: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  logoCol: { width: 148, alignItems: 'center' },
+  logo: { width: 148, height: 78, resizeMode: 'contain' },
+  tag: {
+    marginTop: 2,
+    width: 148,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tagArt: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, width: 148, height: 40, resizeMode: 'contain' },
+  tagText: { color: '#fff4c8', fontWeight: '900', fontSize: 7, letterSpacing: 0.35, textAlign: 'center', zIndex: 1 },
+  worldCard: {
+    flex: 1,
+    minHeight: 88,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 18,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 248, 230, 0.88)',
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    borderColor: '#e2c48a',
+    borderBottomColor: '#8a5a22',
+  },
+  worldThumb: { width: 48, height: 48, borderRadius: 12, resizeMode: 'contain', backgroundColor: 'transparent' },
+  worldCopy: { flex: 1, minWidth: 0 },
+  worldTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  worldKicker: { color: '#7a5828', fontWeight: '900', fontSize: 10, letterSpacing: 0.8 },
+  worldName: { color: '#3d2a14', fontWeight: '900', fontSize: 16, marginTop: 1 },
+  progressTrack: { height: 7, backgroundColor: '#d9c9a4', borderRadius: 6, overflow: 'hidden', marginTop: 6 },
+  progressFill: { height: '100%', backgroundColor: '#58c22e', borderRadius: 6 },
+  worldFields: { color: '#6a4a24', fontWeight: '800', fontSize: 10, marginTop: 4 },
+  hero: { minHeight: 132, flexDirection: 'row', alignItems: 'flex-end' },
+  farmer: { width: 118, height: 148, resizeMode: 'contain', marginRight: -6, zIndex: 2 },
+  speech: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 246, 220, 0.96)',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 140, 80, 0.35)',
+  },
+  speechTail: {
+    position: 'absolute',
+    left: -8,
+    bottom: 16,
+    width: 0,
+    height: 0,
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderRightWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: 'rgba(255, 246, 220, 0.96)',
+  },
+  quote: { color: '#4a331c', fontWeight: '700', fontSize: 13, lineHeight: 18 },
+  featureRow: { flexDirection: 'row', gap: 10 },
+  continueCard: {
+    flex: 1.12,
+    borderRadius: 20,
+    padding: 10,
+    backgroundColor: '#1f6d32',
+    borderWidth: 2,
+    borderColor: '#8ee85a',
+    gap: 6,
+    shadowColor: '#0b2a12',
+    shadowOpacity: 0.28,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  continueKicker: { color: '#ffffff', fontWeight: '900', fontSize: 13, letterSpacing: 0.4 },
+  continueMeta: { color: '#d7f0b8', fontWeight: '700', fontSize: 11 },
+  featureArt: { width: '100%', height: 72, borderRadius: 12, resizeMode: 'cover', backgroundColor: '#2a4a20' },
+  mapCard: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 10,
+    backgroundColor: '#f4ead2',
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    borderColor: '#e2c48a',
+    borderBottomColor: '#8a5a22',
+    gap: 6,
+  },
+  mapKicker: { color: '#5a3c18', fontWeight: '900', fontSize: 13, letterSpacing: 0.4 },
+  mapMeta: { color: '#7a5828', fontWeight: '700', fontSize: 11 },
 });

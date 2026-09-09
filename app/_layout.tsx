@@ -43,7 +43,11 @@ export default function RootLayout() {
           <RuntimeBridge />
           <Gate>
             <StatusBar style="light" />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1a3a18' } }} />
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1a3a18' } }}>
+              <Stack.Screen name="maze/index" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+              <Stack.Screen name="maze/free" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+              <Stack.Screen name="maze/[id]" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
+            </Stack>
           </Gate>
         </GameStoreProvider>
       </View>

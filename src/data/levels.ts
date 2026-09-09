@@ -701,7 +701,7 @@ export const LEVELS: Level[] = [
 
 export const levelById = (id: number) => LEVELS.find(level => level.id === id);
 
-export function isLevelUnlocked(id: number, completedIds: number[]): boolean {
-  if (id <= 1) return true;
+export function isLevelUnlocked(id: number, completedIds: number[], devUnlock = false): boolean {
+  if (devUnlock || id <= 1) return true;
   return completedIds.includes(id - 1);
 }

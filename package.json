@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@shopify/react-native-skia": "2.6.2",
     "babel-preset-expo": "~57.0.0",
     "expo": "~57.0.19",
     "expo-audio": "~57.0.4",
@@ -42,7 +43,8 @@
     "test": "vitest run",
     "art:corn": "node tools/art/generate-corn-varieties.mjs && node tools/art/validate-corn-varieties.mjs",
     "art:corn:validate": "node tools/art/validate-corn-varieties.mjs",
-    "art:wood": "node tools/art/make-seamless-wood.mjs"
+    "art:wood": "node tools/art/make-seamless-wood.mjs",
+    "art:fog": "node tools/art/generate-fog-textures.mjs"
   },
   "private": true
 }

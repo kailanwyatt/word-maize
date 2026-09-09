@@ -1,12 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, Image, ImageBackground, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
+import { mazeAssets } from '../../assets/word-maize/maze/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
-import { FarmButton, Panel } from '../components/FarmButton';
+import { DialogCopy, FarmDialog } from '../components/FarmDialog';
 import { COIN_TOOL_OFFERS, CoinToolOffer, SHOP_PRODUCTS, ShopProduct, TOOL_INFO, coinOfferForTool } from '../data/shop';
-import { ToolId } from '../game/types';
+import { Inventory, ToolId } from '../game/types';
 import { playGameSound } from '../audio/sounds';
 import { purchaseProduct } from '../monetization/purchases';
 import { showRewardedAd } from '../monetization/ads';
@@ -29,6 +30,7 @@ export function ShopScreen() {
     if (result.ok) {
       if (result.adFree) store.setAdFree(true);
       if (result.tools) store.addTools(result.tools);
+      if (result.coins) store.addCoins(result.coins);
       setConfirm(undefined);
       setDetail(undefined);
       Alert.alert('Harvest stored', result.message ?? 'Thanks, farmer.');
@@ -40,9 +42,13 @@ export function ShopScreen() {
   };
   const productDetail = typeof detail === 'object' ? detail : undefined;
   const toolDetail = typeof detail === 'string' ? detail : undefined;
-  const toolContents = (product: ShopProduct) => product.tools
-    ? `${product.tools.scarecrow ?? 0} Scarecrows · ${product.tools.butterBrush ?? 0} Brushes · ${product.tools.cornPicker ?? 0} Pickers`
-    : 'Permanent account upgrade';
+  const toolContents = (product: ShopProduct) => {
+    if (product.coins) return `${product.coins.toLocaleString('en-US')} coins for the Barn`;
+    if (product.tools) {
+      return Object.entries(product.tools).filter(([, amount]) => amount).map(([tool, amount]) => `${amount} ${TOOL_INFO[tool as ToolId].title}`).join(' · ');
+    }
+    return 'Permanent account upgrade';
+  };
   const watchForTool = async (tool: ToolId) => {
     if (rewarding) return;
     setRewarding(true);
@@ -50,7 +56,7 @@ export function ShopScreen() {
     if (result.rewarded) {
       store.addTools({ [tool]: 1 });
       playGameSound('reward', 0.72);
-      Alert.alert('Tool earned', `1 ${TOOL_INFO[tool].title} was added to your tool belt.`);
+      Alert.alert('Helper earned', `1 ${TOOL_INFO[tool].title} was added to your Barn.`);
     } else Alert.alert('Reward unavailable', result.message ?? 'The rewarded ad could not be shown.');
     setRewarding(false);
   };
@@ -64,34 +70,58 @@ export function ShopScreen() {
       return;
     }
     playGameSound('coin', 0.7);
-    Alert.alert('Tools packed', `${offer.title} was added to your belt.`);
+      Alert.alert('Tools packed', `${offer.title} was added to your Barn.`);
   };
+  const offerArt = (tools: Partial<Inventory>) => {
+    const cob = tools.scarecrow || tools.butterBrush || tools.cornPicker;
+    if (!cob) return <Image source={mazeAssets.plants.empty} style={styles.bundleIconMain} />;
+    return (
+      <View style={styles.bundleArt}>
+        {tools.scarecrow ? <Image source={wordMaizeAssets.powerups.scarecrow} style={styles.bundleIcon} /> : null}
+        {tools.butterBrush ? <Image source={wordMaizeAssets.powerups.butterBrush} style={styles.bundleIconMain} /> : null}
+        {tools.cornPicker ? <Image source={wordMaizeAssets.powerups.cornPicker} style={styles.bundleIcon} /> : null}
+      </View>
+    );
+  };
+  const productArt = (product: ShopProduct) => {
+    if (product.entitlement === 'ad_free') return <Text style={styles.noAds}>ADS{`\n`}OFF</Text>;
+    if (product.coins) return <Image source={wordMaizeAssets.ui.coin} style={styles.bundleIconMain} />;
+    return offerArt(product.tools ?? {});
+  };
+  const coinPacks = SHOP_PRODUCTS.filter(product => product.coins);
+  const storeProducts = SHOP_PRODUCTS.filter(product => !product.coins);
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.shopBarn} style={styles.bg} resizeMode="cover">
       <SafeAreaView style={styles.safe} edges={['top']}>
         <CurrencyBar onSettings={() => router.push('/settings')} />
         <View style={styles.titleBoard}>
           <Text style={styles.eyebrow}>FARMER MAY'S</Text>
-          <Text style={styles.title}>Tool Shed</Text>
-          <Text style={styles.subtitle}>Stock up before the next harvest</Text>
+          <Text style={styles.title}>Farm Store</Text>
+          <Text style={styles.subtitle}>Stock the Barn before the next harvest</Text>
         </View>
         <ScrollView contentContainerStyle={styles.list}>
           <View style={styles.featureCard}>
             <Image source={wordMaizeAssets.ui.storeFeature} style={styles.featureArt} />
             <View style={styles.featureShade} />
-            <View style={styles.featureCopy}><Text style={styles.featureEyebrow}>FARMER MAY'S PICK</Text><Text style={styles.featureTitle}>Ready for stubborn cobs</Text><Text style={styles.featureText}>Tool packs work across every chapter.</Text></View>
+            <View style={styles.featureCopy}><Text style={styles.featureEyebrow}>FARMER MAY'S PICK</Text><Text style={styles.featureTitle}>Stock the Barn</Text><Text style={styles.featureText}>Coins, lanterns, and mowers work across every field.</Text></View>
           </View>
           {__DEV__ ? <View style={styles.devNotice}><Text style={styles.devNoticeText}>DEVELOPMENT PREVIEW · STORE PURCHASES GRANT TEST ITEMS</Text></View> : null}
+          <View style={styles.sectionBoard}><Text style={styles.section}>COIN PACKS</Text></View>
+          {coinPacks.map(product => (
+            <Pressable key={product.id} style={styles.card} onPress={() => setDetail(product)}>
+              <View style={styles.productArt}>{productArt(product)}</View>
+              <View style={styles.productCopy}>
+                <Text style={styles.cardTitle}>{product.title}</Text>
+                <Text style={styles.blurb}>{product.blurb}</Text>
+                <Text style={styles.contents}>{toolContents(product)}</Text>
+              </View>
+              <View style={styles.priceButton}><Text style={styles.price}>{product.displayPrice}</Text></View>
+            </Pressable>
+          ))}
           <View style={styles.sectionBoard}><Text style={styles.section}>SPEND HARVEST COINS</Text></View>
           {COIN_TOOL_OFFERS.map(offer => (
             <Pressable key={offer.id} style={styles.card} onPress={() => buyWithCoins(offer)}>
-              <View style={styles.productArt}>
-                <View style={styles.bundleArt}>
-                  {offer.tools.scarecrow ? <Image source={wordMaizeAssets.powerups.scarecrow} style={styles.bundleIcon} /> : null}
-                  {offer.tools.butterBrush ? <Image source={wordMaizeAssets.powerups.butterBrush} style={styles.bundleIconMain} /> : null}
-                  {offer.tools.cornPicker ? <Image source={wordMaizeAssets.powerups.cornPicker} style={styles.bundleIcon} /> : null}
-                </View>
-              </View>
+              <View style={styles.productArt}>{offerArt(offer.tools)}</View>
               <View style={styles.productCopy}>
                 <Text style={styles.cardTitle}>{offer.title}</Text>
                 <Text style={styles.blurb}>{offer.blurb}</Text>
@@ -104,18 +134,10 @@ export function ShopScreen() {
             </Pressable>
           ))}
           <View style={styles.sectionBoard}><Text style={styles.section}>FARM STORE</Text></View>
-          {SHOP_PRODUCTS.map(product => (
+          {storeProducts.map(product => (
             <Pressable key={product.id} style={[styles.card, product.id === 'farmers_toolbox' && styles.featuredProduct]} onPress={() => setDetail(product)}>
               {product.id === 'farmers_toolbox' ? <View style={styles.valueRibbon}><Text style={styles.valueRibbonText}>BEST VALUE</Text></View> : null}
-              <View style={styles.productArt}>
-                {product.entitlement === 'ad_free' ? <Text style={styles.noAds}>ADS{`\n`}OFF</Text> : (
-                  <View style={styles.bundleArt}>
-                    <Image source={wordMaizeAssets.powerups.scarecrow} style={styles.bundleIcon} />
-                    <Image source={wordMaizeAssets.powerups.butterBrush} style={styles.bundleIconMain} />
-                    <Image source={wordMaizeAssets.powerups.cornPicker} style={styles.bundleIcon} />
-                  </View>
-                )}
-              </View>
+              <View style={styles.productArt}>{productArt(product)}</View>
               <View style={styles.productCopy}>
                 <Text style={styles.cardTitle}>{product.title}</Text>
                 <Text style={styles.blurb}>{product.blurb}</Text>
@@ -124,15 +146,15 @@ export function ShopScreen() {
               <View style={[styles.priceButton, product.entitlement === 'ad_free' && store.save.adFree && styles.ownedPrice]}><Text style={styles.price}>{product.entitlement === 'ad_free' && store.save.adFree ? 'OWNED' : product.displayPrice}</Text></View>
             </Pressable>
           ))}
-          <View style={styles.sectionBoard}><Text style={styles.section}>YOUR TOOL BELT</Text></View>
+          <View style={styles.sectionBoard}><Text style={styles.section}>YOUR BARN</Text></View>
           {(Object.keys(TOOL_INFO) as ToolId[]).map(tool => (
             <Pressable key={tool} style={styles.toolCard} onPress={() => setDetail(tool)}>
-              <View style={styles.toolArt}><Image source={wordMaizeAssets.powerups[tool]} style={styles.tool} /></View>
+              <View style={styles.toolArt}><Image source={tool === 'scarecrow' || tool === 'butterBrush' || tool === 'cornPicker' ? wordMaizeAssets.powerups[tool] : mazeAssets.plants.empty} style={styles.tool} /></View>
               <View style={styles.productCopy}>
                 <Text style={styles.cardTitle}>{TOOL_INFO[tool].title}</Text>
                 <Text style={styles.blurb} numberOfLines={2}>{TOOL_INFO[tool].blurb}</Text>
               </View>
-              <View style={styles.ownedBadge}><Text style={styles.ownedCount}>×{store.save.inventory[tool]}</Text><Text style={styles.ownedLabel}>OWNED</Text></View>
+              <View style={styles.ownedBadge}><Text style={styles.ownedCount}>×{store.save.inventory[tool] ?? 0}</Text><Text style={styles.ownedLabel}>BARN</Text></View>
             </Pressable>
           ))}
           <View style={styles.legalRow}>
@@ -142,56 +164,41 @@ export function ShopScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
-      <Modal visible={!!productDetail} transparent animationType="fade">
-        <View style={styles.shade}>
-          <Panel>
-            <Text style={styles.modalTitle}>{productDetail?.title}</Text>
-            <Text style={styles.body}>{productDetail?.blurb}</Text>
-            <View style={{ height: 12 }} />
-            <FarmButton label={`BUY ${productDetail?.displayPrice ?? ''}`} onPress={() => productDetail && setConfirm(productDetail)} dim={productDetail?.entitlement === 'ad_free' && store.save.adFree} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="CLOSE" onPress={() => setDetail(undefined)} />
-          </Panel>
-        </View>
-      </Modal>
-      <Modal visible={!!toolDetail} transparent animationType="fade">
-        <View style={styles.shade}>
-          <Panel>
-            <Text style={styles.modalTitle}>{toolDetail ? TOOL_INFO[toolDetail].title : ''}</Text>
-            <Text style={styles.body}>{toolDetail ? TOOL_INFO[toolDetail].blurb : ''}</Text>
-            <Text style={styles.body}>Owned: {toolDetail ? store.save.inventory[toolDetail] : 0}</Text>
-            <View style={{ height: 12 }} />
-            <FarmButton label={rewarding ? 'LOADING REWARD…' : store.save.adFree ? 'CLAIM 1 FREE' : 'WATCH AD · GET 1'} onPress={() => toolDetail && watchForTool(toolDetail)} dim={rewarding} />
-            {toolDetail && coinOfferForTool(toolDetail) ? (
-              <>
-                <View style={{ height: 10 }} />
-                <FarmButton
-                  label={`BUY 1 · ${coinOfferForTool(toolDetail)?.coins} COINS`}
-                  onPress={() => {
-                    const offer = coinOfferForTool(toolDetail);
-                    if (offer) buyWithCoins(offer);
-                  }}
-                  dim={store.save.coins < (coinOfferForTool(toolDetail)?.coins ?? 0)}
-                />
-              </>
-            ) : null}
-            <View style={{ height: 10 }} />
-            <FarmButton label="CLOSE" onPress={() => setDetail(undefined)} />
-          </Panel>
-        </View>
-      </Modal>
-      <Modal visible={!!confirm} transparent animationType="fade">
-        <View style={styles.shade}>
-          <Panel>
-            <Text style={styles.modalTitle}>Confirm Purchase</Text>
-            <Text style={styles.body}>{confirm?.title} for {confirm?.displayPrice}?</Text>
-            <View style={{ height: 12 }} />
-            <FarmButton label={purchasing ? 'PURCHASING…' : 'BUY NOW'} onPress={() => confirm && buy(confirm)} dim={purchasing} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="CANCEL" onPress={() => setConfirm(undefined)} />
-          </Panel>
-        </View>
-      </Modal>
+      <FarmDialog
+        visible={!!productDetail}
+        title={productDetail?.title ?? 'Shop'}
+        onClose={() => setDetail(undefined)}
+        primary={{ label: `BUY ${productDetail?.displayPrice ?? ''}`, onPress: () => productDetail && setConfirm(productDetail), dim: productDetail?.entitlement === 'ad_free' && store.save.adFree, tone: 'gold' }}
+      >
+        <DialogCopy>{productDetail?.blurb ?? ''}</DialogCopy>
+      </FarmDialog>
+      <FarmDialog
+        visible={!!toolDetail}
+        title={toolDetail ? TOOL_INFO[toolDetail].title : 'Tool'}
+        onClose={() => setDetail(undefined)}
+        primary={{ label: rewarding ? 'LOADING REWARD…' : store.save.adFree ? 'CLAIM 1 FREE' : 'WATCH AD · GET 1', onPress: () => toolDetail && watchForTool(toolDetail), dim: rewarding }}
+        actions={toolDetail && coinOfferForTool(toolDetail) ? [{
+          label: `BUY 1 · ${coinOfferForTool(toolDetail)?.coins} COINS`,
+          onPress: () => {
+            const offer = coinOfferForTool(toolDetail);
+            if (offer) buyWithCoins(offer);
+          },
+          dim: store.save.coins < (coinOfferForTool(toolDetail)?.coins ?? 0),
+          tone: 'gold',
+        }] : undefined}
+      >
+        <DialogCopy>{toolDetail ? TOOL_INFO[toolDetail].blurb : ''}</DialogCopy>
+        <DialogCopy>In the Barn: {toolDetail ? store.save.inventory[toolDetail] ?? 0 : 0}</DialogCopy>
+      </FarmDialog>
+      <FarmDialog
+        visible={!!confirm}
+        title="Confirm Purchase"
+        onClose={() => setConfirm(undefined)}
+        primary={{ label: purchasing ? 'PURCHASING…' : 'BUY NOW', onPress: () => confirm && buy(confirm), dim: purchasing, tone: 'gold' }}
+        actions={[{ label: 'CANCEL', onPress: () => setConfirm(undefined), tone: 'slate' }]}
+      >
+        <DialogCopy>{confirm?.title} for {confirm?.displayPrice}?</DialogCopy>
+      </FarmDialog>
     </ImageBackground>
   );
 }

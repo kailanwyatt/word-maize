@@ -26,6 +26,7 @@ export function SettingsScreen() {
               ['haptics', 'Haptics'],
               ['notifications', 'Notifications'],
               ['reducedMotion', 'Reduced Motion'],
+              ['skipStory', 'Skip Story'],
             ] as const).map(([key, label]) => (
               <View key={key} style={styles.row}>
                 <Text style={styles.label}>{label}</Text>
@@ -33,6 +34,15 @@ export function SettingsScreen() {
               </View>
             ))}
             <View style={styles.row}><Text style={styles.label}>Language</Text><Text style={styles.value}>English</Text></View>
+            {__DEV__ ? (
+              <>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Unlock all levels</Text>
+                  <Switch value={save.settings.devUnlock} onValueChange={value => setSetting('devUnlock', value)} />
+                </View>
+                <Text style={styles.devHint}>Developer only. Opens World Maize, Cob Harvest, Free Play, and Endless without changing your saved progress.</Text>
+              </>
+            ) : null}
             <View style={{ height: 16 }} />
             <FarmButton label="HOW TO PLAY" onPress={() => router.push('/how-to-play')} />
             <View style={{ height: 10 }} />
@@ -69,4 +79,5 @@ const styles = StyleSheet.create({
   value: { color: '#f7dfa0', fontWeight: '800' },
   linkHit: { minHeight: 44, justifyContent: 'center' },
   link: { color: '#dfffad', textAlign: 'center', fontWeight: '800' },
+  devHint: { color: '#c9e89a', fontSize: 12, fontWeight: '700', lineHeight: 16, marginTop: 8, marginBottom: 4 },
 });

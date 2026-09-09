@@ -24,8 +24,8 @@ export const CHAPTER_SUMMARIES = [
   'Light the festival fields at night.',
 ] as const;
 
-export function isChapterUnlocked(chapterIndex: number, completedIds: number[]) {
-  if (chapterIndex <= 0) return true;
+export function isChapterUnlocked(chapterIndex: number, completedIds: number[], devUnlock = false) {
+  if (devUnlock || chapterIndex <= 0) return true;
   return completedIds.includes(chapterIndex * 15);
 }
 

@@ -1,5 +1,20 @@
-import { Inventory } from './types';
+import { Inventory, ToolId, TOOL_IDS } from './types';
 import { completionBonus } from './scoring';
+
+export const EMPTY_INVENTORY: Inventory = {
+  scarecrow: 0,
+  butterBrush: 0,
+  cornPicker: 0,
+  mower: 0,
+  tractor: 0,
+  lantern: 0,
+  raincoat: 0,
+  huskClip: 0,
+};
+
+export function barnStock(inventory: Inventory) {
+  return TOOL_IDS.reduce((sum, id) => sum + (inventory[id] ?? 0), 0);
+}
 
 export type CompletionReward = {
   wordCoins: number;
@@ -31,6 +46,25 @@ export function clampInventoryAmount(value: number): number {
   return Math.max(0, Math.min(999, Math.floor(value)));
 }
 
+export function addToInventory(inventory: Inventory, tools: Partial<Inventory> = {}): Inventory {
+  const next = { ...EMPTY_INVENTORY };
+  for (const id of TOOL_IDS) next[id] = clampInventoryAmount((inventory[id] ?? 0) + (tools[id] ?? 0));
+  return next;
+}
+
+export function mazeClearCoins(chapter: number, stormRibbon = false) {
+  const base = chapter <= 2 ? 50 : chapter <= 4 ? 70 : chapter <= 6 ? 90 : 110;
+  return base + (stormRibbon ? 30 : 0);
+}
+
+export function fairPuzzleCoins(authored: boolean) {
+  return authored ? 40 : 20;
+}
+
+export function fairRewardId(mode: 'crossword' | 'twist', puzzleId: string) {
+  return `${mode}:${puzzleId}`;
+}
+
 export function purchaseCoinOffer(
   coins: number,
   inventory: Inventory,
@@ -41,10 +75,6 @@ export function purchaseCoinOffer(
   return {
     ok: true,
     coins: coins - Math.floor(cost),
-    inventory: {
-      scarecrow: clampInventoryAmount(inventory.scarecrow + (tools.scarecrow ?? 0)),
-      butterBrush: clampInventoryAmount(inventory.butterBrush + (tools.butterBrush ?? 0)),
-      cornPicker: clampInventoryAmount(inventory.cornPicker + (tools.cornPicker ?? 0)),
-    },
+    inventory: addToInventory(inventory, tools),
   };
 }

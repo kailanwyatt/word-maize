@@ -1,5 +1,8 @@
 import { Inventory, LevelProgress } from '../game/types';
 import type { ObstacleState } from '../game/obstacles';
+import type { MazeRun } from '../game/maze';
+import { PLAYABLE_MAZE_IDS } from '../data/mazeLevels';
+import { migrateMazeUnlocks } from '../game/mazeCampaign';
 
 export type Settings = {
   music: boolean;
@@ -7,6 +10,8 @@ export type Settings = {
   haptics: boolean;
   notifications: boolean;
   reducedMotion: boolean;
+  skipStory: boolean;
+  devUnlock: boolean;
 };
 
 export type DailyState = {
@@ -33,6 +38,20 @@ export type EndlessHarvestState = {
   active: { seed: string; stage: number; startedAt: number } | null;
 };
 
+export type MazeRibbon = { harvested: boolean; unaided: boolean; storm: boolean };
+
+export type MazeSave = {
+  runs: Record<string, MazeRun>;
+  rewardedIds: string[];
+  unlockedIds: string[];
+  ribbons: Record<string, MazeRibbon>;
+  freePlay: { puzzleId: string; run: MazeRun } | null;
+};
+
+export type FairSave = {
+  rewardedIds: string[];
+};
+
 export type GameSave = {
   version: number;
   coins: number;
@@ -49,20 +68,23 @@ export type GameSave = {
   adFree: boolean;
   claimedRestorations: string[];
   endlessHarvest: EndlessHarvestState;
+  maze: MazeSave;
+  fair: FairSave;
+  seenStoryBeatIds: string[];
 };
 
 export const SAVE_KEY = 'word-maize.save.v1';
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 9;
 
 export const defaultSave = (): GameSave => ({
   version: SAVE_VERSION,
   coins: 0,
   energy: 5,
   energyUpdatedAt: Date.now(),
-  inventory: { scarecrow: 2, butterBrush: 2, cornPicker: 1 },
+  inventory: { scarecrow: 2, butterBrush: 2, cornPicker: 1, mower: 1, tractor: 0, lantern: 0, raincoat: 0, huskClip: 0 },
   currentLevelId: 1,
   levels: {},
-  settings: { music: true, sfx: true, haptics: true, notifications: false, reducedMotion: false },
+  settings: { music: true, sfx: true, haptics: true, notifications: false, reducedMotion: false, skipStory: false, devUnlock: false },
   daily: { lastClaimDate: null, claimedDay: 0 },
   seenTutorial: false,
   seenLevelIntros: [],
@@ -70,18 +92,35 @@ export const defaultSave = (): GameSave => ({
   adFree: false,
   claimedRestorations: [],
   endlessHarvest: { bestStage: 0, active: null },
+  maze: { runs: {}, rewardedIds: [], unlockedIds: ['sunny-acres-corn'], ribbons: {}, freePlay: null },
+  fair: { rewardedIds: [] },
+  seenStoryBeatIds: [],
 });
 
 export function migrateSave(value: unknown): GameSave {
   const fallback = defaultSave();
   if (!value || typeof value !== 'object') return fallback;
   const saved = value as Partial<GameSave>;
+  const seenStory = saved.seenStoryBeatIds;
   return {
     ...fallback,
     ...saved,
     version: SAVE_VERSION,
     inventory: { ...fallback.inventory, ...(saved.inventory ?? {}) },
-    settings: { ...fallback.settings, ...(saved.settings ?? {}) },
+    fair: {
+      rewardedIds: Array.isArray((saved as { fair?: FairSave }).fair?.rewardedIds)
+        ? (saved as { fair?: FairSave }).fair!.rewardedIds.filter(id => typeof id === 'string')
+        : [],
+    },
+    seenStoryBeatIds: Array.isArray(seenStory)
+      ? seenStory.filter(id => typeof id === 'string')
+      : [],
+    settings: {
+      ...fallback.settings,
+      ...(saved.settings ?? {}),
+      skipStory: saved.settings?.skipStory === true,
+      devUnlock: saved.settings?.devUnlock === true,
+    },
     daily: { ...fallback.daily, ...(saved.daily ?? {}) },
     levels: saved.levels && typeof saved.levels === 'object' ? saved.levels : {},
     seenLevelIntros: Array.isArray(saved.seenLevelIntros) ? saved.seenLevelIntros.filter(Number.isFinite) : [],
@@ -97,6 +136,17 @@ export function migrateSave(value: unknown): GameSave {
         }
         : null,
     },
+    maze: (() => {
+      const rewardedIds = Array.isArray(saved.maze?.rewardedIds) ? saved.maze.rewardedIds.filter(id => typeof id === 'string') : [];
+      const storedUnlocked = Array.isArray(saved.maze?.unlockedIds) ? saved.maze.unlockedIds.filter(id => typeof id === 'string') : [];
+      return {
+        runs: saved.maze?.runs && typeof saved.maze.runs === 'object' ? saved.maze.runs : {},
+        rewardedIds,
+        unlockedIds: migrateMazeUnlocks(rewardedIds, storedUnlocked, PLAYABLE_MAZE_IDS),
+        ribbons: saved.maze?.ribbons && typeof saved.maze.ribbons === 'object' ? saved.maze.ribbons : {},
+        freePlay: saved.maze?.freePlay && typeof saved.maze.freePlay === 'object' ? saved.maze.freePlay : null,
+      };
+    })(),
   };
 }
 

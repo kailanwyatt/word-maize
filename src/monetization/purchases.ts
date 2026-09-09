@@ -2,7 +2,7 @@ import { SHOP_PRODUCTS, ShopProduct } from '../data/shop';
 import { Inventory } from '../game/types';
 import { DEVELOPMENT_STORE_GRANTS } from './config';
 
-type PurchaseResult = { ok: boolean; adFree?: boolean; tools?: Partial<Inventory>; message?: string };
+type PurchaseResult = { ok: boolean; adFree?: boolean; tools?: Partial<Inventory>; coins?: number; message?: string };
 
 export async function configurePurchases(): Promise<void> {}
 
@@ -16,7 +16,7 @@ export async function restorePurchases(): Promise<{ ok: boolean; adFree: boolean
 
 export async function purchaseProduct(product: ShopProduct): Promise<PurchaseResult> {
   if (DEVELOPMENT_STORE_GRANTS) {
-    return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, message: 'Development grant (store not configured).' };
+    return { ok: true, adFree: product.entitlement === 'ad_free', tools: product.tools, coins: product.coins, message: 'Development grant (store not configured).' };
   }
   return { ok: false, message: 'Store unavailable. Use a development build with RevenueCat keys.' };
 }

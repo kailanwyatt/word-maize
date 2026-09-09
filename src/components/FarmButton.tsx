@@ -18,6 +18,38 @@ export function FarmButton({ label, onPress, dim }: { label: string; onPress: ()
   );
 }
 
+export function RaisedPill({
+  label,
+  tone = 'green',
+  pressed = false,
+}: {
+  label: string;
+  tone?: 'green' | 'tan';
+  pressed?: boolean;
+}) {
+  const colors = tone === 'tan'
+    ? { lip: '#8a5a22', face: '#e4c48a', border: '#c9a15a', outline: '#6a4018', text: '#4a2e10', chevron: '#4a2e10' }
+    : { lip: '#1d6a12', face: '#58c22e', border: '#3d8c22', outline: '#246818', text: '#ffffff', chevron: '#ffffff' };
+  return (
+    <View style={pillStyles.wrap}>
+      <View style={[pillStyles.lip, { backgroundColor: colors.lip, borderColor: colors.outline }]} />
+      <View style={[pillStyles.face, { backgroundColor: colors.face, borderColor: colors.border, top: pressed ? 5 : 0 }]}>
+        <Text style={[pillStyles.label, { color: colors.text }]}>{label}</Text>
+        <ChevronMark color={colors.chevron} />
+      </View>
+    </View>
+  );
+}
+
+function ChevronMark({ color }: { color: string }) {
+  return (
+    <View style={pillStyles.chevron}>
+      <View style={[pillStyles.chevronShadow, { borderLeftColor: 'rgba(0,0,0,0.22)' }]} />
+      <View style={[pillStyles.chevronFace, { borderLeftColor: color }]} />
+    </View>
+  );
+}
+
 export function PlayButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Play" style={styles.playPress}>
@@ -124,5 +156,61 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(30,80,16,0.45)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 0,
+  },
+});
+
+const pillStyles = StyleSheet.create({
+  wrap: { height: 44, width: '100%' },
+  lip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+  },
+  face: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    overflow: 'hidden',
+  },
+  label: {
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  chevron: { width: 12, height: 16, marginTop: 1 },
+  chevronShadow: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    width: 0,
+    height: 0,
+    borderTopWidth: 7,
+    borderBottomWidth: 7,
+    borderLeftWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+  },
+  chevronFace: {
+    position: 'absolute',
+    top: 1,
+    left: 0,
+    width: 0,
+    height: 0,
+    borderTopWidth: 7,
+    borderBottomWidth: 7,
+    borderLeftWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
   },
 });

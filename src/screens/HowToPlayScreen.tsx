@@ -5,10 +5,20 @@ import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { FarmButton } from '../components/FarmButton';
 import { useGameStore } from '../store/GameStore';
 
+const MAIZE_STEPS = [
+  { title: 'World Maize 1. Walk the field', body: 'Steer with the stick. Face a plant to peek at its letter, then press Harvest for the next letter in spelling order. Wrong letters cost nothing.' },
+  { title: 'World Maize 2. Remember and return', body: 'Husks close when you look away. A visit mark stays on plants you already checked. Landmarks help you remember which branch you explored.' },
+  { title: 'World Maize 3. Solve, then harvest', body: 'Later chapters ask for the word first. Type the answer from the clue, then walk the maze. Help is always free and never lowers your score.' },
+  { title: 'World Maize 4. The Barn', body: 'Tap Barn to choose a helper. Crates on the dirt path stow extras for this field; unused finds go into the Barn after a first harvest. The Barn is empty until you stock the Farm Store or find a crate.' },
+  { title: 'World Maize 5. Mower and Tractor', body: 'Mower cuts one facing line of decorative corn and stops at a letter plant or landmark. Tractor rolls a short strip, mows a corridor, and harvests up to three letters in spelling order. The last letter stays manual.' },
+  { title: 'World Maize 6. Lantern, Raincoat, Husk Clip', body: 'Lantern lights farther around you in mist, evening, or storm. Raincoat adds about 90 seconds to a forecast; storm ribbons still use the original clock. Husk Clip doubles peek time for the rest of the field.' },
+];
+
 const STEPS = [
+  ...MAIZE_STEPS,
   { title: '1. Tap letters', body: 'Tap any visible kernels in spelling order to build a word, then press the word to harvest it. Letters do not need to sit next to each other.' },
   { title: '2. Rotate the cob', body: 'Drag left or right, or tap the rotate buttons, to spin the ear and hunt the next letter. Your current word stays selected.' },
-  { title: '3. Use tools', body: 'Scarecrow shows a start letter, Butter Brush highlights the letters of a hidden word around the cob, Corn Picker plucks one kernel.' },
+  { title: '3. Use the Barn', body: 'Scarecrow shows a start letter, Butter Brush highlights the letters of a hidden word around the cob, Corn Picker plucks one kernel. World Maize helpers live in the same Barn.' },
   { title: '4. Hit the harvest goal', body: 'Clear enough kernels to fill the basket and bring in a bumper crop.' },
   { title: '5. Watch the pests', body: 'Caterpillars eat letters on a seconds timer; save them in a word or regrow them for free. Crows hide a letter after two words and return it two words later. A 5+ letter word releases one squirrel target. Harvest beside weeds to stop their spread.', pest: true },
   { title: '6. Break webs and frost', body: 'Harvest marked anchor kernels to break webs. Use frozen letters in successful words to crack ice, then use them again to harvest. Butter Brush clears weeds, caterpillars, webs, or frost. Timers pause in menus and in the background.' },
