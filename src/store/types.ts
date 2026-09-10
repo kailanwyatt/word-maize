@@ -2,7 +2,15 @@ import { Inventory, LevelProgress } from '../game/types';
 import type { ObstacleState } from '../game/obstacles';
 import type { MazeRun } from '../game/maze';
 import { PLAYABLE_MAZE_IDS } from '../data/mazeLevels';
+import { isMazeFarmerId, sanitizeFarmerName, type MazeFarmerId } from '../data/mazeFarmers';
 import { migrateMazeUnlocks } from '../game/mazeCampaign';
+import { isLocale, type Locale } from '../i18n/locales';
+import { defaultFreePlayPrefs, migrateFreePlayPrefs, type FreePlayPrefs } from '../game/mazeFreePlay';
+import {
+  migrateMazePendingSync,
+  migrateMazeScores,
+  type MazeFieldScore,
+} from '../game/mazeScores';
 
 export type Settings = {
   music: boolean;
@@ -12,6 +20,11 @@ export type Settings = {
   reducedMotion: boolean;
   skipStory: boolean;
   devUnlock: boolean;
+  showMazePad: boolean;
+  mazeFarmer: MazeFarmerId;
+  farmerName: string;
+  language: Locale;
+  freePlay: FreePlayPrefs;
 };
 
 export type DailyState = {
@@ -45,12 +58,36 @@ export type MazeSave = {
   rewardedIds: string[];
   unlockedIds: string[];
   ribbons: Record<string, MazeRibbon>;
-  freePlay: { puzzleId: string; run: MazeRun } | null;
+  scores: Record<string, MazeFieldScore>;
+  pendingSync: MazeFieldScore[];
+  freePlay: { puzzleId: string; run: MazeRun; prefs?: FreePlayPrefs } | null;
 };
+
+export function mergeMazeSave(maze: MazeSave | undefined, patch: Partial<MazeSave> = {}): MazeSave {
+  return {
+    runs: maze?.runs ?? {},
+    rewardedIds: maze?.rewardedIds ?? [],
+    unlockedIds: maze?.unlockedIds ?? ['sunny-acres-corn'],
+    ribbons: maze?.ribbons ?? {},
+    scores: maze?.scores ?? {},
+    pendingSync: maze?.pendingSync ?? [],
+    freePlay: maze?.freePlay ?? null,
+    ...patch,
+  };
+}
 
 export type FairSave = {
   rewardedIds: string[];
 };
+
+export type ModeHelpId = 'maize' | 'cob' | 'crossword' | 'twist' | 'endless';
+export type SeenModeHelp = Record<ModeHelpId, boolean>;
+
+export const MODE_HELP_IDS: ModeHelpId[] = ['maize', 'cob', 'crossword', 'twist', 'endless'];
+
+export function defaultSeenModeHelp(): SeenModeHelp {
+  return { maize: false, cob: false, crossword: false, twist: false, endless: false };
+}
 
 export type GameSave = {
   version: number;
@@ -63,6 +100,8 @@ export type GameSave = {
   settings: Settings;
   daily: DailyState;
   seenTutorial: boolean;
+  seenOnboarding: boolean;
+  seenModeHelp: SeenModeHelp;
   seenLevelIntros: number[];
   activeLevelRun: ActiveLevelRun | null;
   adFree: boolean;
@@ -74,7 +113,8 @@ export type GameSave = {
 };
 
 export const SAVE_KEY = 'word-maize.save.v1';
-export const SAVE_VERSION = 9;
+export const COB_PUZZLE_SAVE_KEY = 'word-maize-cob-prototypes-v1';
+export const SAVE_VERSION = 12;
 
 export const defaultSave = (): GameSave => ({
   version: SAVE_VERSION,
@@ -84,18 +124,39 @@ export const defaultSave = (): GameSave => ({
   inventory: { scarecrow: 2, butterBrush: 2, cornPicker: 1, mower: 1, tractor: 0, lantern: 0, raincoat: 0, huskClip: 0 },
   currentLevelId: 1,
   levels: {},
-  settings: { music: true, sfx: true, haptics: true, notifications: false, reducedMotion: false, skipStory: false, devUnlock: false },
+  settings: { music: true, sfx: true, haptics: true, notifications: false, reducedMotion: false, skipStory: false, devUnlock: false, showMazePad: false, mazeFarmer: 'may', farmerName: '', language: 'en', freePlay: defaultFreePlayPrefs() },
   daily: { lastClaimDate: null, claimedDay: 0 },
   seenTutorial: false,
+  seenOnboarding: false,
+  seenModeHelp: defaultSeenModeHelp(),
   seenLevelIntros: [],
   activeLevelRun: null,
   adFree: false,
   claimedRestorations: [],
   endlessHarvest: { bestStage: 0, active: null },
-  maze: { runs: {}, rewardedIds: [], unlockedIds: ['sunny-acres-corn'], ribbons: {}, freePlay: null },
+  maze: { runs: {}, rewardedIds: [], unlockedIds: ['sunny-acres-corn'], ribbons: {}, scores: {}, pendingSync: [], freePlay: null },
   fair: { rewardedIds: [] },
   seenStoryBeatIds: [],
 });
+
+export function migrateSeenModeHelp(value: unknown): SeenModeHelp {
+  const next = defaultSeenModeHelp();
+  if (!value || typeof value !== 'object') return next;
+  const saved = value as Partial<SeenModeHelp>;
+  for (const id of MODE_HELP_IDS) next[id] = saved[id] === true;
+  return next;
+}
+
+function hadPriorPlay(saved: Partial<GameSave>): boolean {
+  if (saved.seenOnboarding === true || saved.seenTutorial === true) return true;
+  if (typeof saved.settings?.farmerName === 'string' && saved.settings.farmerName.trim()) return true;
+  if (saved.coins && saved.coins > 0) return true;
+  if (saved.levels && Object.keys(saved.levels).length > 0) return true;
+  if (Array.isArray(saved.maze?.rewardedIds) && saved.maze.rewardedIds.length > 0) return true;
+  if (Array.isArray(saved.seenStoryBeatIds) && saved.seenStoryBeatIds.length > 0) return true;
+  if (Array.isArray(saved.seenLevelIntros) && saved.seenLevelIntros.length > 0) return true;
+  return false;
+}
 
 export function migrateSave(value: unknown): GameSave {
   const fallback = defaultSave();
@@ -115,11 +176,18 @@ export function migrateSave(value: unknown): GameSave {
     seenStoryBeatIds: Array.isArray(seenStory)
       ? seenStory.filter(id => typeof id === 'string')
       : [],
+    seenOnboarding: saved.seenOnboarding === true || hadPriorPlay(saved),
+    seenModeHelp: migrateSeenModeHelp(saved.seenModeHelp),
     settings: {
       ...fallback.settings,
       ...(saved.settings ?? {}),
       skipStory: saved.settings?.skipStory === true,
       devUnlock: saved.settings?.devUnlock === true,
+      showMazePad: saved.settings?.showMazePad === true,
+      mazeFarmer: isMazeFarmerId(saved.settings?.mazeFarmer) ? saved.settings.mazeFarmer : fallback.settings.mazeFarmer,
+      farmerName: sanitizeFarmerName(saved.settings?.farmerName),
+      language: isLocale(saved.settings?.language) ? saved.settings.language : fallback.settings.language,
+      freePlay: migrateFreePlayPrefs(saved.settings?.freePlay),
     },
     daily: { ...fallback.daily, ...(saved.daily ?? {}) },
     levels: saved.levels && typeof saved.levels === 'object' ? saved.levels : {},
@@ -144,7 +212,15 @@ export function migrateSave(value: unknown): GameSave {
         rewardedIds,
         unlockedIds: migrateMazeUnlocks(rewardedIds, storedUnlocked, PLAYABLE_MAZE_IDS),
         ribbons: saved.maze?.ribbons && typeof saved.maze.ribbons === 'object' ? saved.maze.ribbons : {},
-        freePlay: saved.maze?.freePlay && typeof saved.maze.freePlay === 'object' ? saved.maze.freePlay : null,
+        scores: migrateMazeScores(saved.maze && 'scores' in saved.maze ? saved.maze.scores : undefined),
+        pendingSync: migrateMazePendingSync(saved.maze && 'pendingSync' in saved.maze ? saved.maze.pendingSync : undefined),
+        freePlay: saved.maze?.freePlay && typeof saved.maze.freePlay === 'object'
+          ? {
+            puzzleId: typeof saved.maze.freePlay.puzzleId === 'string' ? saved.maze.freePlay.puzzleId : '',
+            run: saved.maze.freePlay.run,
+            prefs: saved.maze.freePlay.prefs ? migrateFreePlayPrefs(saved.maze.freePlay.prefs) : undefined,
+          }
+          : null,
       };
     })(),
   };

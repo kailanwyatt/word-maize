@@ -3,7 +3,8 @@ import { areAdjacent } from '../adjacency';
 import { exposedKernels, kernelId, resetLevel, shuffleExposedLetters } from '../board';
 import { validateWord, WORD_LIST } from '../dictionary';
 import { canSpendEnergy, replenishEnergy } from '../energy';
-import { CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, chapterStarCount, farmQuote, isChapterUnlocked, secondaryObjective } from '../campaign';
+import { CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, chapterStarCount, chapterSummary, farmQuote, isChapterUnlocked, secondaryObjective } from '../campaign';
+import { farmerPhrase, farmerTalkName, personalizeFarmerCopy } from '../farmerCopy';
 import { SHOP_PRODUCTS, COIN_TOOL_OFFERS, TOOL_INFO, validateShopProducts, validateCoinOffers } from '../../data/shop';
 import { EMPTY_INVENTORY, addToInventory, clampInventoryAmount, completionReward, fairPuzzleCoins, mazeClearCoins, purchaseCoinOffer } from '../economy';
 import { hitKernel } from '../../components/CornCob/layout';
@@ -13,7 +14,7 @@ import { findDiscoverablePath } from '../powerups';
 import { wrapColumn, signedColumnOffset, snapRotation, rotationFromDrag, finishRotation, nearestRotationTarget, stepRotation, degreesPerColumn } from '../rotation';
 import { coinsForWord, starsForLevel } from '../scoring';
 import { canSubmitSelection, evaluateSubmission, tapKernel } from '../selection';
-import { ENERGY_REGEN_MS, Kernel } from '../types';
+import { ENERGY_REGEN_MS, Kernel, MAZE_TOOL_IDS } from '../types';
 import { CORN_EDUCATIONAL_FACTS, cornMechanicCountForLevel, isLevelUnlocked, LEVELS } from '../../data/levels';
 import { migrateSave, nextDailyDay, SAVE_VERSION } from '../../store/types';
 import { validateLevels } from '../levelValidation';
@@ -721,6 +722,7 @@ describe('store catalog', () => {
     expect(SHOP_PRODUCTS.some(product => product.id === 'field_kit' && product.tools?.tractor === 1)).toBe(true);
     expect(TOOL_INFO.lantern.title).toBe('Lantern');
     expect(COIN_TOOL_OFFERS.some(offer => offer.tools.raincoat === 1 && offer.coins === 260)).toBe(true);
+    expect(MAZE_TOOL_IDS.every(tool => COIN_TOOL_OFFERS.some(offer => offer.tools[tool] === 1 && Object.keys(offer.tools).length === 1))).toBe(true);
   });
 });
 
@@ -741,6 +743,27 @@ describe('campaign hub and late harvests', () => {
     expect(chapterStarCount({ 1: { stars: 3 }, 16: { stars: 2 } }, 1)).toBe(2);
     expect(farmQuote({ levelId: 16, world: 'Crow Creek', chapterComplete: false })).toMatch(/creek/i);
     expect(farmQuote({ levelId: 15, world: 'Sweet Corn Fields', chapterComplete: true })).toMatch(/Crow Creek/);
+    expect(farmQuote({ levelId: 1, world: 'Sweet Corn Fields', chapterComplete: false })).toContain("Farmer May's");
+    expect(farmQuote({ levelId: 1, world: 'Sweet Corn Fields', chapterComplete: false, farmerName: 'Kurt' })).toContain("Kurt's");
+    expect(chapterSummary(0)).toContain("Farmer May's");
+    expect(chapterSummary(0, 'Kurt')).toBe("Wake Kurt's first farm.");
+    expect(chapterSummary(0, 'Alexandria-Louise')).toBe('Wake your first farm.');
+  });
+
+  it('uses a profile name in Farmer May copy when it fits, and generic words when it does not', () => {
+    expect(farmerPhrase('', 'nameplate')).toBe('FARMER MAY');
+    expect(farmerPhrase('Kurt', 'nameplate')).toBe('KURT');
+    expect(farmerPhrase('Alexandria-Louise', 'nameplate')).toBe('THE FARMER');
+    expect(farmerPhrase('Kurt', 'speaker')).toBe('KURT');
+    expect(farmerPhrase('Alexandria-Louise', 'speaker')).toBe('YOU');
+    expect(farmerPhrase('Kurt', 'shop')).toBe("KURT'S");
+    expect(farmerPhrase('Alexandria-Louise', 'shop')).toBe('YOUR');
+    expect(farmerPhrase('James', 'possessive')).toBe("James'");
+    expect(personalizeFarmerCopy("Farmer May’s first crop has gone quiet.", 'Kurt')).toBe("Kurt's first crop has gone quiet.");
+    expect(personalizeFarmerCopy("Fresh rows begin growing beside Farmer May’s barn.", 'Alexandria-Louise')).toBe('Fresh rows begin growing beside your barn.');
+    expect(farmerTalkName('', 'sprout')).toBe('SPROUT');
+    expect(farmerTalkName('Kurt', 'nia')).toBe('KURT');
+    expect(farmerTalkName('Alexandria-Louise', 'reed')).toBe('YOU');
   });
 
   it('gives levels 16-60 more than one kind of harvest goal', () => {
@@ -768,11 +791,25 @@ describe('save migration', () => {
     expect(migrated.inventory).toEqual(addToInventory(EMPTY_INVENTORY, { scarecrow: 9, butterBrush: 2, cornPicker: 1, mower: 1 }));
     expect(migrated.seenLevelIntros).toEqual([]);
     expect(migrated.endlessHarvest).toEqual({ bestStage: 0, active: null });
-    expect(migrated.maze).toEqual({ runs: {}, rewardedIds: [], unlockedIds: ['sunny-acres-corn'], ribbons: {}, freePlay: null });
+    expect(migrated.maze).toEqual({ runs: {}, rewardedIds: [], unlockedIds: ['sunny-acres-corn'], ribbons: {}, scores: {}, pendingSync: [], freePlay: null });
     expect(migrated.fair).toEqual({ rewardedIds: [] });
     expect(migrated.seenStoryBeatIds).toEqual([]);
     expect(migrated.settings.skipStory).toBe(false);
     expect(migrated.settings.devUnlock).toBe(false);
+    expect(migrated.settings.showMazePad).toBe(false);
+    expect(migrated.settings.mazeFarmer).toBe('may');
+    expect(migrated.settings.farmerName).toBe('');
+    expect(migrated.settings.language).toBe('en');
+    expect(migrated.settings.freePlay).toEqual({ difficulty: 'easy', storms: true, mist: true, wildlife: true });
+    expect(migrated.seenOnboarding).toBe(true);
+    expect(migrated.seenModeHelp).toEqual({ maize: false, cob: false, crossword: false, twist: false, endless: false });
+  });
+
+  it('keeps a chosen farmer and a personal name, and rejects unknown farmer ids', () => {
+    expect(migrateSave({ settings: { mazeFarmer: 'reed' } }).settings.mazeFarmer).toBe('reed');
+    expect(migrateSave({ settings: { mazeFarmer: 'nia' } }).settings.mazeFarmer).toBe('nia');
+    expect(migrateSave({ settings: { mazeFarmer: 'not-a-farmer' } }).settings.mazeFarmer).toBe('may');
+    expect(migrateSave({ settings: { farmerName: '  Kurt!!  ' } }).settings.farmerName).toBe('Kurt');
   });
 
   it('preserves a valid endless harvest and sanitizes its counters', () => {
@@ -785,5 +822,25 @@ describe('save migration', () => {
     expect(migrated.version).toBe(SAVE_VERSION);
     expect(migrated.currentLevelId).toBe(1);
     expect(migrated.levels).toEqual({});
+    expect(migrated.seenOnboarding).toBe(false);
+  });
+
+  it('shows onboarding on a blank save and skips it when the farmer already played', () => {
+    expect(migrateSave({}).seenOnboarding).toBe(false);
+    expect(migrateSave({ seenTutorial: true }).seenOnboarding).toBe(true);
+    expect(migrateSave({ settings: { farmerName: 'Kurt' } }).seenOnboarding).toBe(true);
+    expect(migrateSave({ maze: { rewardedIds: ['sunny-acres-corn'] } }).seenOnboarding).toBe(true);
+    const oldMaze = migrateSave({ maze: { rewardedIds: ['sunny-acres-corn'] } }).maze;
+    expect(oldMaze.scores).toEqual({});
+    expect(oldMaze.pendingSync).toEqual([]);
+    expect(oldMaze.rewardedIds).toEqual(['sunny-acres-corn']);
+  });
+
+  it('keeps language and first-play help flags, and rejects unknown locales', () => {
+    expect(migrateSave({ settings: { language: 'en' } }).settings.language).toBe('en');
+    expect(migrateSave({ settings: { language: 'zz' } }).settings.language).toBe('en');
+    expect(migrateSave({ seenModeHelp: { maize: true, cob: 'yes' } }).seenModeHelp).toEqual({
+      maize: true, cob: false, crossword: false, twist: false, endless: false,
+    });
   });
 });

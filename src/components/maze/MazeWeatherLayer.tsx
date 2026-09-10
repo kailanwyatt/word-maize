@@ -181,11 +181,11 @@ function NativeThunder({ paused }: { paused: boolean }) {
 }
 
 function washColor(phase: StormPhase) {
-  if (phase === 'grace' || phase === 'expired') return 'rgba(12, 22, 48, 0.5)';
-  if (phase === 'rain') return 'rgba(16, 32, 58, 0.32)';
-  if (phase === 'dark') return 'rgba(18, 28, 48, 0.36)';
-  if (phase === 'overcast' || phase === 'untimed') return 'rgba(40, 50, 62, 0.2)';
-  return 'rgba(20, 28, 40, 0.16)';
+  if (phase === 'grace' || phase === 'expired') return 'rgba(12, 22, 48, 0.38)';
+  if (phase === 'rain') return 'rgba(16, 32, 58, 0.22)';
+  if (phase === 'dark') return 'rgba(18, 28, 48, 0.26)';
+  if (phase === 'overcast' || phase === 'untimed') return 'rgba(40, 50, 62, 0.14)';
+  return 'rgba(20, 28, 40, 0.12)';
 }
 
 const styles = StyleSheet.create({

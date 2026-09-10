@@ -19,7 +19,7 @@ export function canMowCell(puzzle: MazePuzzle, run: MazeRun, col: number, row: n
 }
 
 /** One charge cuts a facing line of decorative corn. Stops at plants, landmarks, or the border. */
-export function cutMowerLine(puzzle: MazePuzzle, run: MazeRun): { ok: true; run: MazeRun } | { ok: false; reason: 'complete' | 'none' } {
+export function cutMowerLine(puzzle: MazePuzzle, run: MazeRun): { ok: true; run: MazeRun; tiles: { col: number; row: number }[] } | { ok: false; reason: 'complete' | 'none' } {
   if (run.completed) return { ok: false, reason: 'complete' };
   const step = facingDelta(run.facing);
   let col = Math.floor(run.player.x) + step.col;
@@ -32,6 +32,10 @@ export function cutMowerLine(puzzle: MazePuzzle, run: MazeRun): { ok: true; run:
     row += step.row;
   }
   if (!keys.length) return { ok: false, reason: 'none' };
+  const tiles = keys.map(key => {
+    const [col, row] = key.split(',').map(Number);
+    return { col, row };
+  });
   return {
     ok: true,
     run: {
@@ -40,6 +44,7 @@ export function cutMowerLine(puzzle: MazePuzzle, run: MazeRun): { ok: true; run:
       mowerCutsLeft: 0,
       usedMower: true,
     },
+    tiles,
   };
 }
 

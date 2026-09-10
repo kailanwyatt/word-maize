@@ -73,10 +73,20 @@ describe('maze campaign boards', () => {
     expect(nextMazeLevel(MAZE_PUZZLES, completed, unlocked)?.id).toBe('maze-06-barn');
   });
 
+  it('keeps Sunny Acres and Green Fields as daytime walks with no storm clock', () => {
+    const early = MAZE_PUZZLES.filter(level => level.chapter <= 2);
+    expect(early).toHaveLength(20);
+    expect(early.every(level => !level.stormSeconds && (level.visibility ?? 'day') === 'day')).toBe(true);
+    expect(early.every(level => level.revealDurationMs >= 3000)).toBe(true);
+    expect(early.every(level => level.cols >= 11 && level.rows >= 11)).toBe(true);
+  });
+
   it('opens every field and Free Play when developer unlock is on', () => {
     expect(isMazeLevelUnlocked(MAZE_PUZZLES, 'green-plant', [], [], true)).toBe(true);
     expect(isMazeLevelUnlocked(MAZE_PUZZLES, MAZE_PUZZLES[79].id, [], [], true)).toBe(true);
     expect(isFreePlayUnlocked([], true)).toBe(true);
     expect(isFreePlayUnlocked([])).toBe(false);
+    expect(isFreePlayUnlocked(Array.from({ length: 79 }, (_, i) => `field-${i}`))).toBe(false);
+    expect(isFreePlayUnlocked(Array.from({ length: 80 }, (_, i) => `field-${i}`))).toBe(true);
   });
 });

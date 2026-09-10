@@ -7,10 +7,11 @@ import { replenishEnergy } from '../game/energy';
 import { addToInventory, purchaseCoinOffer } from '../game/economy';
 import { RESTORATION_MILESTONES } from '../game/restoration';
 import { ENERGY_MAX, Inventory, LevelProgress, ToolId } from '../game/types';
-import { ActiveLevelRun, defaultSave, GameSave, localDateString, migrateSave, nextDailyDay, SAVE_KEY } from './types';
+import { ActiveLevelRun, COB_PUZZLE_SAVE_KEY, defaultSave, GameSave, localDateString, mergeMazeSave, migrateSave, ModeHelpId, nextDailyDay, SAVE_KEY } from './types';
 import { PLAYABLE_MAZE_IDS } from '../data/mazeLevels';
 import { unlockAfterMazeComplete } from '../game/mazeCampaign';
 import type { MazeRun } from '../game/maze';
+import { recordMazeScore, type MazeFieldScore } from '../game/mazeScores';
 
 type GameStoreValue = {
   ready: boolean;
@@ -26,6 +27,8 @@ type GameStoreValue = {
   setSetting: <K extends keyof GameSave['settings']>(key: K, value: GameSave['settings'][K]) => void;
   claimDaily: () => { ok: boolean; day: number };
   markTutorialSeen: () => void;
+  markOnboardingSeen: () => void;
+  markModeHelpSeen: (id: ModeHelpId) => void;
   markLevelIntroSeen: (id: number) => void;
   resetProgress: () => void;
   unlockCampaign: () => void;
@@ -38,6 +41,7 @@ type GameStoreValue = {
   completeEndlessStage: (coins: number) => void;
   abandonEndlessHarvest: () => void;
   saveMazeRun: (run: MazeRun) => void;
+  recordMazeFieldScore: (score: MazeFieldScore) => void;
   markMazeRewarded: (puzzleId: string, extras?: { unaided?: boolean; storm?: boolean; coins?: number; tools?: Partial<Inventory> }) => void;
   markFairRewarded: (rewardId: string, coins: number) => boolean;
   markStoryBeatSeen: (beatId: string) => void;
@@ -157,12 +161,22 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
     patch(prev => ({ ...prev, settings: { ...prev.settings, [key]: value } }));
   }, [patch]);
   const markTutorialSeen = useCallback(() => patch(prev => ({ ...prev, seenTutorial: true })), [patch]);
+  const markOnboardingSeen = useCallback(() => patch(prev => ({ ...prev, seenOnboarding: true })), [patch]);
+  const markModeHelpSeen = useCallback((id: ModeHelpId) => patch(prev => (
+    prev.seenModeHelp[id] ? prev : { ...prev, seenModeHelp: { ...prev.seenModeHelp, [id]: true } }
+  )), [patch]);
   const markLevelIntroSeen = useCallback((id: number) => patch(prev => ({
     ...prev,
     seenLevelIntros: prev.seenLevelIntros.includes(id) ? prev.seenLevelIntros : [...prev.seenLevelIntros, id],
   })), [patch]);
   const setAdFree = useCallback((value: boolean) => patch(prev => ({ ...prev, adFree: value })), [patch]);
-  const resetProgress = useCallback(() => setSave(defaultSave()), []);
+  const resetProgress = useCallback(() => {
+    const next = { ...defaultSave(), adFree: saveRef.current.adFree };
+    setSave(next);
+    AsyncStorage.multiRemove([SAVE_KEY, COB_PUZZLE_SAVE_KEY])
+      .then(() => AsyncStorage.setItem(SAVE_KEY, JSON.stringify(next)))
+      .catch(() => {});
+  }, []);
   const unlockCampaign = useCallback(() => patch(prev => ({
     ...prev,
     currentLevelId: 60,
@@ -242,14 +256,26 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const saveMazeRun = useCallback((run: MazeRun) => patch(prev => ({
     ...prev,
-    maze: {
+    maze: mergeMazeSave(prev.maze, {
       runs: run.campaign === false ? (prev.maze?.runs ?? {}) : { ...(prev.maze?.runs ?? {}), [run.puzzleId]: run },
-      rewardedIds: prev.maze?.rewardedIds ?? [],
-      unlockedIds: prev.maze?.unlockedIds ?? ['sunny-acres-corn'],
-      ribbons: prev.maze?.ribbons ?? {},
-      freePlay: run.campaign === false ? { puzzleId: run.puzzleId, run } : (prev.maze?.freePlay ?? null),
-    },
+      freePlay: run.campaign === false ? {
+        puzzleId: run.puzzleId,
+        run,
+        prefs: prev.maze?.freePlay?.puzzleId === run.puzzleId && prev.maze.freePlay.prefs
+          ? prev.maze.freePlay.prefs
+          : prev.settings.freePlay,
+      } : (prev.maze?.freePlay ?? null),
+    }),
   })), [patch]);
+
+  const recordMazeFieldScore = useCallback((score: MazeFieldScore) => patch(prev => {
+    const recorded = recordMazeScore(prev.maze?.scores ?? {}, prev.maze?.pendingSync ?? [], score);
+    if (!recorded.recorded) return prev;
+    return {
+      ...prev,
+      maze: mergeMazeSave(prev.maze, { scores: recorded.scores, pendingSync: recorded.pendingSync }),
+    };
+  }), [patch]);
 
   const markMazeRewarded = useCallback((puzzleId: string, extras?: { unaided?: boolean; storm?: boolean; coins?: number; tools?: Partial<Inventory> }) => patch(prev => {
     const rewardedIds = prev.maze?.rewardedIds ?? [];
@@ -270,13 +296,11 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
       ...prev,
       coins: prev.coins + coins,
       inventory: extras?.tools && !already ? addToInventory(prev.inventory, extras.tools) : prev.inventory,
-      maze: {
-        runs: prev.maze?.runs ?? {},
+      maze: mergeMazeSave(prev.maze, {
         rewardedIds: already ? rewardedIds : [...rewardedIds, puzzleId],
         unlockedIds,
         ribbons,
-        freePlay: prev.maze?.freePlay ?? null,
-      },
+      }),
     };
   }), [patch]);
 
@@ -323,9 +347,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<GameStoreValue>(() => ({
     ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool,
-    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, saveMazeRun, markMazeRewarded, markFairRewarded, markStoryBeatSeen,
+    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markOnboardingSeen, markModeHelpSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, saveMazeRun, recordMazeFieldScore, markMazeRewarded, markFairRewarded, markStoryBeatSeen,
     completedIds, currentLevelId: save.currentLevelId,
-  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, saveMazeRun, markMazeRewarded, markFairRewarded, markStoryBeatSeen, completedIds]);
+  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markOnboardingSeen, markModeHelpSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, saveMazeRun, recordMazeFieldScore, markMazeRewarded, markFairRewarded, markStoryBeatSeen, completedIds]);
 
   return <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>;
 }

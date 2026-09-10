@@ -7,13 +7,14 @@ import {
   parseMazeAscii,
   peekDurationMs,
   unusedBarnFinds,
+  clippedLetterIds,
 } from '../maze';
 import { collectMazeFinds, mazeFindsFor } from '../mazeFinds';
 import { nextStoryBeat, STORY_BEATS } from '../mazeStory';
 import { canEarnStormRibbon, stormRemainingMs } from '../mazeStorm';
 import { applyMazeTool, RAINCOAT_BONUS_MS } from '../mazeTools';
 import { driveTractor } from '../mazeTractor';
-import { LANTERN_SIGHT_BONUS, parseMazeVisibility, tileVisible } from '../mazeVisibility';
+import { LANTERN_SIGHT_BONUS, lanternSightBonus, parseMazeVisibility, tileVisible } from '../mazeVisibility';
 import { tickWildlife } from '../mazeWildlife';
 
 const mist = MAZE_PUZZLES.find(level => level.id === 'maze-61-mist')!;
@@ -55,10 +56,36 @@ describe('maze barn tools', () => {
     expect(lit.ok).toBe(true);
     if (!lit.ok) return;
     expect(lit.run.usedLantern).toBe(true);
+    expect(lit.run.lanternCount).toBe(1);
     expect(mazeUnaided(lit.run)).toBe(false);
     expect(lit.run.exploredKeys).toEqual(run.exploredKeys);
     expect(tileVisible(mist, lit.run, justOut.col, justOut.row)).toBe(true);
     if (beyondLamp[0]) expect(tileVisible(mist, lit.run, beyondLamp[0].col, beyondLamp[0].row)).toBe(false);
+  });
+
+  it('stacks lanterns to brighten the field 25% each, up to four', () => {
+    const pack = { ...inventory, lantern: 4 };
+    let current = createMazeRun(mist);
+    const first = applyMazeTool(mist, current, 'lantern', pack);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.toast).toMatch(/25%/);
+    current = first.run;
+    const second = applyMazeTool(mist, current, 'lantern', { ...pack, lantern: 3 });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.run.lanternCount).toBe(2);
+    expect(second.toast).toMatch(/50%/);
+    expect(lanternSightBonus(2)).toBeGreaterThan(lanternSightBonus(1));
+    current = second.run;
+    for (let n = 3; n <= 4; n += 1) {
+      const next = applyMazeTool(mist, current, 'lantern', { ...pack, lantern: 5 - n });
+      expect(next.ok).toBe(true);
+      if (!next.ok) return;
+      current = next.run;
+    }
+    expect(current.lanternCount).toBe(4);
+    expect(applyMazeTool(mist, current, 'lantern', pack).ok).toBe(false);
   });
 
   it('adds storm time without buying the storm ribbon', () => {
@@ -73,12 +100,40 @@ describe('maze barn tools', () => {
     expect(canEarnStormRibbon(stormLevel, late)).toBe(false);
   });
 
-  it('doubles peek duration for the rest of the field', () => {
-    const run = createMazeRun(mist);
-    const clipped = applyMazeTool(mist, run, 'huskClip', inventory);
+  it('clips a facing plant so the letter stays open for the rest of the field', () => {
+    const maze = parseMazeAscii({
+      id: 'clip-husk',
+      seed: 'clip-husk',
+      chapter: 1,
+      title: 'Clip',
+      answer: 'A',
+      clue: 'A',
+      ascii: `
+#####
+#.A.#
+#.S.#
+#####
+      `,
+      revealDurationMs: 1000,
+    });
+    const cob = maze.cobs[0];
+    const away = {
+      ...createMazeRun(maze),
+      started: true,
+      solved: true,
+      player: { x: cob.wall.col + 0.5, y: cob.wall.row + 1.5 },
+      facing: 'up' as const,
+    };
+    expect(applyMazeTool(maze, { ...away, facing: 'down' }, 'huskClip', inventory).ok).toBe(false);
+    const clipped = applyMazeTool(maze, away, 'huskClip', inventory);
     expect(clipped.ok).toBe(true);
     if (!clipped.ok) return;
-    expect(peekDurationMs(mist, clipped.run)).toBe(mist.revealDurationMs * 2);
+    expect(clipped.run.usedHuskClip).toBe(true);
+    expect(clippedLetterIds(clipped.run)).toEqual([cob.id]);
+    expect(peekDurationMs(maze, clipped.run)).toBe(maze.revealDurationMs);
+    expect(clippedLetterIds({ ...clipped.run, elapsedActiveMs: 120_000 })).toEqual([cob.id]);
+    expect(applyMazeTool(maze, clipped.run, 'huskClip', inventory).ok).toBe(false);
+    expect(clippedLetterIds({ ...clipped.run, harvestedCobIds: [cob.id] })).toEqual([]);
   });
 
   it('shoos maze wildlife from anywhere', () => {
@@ -99,7 +154,7 @@ describe('maze barn tools', () => {
     expect(shoo.run.usedScarecrow).toBe(true);
   });
 
-  it('harvests up to three spelling-order letters and leaves the last letter', () => {
+  it('harvests spelling-order letters across the swath and leaves the last letter', () => {
     const maze = parseMazeAscii({
       id: 'tractor-row',
       seed: 'tractor-row',
@@ -118,10 +173,72 @@ describe('maze barn tools', () => {
     const drive = driveTractor(maze, { ...createMazeRun(maze), solved: true, started: true, facing: 'right' });
     expect(drive.ok).toBe(true);
     if (!drive.ok) return;
+    expect(drive.harvested).toBe(4);
+    expect(drive.path.length).toBeGreaterThan(1);
+    expect(drive.run.nextAnswerIndex).toBe(4);
+    expect(drive.run.completed).toBe(false);
+    expect(drive.run.usedTractor).toBe(true);
+  });
+
+  it('mows a 3-by-4 decorative corn block and drives the center column', () => {
+    const maze = parseMazeAscii({
+      id: 'tractor-swath',
+      seed: 'tractor-swath',
+      chapter: 1,
+      title: 'Swath',
+      answer: 'A',
+      clue: 'A',
+      ascii: `
+#########
+#.......#
+#..S....#
+#.###...#
+#.###...#
+#.###...#
+#.###...#
+#.......#
+#########
+      `,
+      revealDurationMs: 1000,
+    });
+    const drive = driveTractor(maze, { ...createMazeRun(maze), solved: true, started: true, facing: 'down' });
+    expect(drive.ok).toBe(true);
+    if (!drive.ok) return;
+    expect(drive.mowed).toHaveLength(12);
+    expect(drive.path).toEqual([
+      { col: 3, row: 2 },
+      { col: 3, row: 3 },
+      { col: 3, row: 4 },
+      { col: 3, row: 5 },
+      { col: 3, row: 6 },
+    ]);
+    expect(drive.run.mowedKeys).toHaveLength(12);
+  });
+
+  it('clips a narrower corridor and still harvests letters in the span', () => {
+    const maze = parseMazeAscii({
+      id: 'tractor-clip',
+      seed: 'tractor-clip',
+      chapter: 1,
+      title: 'Clip',
+      answer: 'ABCD',
+      clue: 'ABCD',
+      ascii: `
+##########
+#...A....#
+#..SBC...#
+#...D....#
+#........#
+##########
+      `,
+      revealDurationMs: 1000,
+    });
+    const drive = driveTractor(maze, { ...createMazeRun(maze), solved: true, started: true, facing: 'right' });
+    expect(drive.ok).toBe(true);
+    if (!drive.ok) return;
     expect(drive.harvested).toBe(3);
     expect(drive.run.nextAnswerIndex).toBe(3);
     expect(drive.run.completed).toBe(false);
-    expect(drive.run.usedTractor).toBe(true);
   });
 });
 

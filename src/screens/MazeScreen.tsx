@@ -1,93 +1,124 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { AppState, Image, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GameplayStatusBar } from '../components/maze/GameplayStatusBar';
 import { MazeScene } from '../components/maze/MazeScene';
+import { MazeFarmerPicker } from '../components/maze/MazeFarmerPicker';
 import { FogOverlay } from '../components/maze/FogOverlay';
-import { MazeChrome, mazeChromeArt, mazeFooterArt } from '../components/maze/MazeChrome';
+import { MazeChrome } from '../components/maze/MazeChrome';
+import { FieldBarnDialog, type FieldBarnRestock } from '../components/maze/FieldBarnDialog';
+import { MazeToolBelt } from '../components/maze/MazeToolBelt';
+import { type MazeToolFx } from '../components/maze/MazeToolFx';
+import { MazePest } from '../components/maze/MazePest';
 import { MazeWeatherLayer } from '../components/maze/MazeWeatherLayer';
 import { WordProgressPanel } from '../components/maze/WordProgressPanel';
 import { playGameSound } from '../audio/sounds';
 import { FarmDialog, DialogCopy } from '../components/FarmDialog';
-import { MAZE_CAMPAIGN_TARGETS, MAZE_CHAPTER_META } from '../data/mazeCatalog';
+import { ModeHelpDialog } from '../components/ModeHelpDialog';
+import { wordMaizeAssets } from '../../assets/word-maize/assets';
+import { MAZE_CAMPAIGN_TARGETS } from '../data/mazeCatalog';
 import { mazePuzzleById, MAZE_PUZZLES } from '../data/mazeLevels';
 import { TOOL_INFO } from '../data/shop';
 import { mazeClearCoins } from '../game/economy';
 import { nextMazeLevel } from '../game/mazeCampaign';
+import { applyFreePlayPrefs } from '../game/mazeFreePlay';
 import {
+  clippedLetterIds,
   cobsInRange,
   createMazeRun,
   currentTarget,
   farmerFacesCob,
   harvestCob,
+  inspectCob,
+  liveCobs,
   MAZE_RENDER,
   MAZE_STICK_DEADZONE,
   mazeScore,
   mazeUnaided,
+  nearbyLetterCobs,
   needsSolvePhase,
   restoreMazeRun,
   revealIfActive,
   unusedBarnFinds,
-  visibleLetterCobs,
   type MazeReveal,
   type MazeRun,
 } from '../game/maze';
 import { mazeFindsFor } from '../game/mazeFinds';
+import { bestMazeScore, formatMazeScoreTime, type MazeFieldScore } from '../game/mazeScores';
 import { advanceMazePlay } from '../game/mazePlay';
-import { applyMazeTool, barnChargesFor, mazeToolReason } from '../game/mazeTools';
 import { nextStoryBeat } from '../game/mazeStory';
+import { applyMazeTool, barnChargesFor } from '../game/mazeTools';
 import { StoryBeatOverlay } from '../components/maze/StoryBeatOverlay';
-import { MAZE_TOOL_IDS } from '../game/types';
-import { parseMazeVisibility } from '../game/mazeVisibility';
+import { parseMazeVisibility, lanternCountFor } from '../game/mazeVisibility';
 import { beginMazeRun, findNextLetterHelp, remindInspectedLetter, revealMazeAnswer, solvePromptSlots, submitMazeSolve } from '../game/mazeSolve';
 import { canEarnStormRibbon, continueStormUntimed, stormPhase, stormRemainingMs } from '../game/mazeStorm';
 import { clearWildlife, wildlifeActionLabel, wildlifeHoldMs, wildlifeInRange } from '../game/mazeWildlife';
+import { MAZE_TOOL_IDS, type ToolId } from '../game/types';
+import { useMessages } from '../i18n';
 import { useGameStore } from '../store/GameStore';
 
 const TILE = MAZE_RENDER.tile;
 
 export function MazeScreen() {
   const router = useRouter();
+  const t = useMessages();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const { id, free, fx } = useLocalSearchParams<{ id?: string; free?: string; fx?: string }>();
   const store = useGameStore();
+  const catalogId = Array.isArray(id) ? id[0] : id ?? 'sunny-acres-corn';
   const campaign = free !== '1';
-  const puzzle = mazePuzzleById(Array.isArray(id) ? id[0] : id ?? 'sunny-acres-corn');
+  const puzzle = useMemo(() => {
+    const catalog = mazePuzzleById(catalogId);
+    if (campaign) return catalog;
+    const savedFree = store.save.maze.freePlay;
+    const prefs = savedFree?.puzzleId === catalog.id && savedFree.prefs
+      ? savedFree.prefs
+      : store.save.settings.freePlay;
+    return applyFreePlayPrefs(catalog, prefs);
+  }, [campaign, catalogId]);
   const saved = campaign ? store.save.maze.runs[puzzle.id] : (store.save.maze.freePlay?.puzzleId === puzzle.id ? store.save.maze.freePlay.run : undefined);
   const [fieldSize, setFieldSize] = useState({ width: 0, height: 0 });
+  const [chromeH, setChromeH] = useState({ top: 118, bottom: 88 });
   const [run, setRun] = useState<MazeRun>(() => restoreMazeRun(puzzle, saved));
   const [reveal, setReveal] = useState<MazeReveal | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [barnRestock, setBarnRestock] = useState<FieldBarnRestock | null>(null);
   const [guess, setGuess] = useState('');
   const [solveError, setSolveError] = useState('');
-  const [scorecard, setScorecard] = useState<{ letters: number; bonus: number; total: number; coins: number } | null>(
-    run.completed ? { ...mazeScore(puzzle, run, true), coins: 0 } : null,
+  const [scorecard, setScorecard] = useState<{ letters: number; bonus: number; total: number; coins: number; priorBest: MazeFieldScore | null; barnNote: boolean } | null>(
+    run.completed ? { ...mazeScore(puzzle, run, true), coins: 0, priorBest: bestMazeScore(store.save.maze.scores, puzzle.id), barnNote: false } : null,
   );
   const [rejectShake, setRejectShake] = useState({ id: '', nonce: 0 });
-  const [barnOpen, setBarnOpen] = useState(false);
   const [toast, setToast] = useState('');
+  const [toastTool, setToastTool] = useState<ToolId | null>(null);
   const [storyLine, setStoryLine] = useState(0);
+  const [toolFx, setToolFx] = useState<MazeToolFx | null>(null);
   const stick = useRef({ x: 0, y: 0 });
   const runRef = useRef(run);
   const puzzleRef = useRef(puzzle);
   const storeRef = useRef(store);
   const pausedRef = useRef(paused);
   const scorecardRef = useRef(scorecard);
+  const revealRef = useRef(reveal);
+  const nearbyPeekRef = useRef<Set<string>>(new Set());
   const appActiveRef = useRef(true);
   const rewardedRef = useRef(false);
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const originRef = useRef({ x: 0, y: 0 });
+  const fxLockRef = useRef(false);
   runRef.current = run;
   puzzleRef.current = puzzle;
   storeRef.current = store;
-  pausedRef.current = paused || mapOpen || barnOpen;
+  pausedRef.current = paused || mapOpen || !!barnRestock;
   scorecardRef.current = scorecard;
+  revealRef.current = reveal;
 
   useEffect(() => {
     const next = restoreMazeRun(puzzle, saved);
@@ -98,16 +129,23 @@ export function MazeScreen() {
     setSelectedId(null);
     setGuess('');
     setSolveError('');
-    setScorecard(campaignRun.completed ? { ...mazeScore(puzzle, campaignRun, true), coins: 0 } : null);
+    setScorecard(campaignRun.completed ? { ...mazeScore(puzzle, campaignRun, true), coins: 0, priorBest: bestMazeScore(store.save.maze.scores, puzzle.id), barnNote: false } : null);
     rewardedRef.current = campaign && store.save.maze.rewardedIds.includes(puzzle.id);
     setStoryLine(0);
-    setBarnOpen(false);
     setToast('');
+    setToastTool(null);
+    setBarnRestock(null);
+    setToolFx(null);
+    fxLockRef.current = false;
+    nearbyPeekRef.current = new Set();
   }, [puzzle.id, campaign]);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(() => setToast(''), 2800);
+    const timer = setTimeout(() => {
+      setToast('');
+      setToastTool(null);
+    }, 2800);
     return () => clearTimeout(timer);
   }, [toast]);
 
@@ -132,14 +170,21 @@ export function MazeScreen() {
       if (cancelled) return;
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const playing = appActiveRef.current && !pausedRef.current && !runRef.current.completed && !scorecardRef.current;
+      const playing = appActiveRef.current && !pausedRef.current && !fxLockRef.current && !runRef.current.completed && !scorecardRef.current;
       if (playing) {
         const picked = new Set(runRef.current.pickedFindIds);
         const next = advanceMazePlay(puzzleRef.current, runRef.current, stick.current.x, stick.current.y, dt);
         const freshId = next.pickedFindIds.find(id => !picked.has(id));
         if (freshId) {
           const find = mazeFindsFor(puzzleRef.current).find(item => item.id === freshId);
-          if (find) setToast(`${TOOL_INFO[find.tool].title} stowed in the Barn.`);
+          if (find) {
+            setToast(`${TOOL_INFO[find.tool].title} found`);
+            setToastTool(find.tool);
+            playGameSound('tool', 0.78);
+            if (!fxLockRef.current) {
+              setToolFx({ nonce: Date.now(), kind: 'find', tool: find.tool, at: find.cell });
+            }
+          }
         }
         runRef.current = next;
         if (now - lastPaint > 16) {
@@ -158,19 +203,27 @@ export function MazeScreen() {
     };
   }, []);
 
-  const revealedCobs = useMemo(() => visibleLetterCobs(puzzle, run), [puzzle, run]);
+  const nearbyCobs = useMemo(() => nearbyLetterCobs(puzzle, run), [puzzle, run]);
   const activeReveal = revealIfActive(reveal, run.elapsedActiveMs);
-  const selected = revealedCobs.find(cob => cob.id === selectedId) ?? (revealedCobs.length === 1 ? revealedCobs[0] : undefined);
+  const selected = nearbyCobs.find(cob => cob.id === selectedId)
+    ?? nearbyCobs.find(cob => farmerFacesCob(run, cob))
+    ?? nearbyCobs[0];
   const target = currentTarget(puzzle, run);
   const waiting = !run.started || !run.solved;
-  const revealedIds = [...revealedCobs.map(cob => cob.id), ...(activeReveal ? [activeReveal.cobId] : [])];
-  const canHarvest = !!(selected && selected.letter === target && !waiting && revealedIds.includes(selected.id));
-  const barnCount = MAZE_TOOL_IDS.reduce((sum, tool) => sum + barnChargesFor(run, store.save.inventory, tool), 0);
+  const revealedIds = [...new Set([
+    ...(activeReveal ? [activeReveal.cobId] : []),
+    ...clippedLetterIds(run),
+  ])];
+  const harvestPick = nearbyCobs.find(cob => cob.letter === target) ?? selected;
+  const canHarvest = !!(harvestPick && harvestPick.letter === target && !waiting);
+  const nearPlant = nearbyCobs.length > 0;
+  const harvestPulse = !!(revealedIds.length && nearbyCobs.some(cob => revealedIds.includes(cob.id) && cob.letter === target) && !waiting);
   const livePhase = stormPhase(puzzle, run);
   const previewFx = __DEV__ ? (Array.isArray(fx) ? fx[0] : fx) : undefined;
   const phase = previewFx === 'rain' ? 'rain' : livePhase;
   const slots = solvePromptSlots(puzzle.displayAnswer ?? puzzle.answer, puzzle.givenMask ?? null, run.solved, run.nextAnswerIndex);
   const animalReady = wildlifeInRange(puzzle, run);
+  const wildlifeCob = run.wildlife ? liveCobs(puzzle, run).find(cob => cob.id === run.wildlife?.cobId) : undefined;
 
   const commit = (next: MazeRun, nextReveal: MazeReveal | null = reveal) => {
     runRef.current = next;
@@ -178,84 +231,237 @@ export function MazeScreen() {
     setReveal(nextReveal);
   };
 
-  const harvest = () => {
+  useEffect(() => {
+    if (waiting || run.completed || paused || mapOpen || barnRestock) return;
+    const current = runRef.current;
+    const nearbyNow = nearbyLetterCobs(puzzle, current);
+    const stillNearby = new Set(nearbyNow.map(cob => cob.id));
+    for (const id of nearbyPeekRef.current) {
+      if (!stillNearby.has(id)) nearbyPeekRef.current.delete(id);
+    }
+    const entered = nearbyNow.filter(cob => !nearbyPeekRef.current.has(cob.id));
+    if (!entered.length) return;
+    let next = current;
+    let nextReveal = revealRef.current;
+    let peeked = false;
+    for (const cob of entered) {
+      const result = inspectCob(puzzle, next, cob.id, next.elapsedActiveMs);
+      if (result.ok) {
+        next = result.run;
+        nextReveal = result.reveal;
+        nearbyPeekRef.current.add(cob.id);
+        peeked = true;
+      } else if (result.reason !== 'blocked') {
+        nearbyPeekRef.current.add(cob.id);
+      }
+    }
+    if (!peeked) return;
+    commit(next, nextReveal);
+    playGameSound('tap', 0.4);
+  }, [run.player.x, run.player.y, run.started, run.solved, waiting, run.completed, paused, mapOpen, barnRestock, puzzle]);
+
+  const harvest = (cobId?: string) => {
     if (waiting || runRef.current.completed) return;
+    const pickId = cobId ?? harvestPick?.id;
+    if (cobId) setSelectedId(cobId);
     const faced = selected ?? cobsInRange(puzzle, runRef.current).find(cob => farmerFacesCob(runRef.current, cob));
-    const reject = (cobId?: string) => {
-      if (cobId) setRejectShake(prev => ({ id: cobId, nonce: prev.nonce + 1 }));
+    const reject = (id?: string) => {
+      if (id) setRejectShake(prev => ({ id, nonce: prev.nonce + 1 }));
       playGameSound('invalid', 0.62);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     };
-    if (!selected) {
+    if (!pickId) {
       reject(faced?.id);
       return;
     }
-    const result = harvestCob(puzzle, runRef.current, selected.id, null);
+    const result = harvestCob(puzzle, runRef.current, pickId, null);
     if (!result.ok) {
-      reject(selected.id);
+      reject(pickId);
       return;
     }
     commit(result.run, null);
     playGameSound(result.completedNow ? 'complete' : 'basket', 0.78);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     store.saveMazeRun(result.run);
-    if (result.completedNow && campaign && !rewardedRef.current) {
-      rewardedRef.current = true;
-      const already = store.save.maze.rewardedIds.includes(puzzle.id);
-      const score = mazeScore(puzzle, result.run, already);
+    if (result.completedNow) {
+      const already = campaign && store.save.maze.rewardedIds.includes(puzzle.id);
       const storm = canEarnStormRibbon(puzzle, result.run) && !!puzzle.stormSeconds;
-      const coins = already ? 0 : mazeClearCoins(puzzle.chapter, storm);
-      if (!already) {
-        store.markMazeRewarded(puzzle.id, {
-          unaided: mazeUnaided(result.run),
-          storm,
-          coins,
-          tools: unusedBarnFinds(result.run),
-        });
+      const leftover = unusedBarnFinds(result.run);
+      const coins = campaign && !already ? mazeClearCoins(puzzle.chapter, storm) : 0;
+      const score = mazeScore(puzzle, result.run, !!already);
+      const priorBest = bestMazeScore(store.save.maze.scores, puzzle.id);
+      store.recordMazeFieldScore({
+        puzzleId: puzzle.id,
+        points: score.total,
+        letters: score.letters,
+        bonus: score.bonus,
+        elapsedMs: result.run.elapsedActiveMs,
+        unaided: mazeUnaided(result.run),
+        storm,
+        coins,
+        at: Date.now(),
+      });
+      if (campaign && !rewardedRef.current) {
+        rewardedRef.current = true;
+        if (!already) {
+          store.markMazeRewarded(puzzle.id, {
+            unaided: mazeUnaided(result.run),
+            storm,
+            coins,
+            tools: leftover,
+          });
+        }
       }
-      setScorecard({ ...score, coins });
-    } else if (result.completedNow && !campaign) {
-      setScorecard({ ...mazeScore(puzzle, result.run, true), coins: 0 });
+      setScorecard({
+        ...score,
+        coins,
+        priorBest,
+        barnNote: campaign && Object.values(leftover).some(count => (count ?? 0) > 0),
+      });
     }
   };
 
-  const useBarnTool = (tool: typeof MAZE_TOOL_IDS[number]) => {
-    if (waiting || runRef.current.completed) return;
-    const result = applyMazeTool(puzzle, runRef.current, tool, store.save.inventory);
+  const clearToolFx = useCallback(() => {
+    fxLockRef.current = false;
+    setToolFx(null);
+  }, []);
+
+  const openBarn = (target: FieldBarnRestock = 'browse') => {
+    if (runRef.current.completed || fxLockRef.current) return;
+    setStick(0, 0);
+    setBarnRestock(target);
+    playGameSound('tap', 0.62);
+  };
+
+  const useMazeTool = (tool: ToolId) => {
+    if (waiting || runRef.current.completed || fxLockRef.current) return;
+    if (barnChargesFor(runRef.current, storeRef.current.save.inventory, tool) < 1) {
+      openBarn(tool);
+      return;
+    }
+    const current = runRef.current;
+    const pest = current.wildlife
+      ? liveCobs(puzzleRef.current, current).find(cob => cob.id === current.wildlife?.cobId)
+      : undefined;
+    const result = applyMazeTool(puzzleRef.current, current, tool, storeRef.current.save.inventory);
     if (!result.ok) {
       setToast(result.reason);
+      setToastTool(null);
       playGameSound('invalid', 0.62);
       return;
     }
-    if (result.consumeInventory && !store.consumeTool(tool)) {
+    if (result.consumeInventory && !storeRef.current.consumeTool(tool)) {
       playGameSound('invalid', 0.62);
       return;
     }
-    commit(result.run);
+    commit(result.run, reveal);
     setToast(result.toast);
-    setBarnOpen(false);
+    setToastTool(tool);
     playGameSound('tool', 0.78);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const nonce = Date.now();
+    if (tool === 'mower' || tool === 'tractor') {
+      fxLockRef.current = true;
+      setStick(0, 0);
+      setToolFx({ nonce, kind: tool, facing: current.facing, tiles: result.tiles ?? [], mowed: result.mowed });
+      return;
+    }
+    if (tool === 'scarecrow') {
+      setToolFx({ nonce, kind: 'scarecrow', at: pest?.wall ?? { col: Math.floor(current.player.x), row: Math.floor(current.player.y) } });
+      return;
+    }
+    if (tool === 'huskClip') {
+      const cob = liveCobs(puzzleRef.current, result.run).find(item => item.id === result.cobId);
+      setToolFx({
+        nonce,
+        kind: 'huskClip',
+        at: cob ? { x: cob.wall.col + 0.5, y: cob.wall.row + 0.5 } : current.player,
+      });
+      return;
+    }
+    if (tool === 'lantern' || tool === 'raincoat') {
+      setToolFx({ nonce, kind: tool, at: current.player });
+    }
   };
 
   const harvestRef = useRef(harvest);
   harvestRef.current = harvest;
+  const selectRef = useRef((id: string) => { setSelectedId(id); });
+  selectRef.current = (id: string) => { setSelectedId(id); };
+
+  const setStick = useCallback((x: number, y: number) => {
+    stick.current = { x, y };
+  }, []);
+
+  const cobAt = useCallback((x: number, y: number) => {
+    const origin = originRef.current;
+    let best: { id: string; d: number } | null = null;
+    for (const cob of liveCobs(puzzleRef.current, runRef.current)) {
+      if (runRef.current.harvestedCobIds.includes(cob.id)) continue;
+      const cx = origin.x + cob.wall.col * TILE + TILE / 2;
+      const cy = origin.y + cob.wall.row * TILE + TILE * 0.22;
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < TILE * 0.85 && (!best || d < best.d)) best = { id: cob.id, d };
+    }
+    return best?.id ?? null;
+  }, []);
+
+  const tapPlant = useCallback((x: number, y: number) => {
+    const id = cobAt(x, y);
+    if (id) selectRef.current(id);
+  }, [cobAt]);
+
+  const harvestPlant = useCallback((x: number, y: number) => {
+    const id = cobAt(x, y);
+    if (id) harvestRef.current(id);
+  }, [cobAt]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const held = new Set<string>();
+    const keys = new Set(['arrowright', 'arrowleft', 'arrowdown', 'arrowup', 'w', 'a', 's', 'd']);
     const typing = (target: EventTarget | null) => {
       const el = target as { tagName?: string; isContentEditable?: boolean } | null;
       return el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || !!el?.isContentEditable;
     };
+    const applyWalk = () => {
+      if (pausedRef.current || scorecardRef.current || runRef.current.completed) {
+        setStick(0, 0);
+        return;
+      }
+      const x = (held.has('arrowright') || held.has('d') ? 1 : 0) - (held.has('arrowleft') || held.has('a') ? 1 : 0);
+      const y = (held.has('arrowdown') || held.has('s') ? 1 : 0) - (held.has('arrowup') || held.has('w') ? 1 : 0);
+      if (x === 0 && y === 0) {
+        setStick(0, 0);
+        return;
+      }
+      const length = Math.hypot(x, y);
+      setStick(x / length, y / length);
+    };
     const onDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (keys.has(key) && !typing(event.target)) {
+        event.preventDefault();
+        held.add(key);
+        applyWalk();
+        return;
+      }
       if (event.code !== 'Space' && event.key !== ' ') return;
       if (event.repeat || typing(event.target) || pausedRef.current || scorecardRef.current || runRef.current.completed) return;
       event.preventDefault();
       harvestRef.current();
     };
+    const onUp = (event: KeyboardEvent) => {
+      held.delete(event.key.toLowerCase());
+      applyWalk();
+    };
     window.addEventListener('keydown', onDown);
-    return () => window.removeEventListener('keydown', onDown);
-  }, []);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+    };
+  }, [setStick]);
 
   const restart = () => {
     const fresh = createMazeRun(puzzle, campaign);
@@ -266,6 +472,9 @@ export function MazeScreen() {
     setPaused(false);
     setGuess('');
     setSolveError('');
+    setToolFx(null);
+    fxLockRef.current = false;
+    nearbyPeekRef.current = new Set();
     store.saveMazeRun(fresh);
   };
 
@@ -303,13 +512,18 @@ export function MazeScreen() {
   const worldW = puzzle.cols * TILE;
   const worldH = puzzle.rows * TILE;
   const overlayTop = insets.top + 8;
-  const overlayBottom = Math.max(insets.bottom, 10);
+  const overlayBottom = Math.max(insets.bottom, 8);
+  const playTop = Math.min(chromeH.top, Math.max(0, fieldH - 80));
+  const playBottom = Math.max(playTop + 80, fieldH - chromeH.bottom);
+  const playMidX = fieldW / 2;
+  const playMidY = (playTop + playBottom) / 2;
   const originX = worldW <= fieldW
     ? (fieldW - worldW) / 2
-    : Math.min(0, Math.max(fieldW - worldW, fieldW / 2 - run.player.x * TILE));
-  const originY = worldH <= fieldH
-    ? (fieldH - worldH) / 2
-    : Math.min(0, Math.max(fieldH - worldH, fieldH / 2 - run.player.y * TILE));
+    : Math.min(0, Math.max(fieldW - worldW, playMidX - run.player.x * TILE));
+  const originY = worldH <= playBottom - playTop
+    ? playTop + (playBottom - playTop - worldH) / 2
+    : Math.min(playTop, Math.max(playBottom - worldH, playMidY - run.player.y * TILE));
+  originRef.current = { x: originX, y: originY };
   const nextLevel = nextMazeLevel(MAZE_PUZZLES, [...store.save.maze.rewardedIds, puzzle.id], store.save.maze.unlockedIds);
   const chapterDone = campaign && (nextLevel.id === puzzle.id || nextLevel.chapter !== puzzle.chapter);
   const catalog = MAZE_CAMPAIGN_TARGETS.find(item => item.id === puzzle.id);
@@ -330,49 +544,18 @@ export function MazeScreen() {
     chapterDone,
     finale: puzzle.id === MAZE_PUZZLES[MAZE_PUZZLES.length - 1]?.id,
   });
-  pausedRef.current = paused || mapOpen || barnOpen || !!storyBeat;
+  pausedRef.current = paused || mapOpen || !!storyBeat || !!barnRestock;
   const sight = parseMazeVisibility(puzzle.visibility);
   const fogActive = sight.mode === 'mist';
   const foggy = fogActive || sight.mode === 'evening' || (sight.mode === 'storm' && !!sight.radius);
   const stormFx = phase === 'overcast' || phase === 'dark' || phase === 'rain' || phase === 'grace' || phase === 'expired' || phase === 'untimed';
-  const chrome = mazeChromeArt(sight.mode, stormFx);
-  const footerArt = mazeFooterArt(sight.mode, stormFx);
   const mood = stormFx && (phase === 'dark' || phase === 'rain' || phase === 'grace' || phase === 'expired') ? 'fog' : 'sunny';
+  const showPad = store.save.settings.showMazePad;
   const timedStorm = !!(puzzle.stormSeconds && !run.stormUntimed);
   const harvestLetters = puzzle.answer.replace(/[^A-Z]/g, '').length;
-  const chapterName = MAZE_CHAPTER_META.find(item => item.id === puzzle.chapter)?.title ?? puzzle.title;
 
   return (
-    <View style={[styles.shell, { backgroundColor: mood === 'fog' ? '#243628' : '#3f6f2c' }]}>
-      <MazeChrome source={chrome} style={[styles.topChrome, { paddingTop: overlayTop }]}>
-        <View style={styles.hud}>
-          <HudIconButton label="Pause" onPress={() => setPaused(true)}>
-            <PauseBars />
-          </HudIconButton>
-          <WordProgressPanel
-            title={puzzle.displayAnswer ?? puzzle.answer}
-            slots={slots}
-            target={run.solved && !run.completed ? target : ''}
-            complete={run.completed}
-            compact={windowHeight < 720}
-          />
-          <HudIconButton label="Field map" onPress={() => setMapOpen(true)}>
-            <MapFold />
-          </HudIconButton>
-        </View>
-        <View style={styles.statusWrap}>
-          <GameplayStatusBar
-            timeValue={formatMazeTime(timedStorm ? stormRemainingMs(puzzle, run) : run.elapsedActiveMs)}
-            timeCaption={timedStorm ? 'TIME REMAINING' : 'TIME'}
-            harvested={run.harvestedCobIds.length}
-            total={harvestLetters}
-            fogActive={fogActive}
-            chapterName={chapterName}
-            chapterNumber={puzzle.chapter}
-          />
-        </View>
-        {run.wildlife ? <Text style={styles.warn}>{run.wildlife.kind.toUpperCase()} {run.wildlife.phase === 'warning' ? 'incoming' : 'blocking a plant'}</Text> : null}
-      </MazeChrome>
+    <View style={[styles.shell, { backgroundColor: mood === 'fog' ? '#8a6a32' : '#c9872c' }]}>
       <View
         collapsable={false}
         onLayout={event => {
@@ -384,12 +567,15 @@ export function MazeScreen() {
         <MazeScene
           puzzle={puzzle} run={run} selectedId={selected?.id} revealedIds={revealedIds}
           originX={originX} originY={originY} viewportWidth={fieldW} viewportHeight={fieldH}
-          moving={!waiting && !paused && !run.completed && Math.hypot(stick.current.x, stick.current.y) > MAZE_STICK_DEADZONE}
+          moving={!waiting && !paused && !barnRestock && !run.completed && Math.hypot(stick.current.x, stick.current.y) > MAZE_STICK_DEADZONE}
           reducedMotion={store.save.settings.reducedMotion}
           reducedMist={store.save.settings.reducedMotion}
           shakeCobId={rejectShake.id}
           shakeNonce={rejectShake.nonce}
           mood={mood}
+          toolFx={toolFx}
+          onToolFxDone={clearToolFx}
+          farmerId={store.save.settings.mazeFarmer}
         />
         <FogOverlay
           enabled={foggy}
@@ -399,9 +585,9 @@ export function MazeScreen() {
           phase={phase}
           viewportWidth={fieldW}
           viewportHeight={fieldH}
-          paused={paused || mapOpen || waiting || !!scorecard}
+          paused={paused || mapOpen || waiting || !!scorecard || !!barnRestock}
           reducedMotion={store.save.settings.reducedMotion}
-          lantern={run.lanternActive}
+          lantern={lanternCountFor(run)}
           bottomInset={0}
         />
         {stormFx ? (
@@ -410,27 +596,85 @@ export function MazeScreen() {
             sight={sight}
             farmerX={originX + run.player.x * TILE}
             farmerY={originY + run.player.y * TILE}
-            paused={paused || mapOpen || waiting || !!scorecard}
+            paused={paused || mapOpen || waiting || !!scorecard || !!barnRestock}
             reducedMotion={store.save.settings.reducedMotion}
             width={fieldW}
             height={fieldH}
           />
         ) : null}
-        {toast ? <Pressable onPress={() => setToast('')} style={styles.toast}><Text style={styles.toastText}>{toast}</Text></Pressable> : null}
+        {wildlifeCob && run.wildlife ? (
+          <MazePest
+            kind={run.wildlife.kind}
+            phase={run.wildlife.phase}
+            left={originX + wildlifeCob.wall.col * TILE}
+            top={originY + wildlifeCob.wall.row * TILE}
+            reducedMotion={store.save.settings.reducedMotion}
+          />
+        ) : null}
+        <FieldSteer onStick={setStick} onTap={tapPlant} onHarvest={harvestPlant} />
+        {toast ? (
+          <Pressable onPress={() => { setToast(''); setToastTool(null); }} style={[styles.toast, { bottom: chromeH.bottom + 8 }]}>
+            {toastTool ? <Image source={wordMaizeAssets.powerups[toastTool]} style={styles.toastIcon} /> : null}
+            <Text style={styles.toastText}>{toast}</Text>
+          </Pressable>
+        ) : null}
       </View>
-      <MazeChrome source={footerArt} tone="footer" style={[styles.footer, { paddingBottom: overlayBottom }]}>
-        <View style={styles.controls}>
-          <Joystick onVector={(x, y) => { stick.current = { x, y }; }} />
+      <MazeChrome
+        fog={mood === 'fog'}
+        style={[styles.topChrome, { paddingTop: overlayTop }]}
+        onLayout={event => {
+          const height = event.nativeEvent.layout.height;
+          setChromeH(prev => (Math.abs(prev.top - height) < 1 ? prev : { ...prev, top: height }));
+        }}
+      >
+        <View style={styles.hud}>
+          <View style={styles.hudLeft}>
+            <HudIconButton label="Pause" onPress={() => setPaused(true)}>
+              <PauseBars />
+            </HudIconButton>
+            <GameplayStatusBar
+              harvested={run.harvestedCobIds.length}
+              total={harvestLetters}
+              timed={timedStorm}
+              timeValue={timedStorm ? formatMazeTime(stormRemainingMs(puzzle, run)) : undefined}
+            />
+          </View>
+          <WordProgressPanel
+            title={puzzle.displayAnswer ?? puzzle.answer}
+            slots={slots}
+            target={run.solved && !run.completed ? target : ''}
+            complete={run.completed}
+            compact={windowHeight < 720}
+          />
+          <HudIconButton label="Field map" onPress={() => setMapOpen(true)}>
+            <MapFold />
+          </HudIconButton>
+        </View>
+        {run.wildlife ? <Text style={styles.warn}>{run.wildlife.kind.toUpperCase()} {run.wildlife.phase === 'warning' ? 'incoming' : 'blocking a plant'}</Text> : null}
+      </MazeChrome>
+      <View pointerEvents="box-none" style={[styles.toolDock, { top: chromeH.top + 8 }]}>
+        <MazeToolBelt
+          counts={Object.fromEntries(MAZE_TOOL_IDS.map(tool => [tool, barnChargesFor(run, store.save.inventory, tool)])) as Record<ToolId, number>}
+          disabled={waiting || run.completed || toolFx?.kind === 'mower' || toolFx?.kind === 'tractor'}
+          shopLocked={run.completed || toolFx?.kind === 'mower' || toolFx?.kind === 'tractor'}
+          flashTool={toastTool}
+          onUse={useMazeTool}
+          onEmpty={openBarn}
+          onShop={() => openBarn()}
+        />
+      </View>
+      <MazeChrome
+        tone="footer"
+        fog={mood === 'fog'}
+        style={[styles.footer, showPad ? styles.footerPad : styles.footerSlim, { paddingBottom: overlayBottom }]}
+        onLayout={event => {
+          const height = event.nativeEvent.layout.height;
+          setChromeH(prev => (Math.abs(prev.bottom - height) < 1 ? prev : { ...prev, bottom: height }));
+        }}
+      >
+        <View style={[styles.controls, showPad ? styles.controlsPad : styles.controlsSlim]}>
+          {showPad ? <Joystick onVector={setStick} /> : <View />}
           <View style={styles.actions}>
-            {revealedCobs.length > 1 ? (
-              <View style={styles.picker}>
-                {revealedCobs.map((cob, index) => (
-                  <Pressable key={cob.id} onPress={() => setSelectedId(cob.id)} style={[styles.pick, selected?.id === cob.id && styles.pickOn]}>
-                    <Text style={styles.pickText}>PLANT {index + 1}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
             {run.wildlife && animalReady ? (
               <Pressable
                 accessibilityRole="button"
@@ -450,25 +694,14 @@ export function MazeScreen() {
                 <Text style={styles.actionText}>{wildlifeActionLabel(run.wildlife.kind)}</Text>
               </Pressable>
             ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Barn, ${barnCount} helpers`}
-              disabled={waiting || run.completed}
-              onPress={() => setBarnOpen(true)}
-              style={styles.mowCircle}
-            >
-              {({ pressed }) => (
-                <View style={[styles.mowFace, pressed && styles.mowPressed]}>
-                  <Text style={styles.mowText}>BARN</Text>
-                  <Text style={styles.barnCount}>×{barnCount}</Text>
-                </View>
-              )}
-            </Pressable>
             <HarvestButton
               enabled={canHarvest}
+              nearby={nearPlant}
+              ready={harvestPulse}
               disabled={waiting || run.completed}
               reducedMotion={store.save.settings.reducedMotion}
-              onPress={harvest}
+              compact={!showPad}
+              onPress={() => harvest()}
             />
           </View>
         </View>
@@ -493,11 +726,24 @@ export function MazeScreen() {
       </FarmDialog>
 
       <FarmDialog
-        visible={paused}
+        visible={paused && !barnRestock}
         title="Paused"
         onClose={() => setPaused(false)}
         primary={{ label: 'RESUME', onPress: () => setPaused(false) }}
         actions={[
+          {
+            label: t.fieldBarn.shop,
+            onPress: () => openBarn(),
+            tone: 'gold' as const,
+          },
+          {
+            label: showPad ? 'HIDE GAME PAD' : 'SHOW GAME PAD',
+            onPress: () => {
+              if (showPad) setStick(0, 0);
+              store.setSetting('showMazePad', !showPad);
+            },
+            tone: 'slate' as const,
+          },
           ...(run.solved ? [
             { label: 'FIND NEXT LETTER', onPress: helpNext, tone: 'slate' as const },
             { label: 'REMIND A VISIT', onPress: helpRemind, tone: 'slate' as const },
@@ -506,7 +752,9 @@ export function MazeScreen() {
           { label: 'LEAVE', onPress: () => { store.saveMazeRun(runRef.current); router.back(); }, tone: 'slate' as const },
         ]}
       >
-        <DialogCopy>Face a plant to peek its letter. Weather waits until you return.</DialogCopy>
+        <DialogCopy>Drag the field to walk. Double-tap a plant to harvest the next letter. Weather waits until you return.</DialogCopy>
+        <DialogCopy>{store.save.settings.farmerName || 'Farmer May'}</DialogCopy>
+        <MazeFarmerPicker value={store.save.settings.mazeFarmer} onChange={id => store.setSetting('mazeFarmer', id)} />
       </FarmDialog>
 
       <FarmDialog visible={mapOpen} title="Field map" onClose={() => setMapOpen(false)} primary={{ label: 'CLOSE', onPress: () => setMapOpen(false), tone: 'slate' }}>
@@ -546,36 +794,27 @@ export function MazeScreen() {
         <DialogCopy>{(puzzle.displayAnswer ?? puzzle.answer)} is in the basket.</DialogCopy>
         <Text style={styles.score}>{scorecard?.total} POINTS</Text>
         <DialogCopy>{scorecard?.letters} from letters{scorecard?.bonus ? ` · ${scorecard.bonus} first harvest` : ' · bonus already claimed'}</DialogCopy>
-        {campaign ? <DialogCopy>{scorecard?.coins ? `${scorecard.coins} coins added to the farm.` : 'Coins already claimed for this field.'}</DialogCopy> : null}
+        {campaign ? <DialogCopy>{scorecard?.coins ? `+${scorecard.coins} coins added to the farm.` : 'Coins already claimed for this field.'}</DialogCopy> : null}
+        {scorecard?.priorBest ? <DialogCopy>Best: {scorecard.priorBest.points} pts · {formatMazeScoreTime(scorecard.priorBest.elapsedMs)}</DialogCopy> : null}
         <DialogCopy>Time {formatMazeTime(run.elapsedActiveMs)}</DialogCopy>
         {campaign ? <DialogCopy>{mazeUnaided(run) ? 'Unaided ribbon earned.' : 'Assists were used.'}{puzzle.stormSeconds ? (canEarnStormRibbon(puzzle, run) ? ' Storm ribbon earned.' : ' Storm ribbon not earned.') : ''}</DialogCopy> : null}
+        {scorecard?.barnNote ? <DialogCopy>Unused crate finds went to the Barn.</DialogCopy> : null}
       </FarmDialog>
 
-      <FarmDialog
-        visible={barnOpen}
-        title="Barn"
-        onClose={() => setBarnOpen(false)}
-        primary={{ label: 'FARM STORE', onPress: () => { setBarnOpen(false); router.push('/(tabs)/shop'); }, tone: 'gold' }}
-        actions={[{ label: 'CLOSE', onPress: () => setBarnOpen(false), tone: 'slate' }]}
-      >
-        {barnCount < 1 ? <DialogCopy>The Barn is empty. Stock it at the Farm Store, or look for crates in the rows.</DialogCopy> : (
-          MAZE_TOOL_IDS.map(tool => {
-            const count = barnChargesFor(run, store.save.inventory, tool);
-            const reason = mazeToolReason(puzzle, run, tool);
-            return (
-              <Pressable key={tool} disabled={count < 1 || !!reason} onPress={() => useBarnTool(tool)} style={[styles.barnRow, (count < 1 || reason) && styles.barnDim]}>
-                <Text style={styles.barnTitle}>{TOOL_INFO[tool].title} ×{count}</Text>
-                <Text style={styles.barnBlurb}>{reason ?? TOOL_INFO[tool].blurb}</Text>
-              </Pressable>
-            );
-          })
-        )}
-      </FarmDialog>
+      <FieldBarnDialog
+        restock={barnRestock}
+        onClose={() => setBarnRestock(null)}
+        onBrowse={() => setBarnRestock('browse')}
+        onPacked={message => { setToast(message); setToastTool(null); }}
+      />
+
+      <ModeHelpDialog mode="maize" blocked={!!storyBeat} />
 
       {storyBeat ? (
         <StoryBeatOverlay
           beat={storyBeat}
           lineIndex={storyLine}
+          farmerName={store.save.settings.farmerName}
           onAdvance={() => {
             if (storyLine + 1 < storyBeat.lines.length) setStoryLine(storyLine + 1);
             else {
@@ -587,6 +826,81 @@ export function MazeScreen() {
         />
       ) : null}
     </View>
+  );
+}
+
+function FieldSteer({
+  onStick, onTap, onHarvest,
+}: {
+  onStick: (x: number, y: number) => void;
+  onTap: (x: number, y: number) => void;
+  onHarvest: (x: number, y: number) => void;
+}) {
+  const stickRef = useRef(onStick);
+  const tapRef = useRef(onTap);
+  const harvestRef = useRef(onHarvest);
+  stickRef.current = onStick;
+  tapRef.current = onTap;
+  harvestRef.current = onHarvest;
+
+  const sendStick = useCallback((x: number, y: number) => {
+    stickRef.current(x, y);
+  }, []);
+  const sendTap = useCallback((x: number, y: number) => {
+    tapRef.current(x, y);
+  }, []);
+  const sendHarvest = useCallback((x: number, y: number) => {
+    harvestRef.current(x, y);
+  }, []);
+
+  const gesture = useMemo(() => {
+    const pan = Gesture.Pan()
+      .minDistance(12)
+      .maxPointers(1)
+      .shouldCancelWhenOutside(false)
+      .onUpdate(event => {
+        'worklet';
+        const max = 48;
+        const length = Math.hypot(event.translationX, event.translationY) || 1;
+        const scale = Math.min(1, max / length);
+        const x = (event.translationX * scale) / max;
+        const y = (event.translationY * scale) / max;
+        if (Math.hypot(x, y) < 0.16) {
+          runOnJS(sendStick)(0, 0);
+          return;
+        }
+        runOnJS(sendStick)(x, y);
+      })
+      .onEnd(() => {
+        'worklet';
+        runOnJS(sendStick)(0, 0);
+      })
+      .onFinalize(() => {
+        'worklet';
+        runOnJS(sendStick)(0, 0);
+      });
+    const doubleTap = Gesture.Tap()
+      .numberOfTaps(2)
+      .maxDuration(280)
+      .maxDistance(24)
+      .onEnd(event => {
+        'worklet';
+        runOnJS(sendHarvest)(event.x, event.y);
+      });
+    const singleTap = Gesture.Tap()
+      .maxDuration(240)
+      .maxDistance(18)
+      .onEnd(event => {
+        'worklet';
+        runOnJS(sendTap)(event.x, event.y);
+      });
+    return Gesture.Simultaneous(pan, Gesture.Exclusive(doubleTap, singleTap));
+  }, [sendHarvest, sendStick, sendTap]);
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <View collapsable={false} accessible={false} importantForAccessibility="no" style={styles.fieldSteer} />
+    </GestureDetector>
   );
 }
 
@@ -638,49 +952,6 @@ function Joystick({ onVector }: { onVector: (x: number, y: number) => void }) {
     transform: [{ translateX: knobX.value }, { translateY: knobY.value }],
   }));
 
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const held = new Set<string>();
-    const keys = new Set(['arrowright', 'arrowleft', 'arrowdown', 'arrowup', 'w', 'a', 's', 'd']);
-    const apply = () => {
-      const x = (held.has('arrowright') || held.has('d') ? 1 : 0) - (held.has('arrowleft') || held.has('a') ? 1 : 0);
-      const y = (held.has('arrowdown') || held.has('s') ? 1 : 0) - (held.has('arrowup') || held.has('w') ? 1 : 0);
-      if (x === 0 && y === 0) {
-        knobX.value = 0;
-        knobY.value = 0;
-        send(0, 0);
-        return;
-      }
-      const length = Math.hypot(x, y);
-      const nx = x / length;
-      const ny = y / length;
-      knobX.value = nx * 38;
-      knobY.value = ny * 38;
-      send(nx, ny);
-    };
-    const typing = (target: EventTarget | null) => {
-      const el = target as { tagName?: string; isContentEditable?: boolean } | null;
-      return el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || !!el?.isContentEditable;
-    };
-    const onDown = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
-      if (!keys.has(key) || typing(event.target)) return;
-      event.preventDefault();
-      held.add(key);
-      apply();
-    };
-    const onUp = (event: KeyboardEvent) => {
-      held.delete(event.key.toLowerCase());
-      apply();
-    };
-    window.addEventListener('keydown', onDown);
-    window.addEventListener('keyup', onUp);
-    return () => {
-      window.removeEventListener('keydown', onDown);
-      window.removeEventListener('keyup', onUp);
-    };
-  }, [knobX, knobY, send]);
-
   return (
     <GestureDetector gesture={gesture}>
       <View style={styles.stick} accessibilityLabel="Move joystick">
@@ -694,16 +965,21 @@ function Joystick({ onVector }: { onVector: (x: number, y: number) => void }) {
   );
 }
 
-function HarvestButton({ enabled, disabled, reducedMotion, onPress }: { enabled: boolean; disabled: boolean; reducedMotion: boolean; onPress: () => void }) {
+function HarvestButton({ enabled, nearby, ready, disabled, reducedMotion, compact, onPress }: { enabled: boolean; nearby: boolean; ready: boolean; disabled: boolean; reducedMotion: boolean; compact?: boolean; onPress: () => void }) {
   const pulse = useSharedValue(1);
   useEffect(() => {
-    if (!enabled || reducedMotion) {
+    if (reducedMotion || (!ready && !nearby)) {
       pulse.value = withTiming(1, { duration: 120 });
       return;
     }
-    pulse.value = withRepeat(withSequence(withTiming(1.06, { duration: 520, easing: Easing.inOut(Easing.quad) }), withTiming(1, { duration: 520, easing: Easing.inOut(Easing.quad) })), -1, true);
-  }, [enabled, pulse, reducedMotion]);
+    if (!ready && nearby) {
+      pulse.value = withRepeat(withSequence(withTiming(1.05, { duration: 640, easing: Easing.inOut(Easing.quad) }), withTiming(1, { duration: 640, easing: Easing.inOut(Easing.quad) })), -1, true);
+      return;
+    }
+    pulse.value = withRepeat(withSequence(withTiming(1.1, { duration: 420, easing: Easing.inOut(Easing.quad) }), withTiming(1, { duration: 420, easing: Easing.inOut(Easing.quad) })), -1, true);
+  }, [pulse, ready, nearby, reducedMotion]);
   const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  const far = !nearby && !ready;
   return (
     <Animated.View style={pulseStyle}>
       <Pressable
@@ -711,11 +987,23 @@ function HarvestButton({ enabled, disabled, reducedMotion, onPress }: { enabled:
         accessibilityLabel="Harvest"
         disabled={disabled}
         onPress={onPress}
-        style={[styles.harvestCircle, enabled && styles.harvestReady, !enabled && styles.actionDim]}
+        style={[
+          compact ? styles.harvestRimSlim : styles.harvestRim,
+          far && styles.harvestFar,
+          nearby && !ready && styles.harvestNearby,
+          (enabled || ready) && styles.harvestReady,
+        ]}
       >
         {({ pressed }) => (
-          <View style={[styles.harvestFace, pressed && styles.harvestPressed]}>
-            <Text style={styles.harvestText}>HARVEST</Text>
+          <View style={compact ? styles.harvestLipSlim : styles.harvestLip}>
+            <View style={[
+              compact ? styles.harvestFaceSlim : styles.harvestFace,
+              nearby && styles.harvestFaceNearby,
+              (enabled || ready) && styles.harvestFaceReady,
+              pressed && (compact ? styles.harvestPressedSlim : styles.harvestPressed),
+            ]}>
+              <Text style={[styles.harvestText, far && styles.harvestTextFar]}>{'HARVEST'}</Text>
+            </View>
           </View>
         )}
       </Pressable>
@@ -763,10 +1051,13 @@ function formatMazeTime(ms: number) {
 
 const styles = StyleSheet.create({
   shell: { flex: 1, overflow: 'hidden', touchAction: 'none' },
-  topChrome: { zIndex: 2, paddingBottom: 10 },
-  footer: { zIndex: 3, paddingTop: 10 },
+  topChrome: { position: 'absolute', left: 0, right: 0, top: 0, zIndex: 4, paddingBottom: 8 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 4, paddingTop: 4 },
   viewport: { flex: 1, position: 'relative', overflow: 'hidden' },
-  hud: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 },
+  toolDock: { position: 'absolute', left: 8, zIndex: 5 },
+  fieldSteer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 8, backgroundColor: 'transparent' },
+  hud: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 10, gap: 8 },
+  hudLeft: { alignItems: 'center', width: 46 },
   hudBtn: { width: 46, height: 48 },
   hudBtnLip: { width: 46, height: 48, borderRadius: 14, backgroundColor: '#5a3210', borderWidth: 2, borderColor: '#8a5a18' },
   hudBtnFace: {
@@ -789,15 +1080,31 @@ const styles = StyleSheet.create({
   mapPanel: { width: 8, height: 16, backgroundColor: '#ead9a7', borderWidth: 1, borderColor: '#8a5a18', transform: [{ skewY: '-8deg' }] },
   mapPanelMid: { backgroundColor: '#f4e2b0', transform: [{ skewY: '8deg' }], marginHorizontal: -1 },
   mapPanelEnd: { backgroundColor: '#d7c08a', transform: [{ skewY: '-8deg' }] },
-  statusWrap: { paddingLeft: 10, paddingRight: 10, marginTop: 6 },
+  warn: {
+    alignSelf: 'center',
+    marginTop: 6,
+    backgroundColor: 'rgba(40, 24, 10, 0.86)',
+    borderWidth: 2,
+    borderColor: '#f0c43a',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    color: '#fff6c6',
+    fontWeight: '900',
+    fontSize: 12,
+    overflow: 'hidden',
+  },
   slots: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4, justifyContent: 'center' },
   slot: { width: 22, height: 26, borderRadius: 6, backgroundColor: '#fff1bd', borderWidth: 2, borderColor: '#c78a32', alignItems: 'center', justifyContent: 'center' },
   slotGiven: { backgroundColor: '#d7f59a' },
   slotSpace: { width: 10, height: 26 },
   slotLetter: { color: '#4f7f26', fontWeight: '900', fontSize: 14 },
-  warn: { textAlign: 'center', color: '#fff1bd', fontWeight: '900', fontSize: 11, marginTop: 6 },
-  controls: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 16, minHeight: 128, gap: 12 },
-  stick: { width: 112, height: 112, borderRadius: 56, backgroundColor: 'rgba(28,16,8,0.72)', borderWidth: 3, borderColor: '#d7ad4b', alignItems: 'center', justifyContent: 'center', touchAction: 'none' },
+  controls: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
+  controlsPad: { minHeight: 120 },
+  controlsSlim: { minHeight: 64, justifyContent: 'flex-end' },
+  footerPad: { paddingTop: 8 },
+  footerSlim: { paddingTop: 0 },
+  stick: { width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(28,16,8,0.72)', borderWidth: 3, borderColor: '#d7ad4b', alignItems: 'center', justifyContent: 'center', touchAction: 'none' },
   stickTick: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#ead9a7' },
   stickTickN: { top: 10 },
   stickTickE: { right: 10 },
@@ -805,56 +1112,88 @@ const styles = StyleSheet.create({
   stickTickW: { left: 10 },
   knob: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#f4e2b0', borderWidth: 3, borderColor: '#c48a32' },
   actions: { flex: 1, gap: 8, alignItems: 'flex-end' },
-  picker: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  pick: { backgroundColor: 'rgba(59,36,16,0.88)', borderWidth: 2, borderColor: '#8a7350', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6 },
-  pickOn: { borderColor: '#fff6c6' },
-  pickText: { color: '#fff6c6', fontWeight: '900', fontSize: 10 },
   action: { minWidth: 132, minHeight: 46, borderRadius: 14, backgroundColor: '#5cae31', borderWidth: 2, borderColor: '#b9e875', alignItems: 'center', justifyContent: 'center' },
-  harvestCircle: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    backgroundColor: '#8a4f12',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    overflow: 'hidden',
-  },
-  harvestReady: { backgroundColor: '#a45c10' },
-  harvestFace: {
-    width: 108,
-    height: 100,
-    borderRadius: 54,
-    backgroundColor: '#d48a22',
+  harvestRim: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: '#d7ad4b',
     borderWidth: 3,
-    borderColor: '#f0c56a',
+    borderColor: '#fff3a8',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    shadowColor: '#ffe08a',
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
   },
-  harvestPressed: { height: 104, marginTop: 4 },
-  harvestText: { color: '#fff6c6', fontWeight: '900', fontSize: 13, letterSpacing: 0.6 },
-  mowCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#3b2410',
+  harvestRimSlim: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#d7ad4b',
+    borderWidth: 3,
+    borderColor: '#fff3a8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#ffe08a',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  harvestFar: { opacity: 0.58, borderColor: '#c9a15a', shadowOpacity: 0 },
+  harvestReady: { borderColor: '#fffbe6', shadowOpacity: 0.72, shadowRadius: 14 },
+  harvestNearby: { borderColor: '#ffe08a', shadowOpacity: 0.5, shadowRadius: 10 },
+  harvestLip: {
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+    backgroundColor: '#4a2a0c',
+    borderWidth: 2,
+    borderColor: '#8a5a18',
     alignItems: 'center',
     justifyContent: 'flex-start',
     overflow: 'hidden',
   },
-  mowFace: {
-    width: 64,
-    height: 58,
-    borderRadius: 32,
-    backgroundColor: '#5a7428',
+  harvestLipSlim: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#4a2a0c',
     borderWidth: 2,
-    borderColor: '#b7cc6a',
+    borderColor: '#8a5a18',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    overflow: 'hidden',
+  },
+  harvestFace: {
+    width: 102,
+    height: 94,
+    borderRadius: 51,
+    backgroundColor: '#f4e2b0',
+    borderWidth: 2,
+    borderColor: '#ead071',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  mowPressed: { height: 60, marginTop: 4 },
-  mowText: { color: '#fff6c6', fontWeight: '900', fontSize: 10, letterSpacing: 0.4 },
-  actionDim: { opacity: 0.42 },
+  harvestFaceSlim: {
+    width: 80,
+    height: 74,
+    borderRadius: 40,
+    backgroundColor: '#f4e2b0',
+    borderWidth: 2,
+    borderColor: '#ead071',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  harvestFaceNearby: { backgroundColor: '#f8ebb8', borderColor: '#f0c56a' },
+  harvestFaceReady: { backgroundColor: '#ffe08a', borderColor: '#fff6c6' },
+  harvestPressed: { height: 98, marginTop: 4 },
+  harvestPressedSlim: { height: 76, marginTop: 4 },
+  harvestText: { color: '#5a2808', fontWeight: '900', fontSize: 13, letterSpacing: 0.6 },
+  harvestTextFar: { color: '#7a5a28' },
   actionText: { color: 'white', fontWeight: '900', fontSize: 16 },
   score: { fontSize: 28, fontWeight: '900', color: '#c78a32', textAlign: 'center', marginVertical: 8 },
   input: { marginVertical: 10, borderWidth: 2, borderColor: '#c78a32', borderRadius: 10, backgroundColor: '#fff8dc', paddingHorizontal: 10, paddingVertical: 8, fontWeight: '900', color: '#3b2410', textAlign: 'center' },
@@ -864,11 +1203,7 @@ const styles = StyleSheet.create({
   miniWall: { backgroundColor: '#1a4a16' },
   miniPath: { backgroundColor: '#d7c08a' },
   miniHere: { backgroundColor: '#7ee04a' },
-  barnCount: { color: '#ffe08a', fontWeight: '900', fontSize: 9, marginTop: 1 },
-  barnRow: { backgroundColor: '#fff1bd', borderWidth: 2, borderColor: '#c78a32', borderRadius: 12, padding: 10, marginBottom: 8 },
-  barnDim: { opacity: 0.45 },
-  barnTitle: { color: '#4f7f26', fontWeight: '900', fontSize: 15 },
-  barnBlurb: { color: '#6a4522', fontWeight: '700', fontSize: 12, marginTop: 2 },
-  toast: { position: 'absolute', left: 16, right: 16, bottom: 12, zIndex: 12, backgroundColor: 'rgba(40,24,10,0.92)', borderRadius: 12, borderWidth: 2, borderColor: '#c78a32', padding: 10 },
+  toast: { position: 'absolute', left: 16, right: 16, bottom: 12, zIndex: 12, backgroundColor: 'rgba(40,24,10,0.92)', borderRadius: 12, borderWidth: 2, borderColor: '#c78a32', padding: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  toastIcon: { width: 36, height: 36, resizeMode: 'contain' },
   toastText: { color: '#fff6c6', fontWeight: '800', textAlign: 'center' },
 });

@@ -1,11 +1,36 @@
 import { cellKey, isWalkable, type MazePuzzle, type MazeRun } from './maze';
 
 export const LANTERN_SIGHT_BONUS = 5;
+export const LANTERN_BRIGHTEN_PERCENT = 25;
+export const LANTERN_MAX_STACK = 4;
 
 export type MazeSight = {
   mode: 'day' | 'evening' | 'mist' | 'storm';
   radius: number | null;
 };
+
+export function lanternCountFor(run: { lanternCount?: number; lanternActive?: boolean }) {
+  const stored = Math.max(0, Math.floor(Number(run.lanternCount) || 0));
+  if (stored > 0) return Math.min(LANTERN_MAX_STACK, stored);
+  return run.lanternActive ? 1 : 0;
+}
+
+export function lanternBrighten(count: number) {
+  return Math.min(1, Math.max(0, count) * (LANTERN_BRIGHTEN_PERCENT / 100));
+}
+
+export function lanternBrightenPercent(count: number) {
+  return Math.round(lanternBrighten(count) * 100);
+}
+
+export function lanternSightBonus(count: number) {
+  if (count <= 0) return 0;
+  return LANTERN_SIGHT_BONUS * (1 + (count - 1) * (LANTERN_BRIGHTEN_PERCENT / 100));
+}
+
+function sightExtra(run: MazeRun, reducedMist = false) {
+  return (reducedMist ? 3 : 0) + lanternSightBonus(lanternCountFor(run));
+}
 
 export function parseMazeVisibility(tag = 'day'): MazeSight {
   if (tag.startsWith('evening-')) return { mode: 'evening', radius: Number(tag.split('-')[1]) || 6 };
@@ -29,7 +54,7 @@ export function markExplored(puzzle: MazePuzzle, run: MazeRun): MazeRun {
 
 export function tileVisible(puzzle: MazePuzzle, run: MazeRun, col: number, row: number, reducedMist = false) {
   const sight = parseMazeVisibility(puzzle.visibility);
-  const extra = (reducedMist ? 3 : 0) + (run.lanternActive ? LANTERN_SIGHT_BONUS : 0);
+  const extra = sightExtra(run, reducedMist);
   const radius = sight.radius ? sight.radius + extra : null;
   const dist = Math.hypot(run.player.x - (col + 0.5), run.player.y - (row + 0.5));
   if (!radius) return true;
@@ -40,7 +65,7 @@ export function tileVisible(puzzle: MazePuzzle, run: MazeRun, col: number, row: 
 
 export function detailVisible(puzzle: MazePuzzle, run: MazeRun, col: number, row: number, reducedMist = false) {
   const sight = parseMazeVisibility(puzzle.visibility);
-  const extra = (reducedMist ? 3 : 0) + (run.lanternActive ? LANTERN_SIGHT_BONUS : 0);
+  const extra = sightExtra(run, reducedMist);
   const radius = sight.radius ? sight.radius + extra : null;
   if (!radius) return true;
   return Math.hypot(run.player.x - (col + 0.5), run.player.y - (row + 0.5)) <= radius + 0.6;

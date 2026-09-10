@@ -12,6 +12,7 @@ import {
   inspectCob,
   markNearbyVisits,
   mazeScore,
+  nearbyLetterCobs,
   movePlayer,
   nearestCellCenter,
   parseMazeAscii,
@@ -214,6 +215,37 @@ describe('CORN maze', () => {
     expect(cobsInRange(maze, approaching).map(item => item.id)).toEqual([cob.id]);
     expect(visibleLetterCobs(maze, approaching)).toEqual([]);
     expect(visibleLetterCobs(maze, { ...beside, facing: 'down' }).map(item => item.letter)).toEqual(['N']);
+  });
+
+  it('counts a plant as nearby from any facing once the farmer is in range', () => {
+    const maze = parseMazeAscii({
+      id: 'near-any-face',
+      seed: 'near-any-face',
+      chapter: 1,
+      title: 'Near',
+      answer: 'N',
+      clue: 'N',
+      ascii: `
+#####
+#...#
+#.N.#
+#.S.#
+#####
+      `,
+      revealDurationMs: 1000,
+    });
+    const cob = maze.cobs[0];
+    const beside = {
+      ...createMazeRun(maze),
+      solved: true,
+      started: true,
+      player: { x: cob.wall.col + 0.5, y: cob.wall.row - 0.5 },
+      facing: 'right' as const,
+    };
+    expect(nearbyLetterCobs(maze, beside).map(item => item.letter)).toEqual(['N']);
+    expect(visibleLetterCobs(maze, beside)).toEqual([]);
+    const peeked = inspectCob(maze, beside, cob.id, 0);
+    expect(peeked.ok).toBe(true);
   });
 
   it('turns in place to face a side plant instead of bouncing off the husk', () => {

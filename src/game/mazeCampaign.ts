@@ -224,9 +224,7 @@ export function maizeHomeQuote(level: { displayAnswer?: string; title: string; t
   return `${level.displayAnswer ?? level.title} is waiting. ${level.tip}`;
 }
 
-export function isFreePlayUnlocked(rewardedIds: string[], devUnlock = false) {
-  return devUnlock || rewardedIds.includes('maze-10-farmer') || rewardedIds.length >= 10;
-}
+export { isFreePlayUnlocked } from './mazeFreePlay';
 
 export function unlockAfterMazeComplete(playableIds: string[], unlockedIds: string[], completedId: string) {
   const next = playableIds[playableIds.indexOf(completedId) + 1];

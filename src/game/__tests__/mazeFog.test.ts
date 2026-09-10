@@ -16,6 +16,14 @@ describe('maze fog presentation', () => {
     const phone = fogRadiiPx({ mode: 'mist', radius: 4 }, 'heavy', false, { width: 360, height: 640 });
     expect(phone.outer).toBeLessThan(180);
     expect(phone.inner).toBeLessThan(phone.outer - 48);
+    expect(phone.compact).toBe(true);
+    expect(fogRadiiPx({ mode: 'mist', radius: 4 }, 'heavy', false, { width: 900, height: 700 }).compact).toBe(false);
+    const lamp1 = fogRadiiPx({ mode: 'mist', radius: 4 }, 'heavy', false, { width: 360, height: 640 }, 1);
+    const lamp2 = fogRadiiPx({ mode: 'mist', radius: 4 }, 'heavy', false, { width: 360, height: 640 }, 2);
+    expect(lamp1.inner).toBeGreaterThan(phone.inner);
+    expect(lamp2.inner).toBeGreaterThan(lamp1.inner);
+    expect(lamp2.densityMul).toBeLessThan(lamp1.densityMul);
+    expect(lamp1.densityMul).toBeCloseTo(0.75);
   });
 
   it('keeps unexplored mist tiles hidden to gameplay while veiling them for silhouettes', () => {

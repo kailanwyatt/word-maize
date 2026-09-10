@@ -4,20 +4,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { RaisedPill } from '../components/FarmButton';
+import { RaisedBoard } from '../components/RaisedBoard';
 import { Chevron } from '../components/HomeGlyphs';
 import { MAZE_PUZZLES } from '../data/mazeLevels';
-import { continueMazeLevel, maizeHomeQuote, MAZE_CHAPTERS } from '../game/mazeCampaign';
+import { continueMazeLevel, isFreePlayUnlocked, maizeHomeQuote, MAZE_CHAPTERS } from '../game/mazeCampaign';
+import { bestMazeScore, formatMazeScoreTime } from '../game/mazeScores';
+import { useMessages } from '../i18n';
 import { useGameStore } from '../store/GameStore';
 
 export function PlayScreen() {
   const router = useRouter();
+  const t = useMessages();
   const store = useGameStore();
   const next = continueMazeLevel(MAZE_PUZZLES, store.save.maze.rewardedIds, store.save.maze.unlockedIds, store.save.maze.runs);
   const chapter = MAZE_CHAPTERS.find(item => item.id === next.chapter) ?? MAZE_CHAPTERS[0];
   const cleared = store.save.maze.rewardedIds.length;
   const quote = maizeHomeQuote(next, cleared);
+  const lastId = store.save.maze.rewardedIds.at(-1);
+  const lastPuzzle = lastId ? MAZE_PUZZLES.find(level => level.id === lastId) : undefined;
+  const lastScore = lastId ? bestMazeScore(store.save.maze.scores, lastId) : null;
+  const lastRibbon = lastId ? store.save.maze.ribbons?.[lastId] : undefined;
+  const nextBest = bestMazeScore(store.save.maze.scores, next.id);
+  const nextRibbon = store.save.maze.ribbons?.[next.id];
   const resume = store.save.maze.runs[next.id] && !store.save.maze.runs[next.id]?.completed && !store.save.maze.rewardedIds.includes(next.id);
   const farmer = cleared >= 80 ? wordMaizeAssets.characters.farmerMayCelebration : wordMaizeAssets.characters.homeFarmerIdle;
+  const freePlay = isFreePlayUnlocked(store.save.maze.rewardedIds, store.save.settings.devUnlock);
 
   return (
     <View style={styles.root}>
@@ -30,8 +41,20 @@ export function PlayScreen() {
             <View style={styles.logoCol}>
               <Image source={wordMaizeAssets.ui.logo} style={styles.logo} />
               <View style={styles.tag}>
-                <Image source={wordMaizeAssets.ui.logoTaglinePlaque} style={styles.tagArt} />
-                <Text style={styles.tagText}>EXPLORE • SOLVE • HARVEST</Text>
+                <View style={styles.ropes} pointerEvents="none">
+                  <View style={styles.rope} />
+                  <View style={styles.rope} />
+                </View>
+                <RaisedBoard wood radius={12} depth={3} style={styles.tagFace} wrapStyle={styles.tagBoard}>
+                  <Text
+                    style={styles.tagText}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}
+                  >
+                    EXPLORE • SOLVE • HARVEST
+                  </Text>
+                </RaisedBoard>
               </View>
             </View>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open World Maize chapters, ${chapter.title}`} onPress={() => router.push('/maze')} style={styles.worldCard}>
@@ -69,6 +92,19 @@ export function PlayScreen() {
                 <>
                   <Text style={styles.continueKicker}>{resume ? 'RESUME FIELD' : 'CONTINUE MAIZE'}</Text>
                   <Text style={styles.continueMeta}>{chapter.title} • Field {next.order}</Text>
+                  {lastScore && lastId !== next.id ? (
+                    <Text style={styles.continueReward} numberOfLines={1}>
+                      {lastPuzzle?.displayAnswer}: {lastScore.coins ? `+${lastScore.coins} coins` : `${lastScore.points} pts`}
+                      {lastRibbon?.unaided ? ' · Unaided' : ''}
+                      {lastRibbon?.storm ? ' · Storm' : ''}
+                    </Text>
+                  ) : nextBest ? (
+                    <Text style={styles.continueReward} numberOfLines={1}>
+                      Best {nextBest.points} pts · {formatMazeScoreTime(nextBest.elapsedMs)}
+                      {nextRibbon?.unaided ? ' · Unaided' : ''}
+                      {nextRibbon?.storm ? ' · Storm' : ''}
+                    </Text>
+                  ) : null}
                   <Image source={wordMaizeAssets.ui.homeContinueThumb} style={styles.featureArt} />
                   <RaisedPill label={resume ? 'RESUME' : 'PLAY'} pressed={pressed} />
                 </>
@@ -85,6 +121,28 @@ export function PlayScreen() {
               )}
             </Pressable>
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={freePlay ? t.home.freePlayOpen : t.home.freePlayLocked}
+            disabled={!freePlay}
+            onPress={() => freePlay && router.push('/maze/free')}
+            style={[styles.freePlayCard, !freePlay && styles.freePlayDim]}
+          >
+            {({ pressed }) => (
+              <>
+                <View style={styles.freePlayCopy}>
+                  <Text style={styles.freePlayTitle}>{t.home.freePlayTitle}</Text>
+                  <Text style={styles.freePlayMeta}>{freePlay ? t.home.freePlayOpen : t.home.freePlayLocked}</Text>
+                </View>
+                {freePlay ? (
+                  <View style={styles.freePlayCta}>
+                    <RaisedPill label={t.home.freePlayPlay} pressed={pressed} />
+                  </View>
+                ) : <View style={styles.lockMark}><View style={styles.lockShackle} /><View style={styles.lockBody} /></View>}
+              </>
+            )}
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -97,17 +155,52 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 24, gap: 12 },
   brand: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  logoCol: { width: 148, alignItems: 'center' },
+  logoCol: { width: 164, alignItems: 'center' },
   logo: { width: 148, height: 78, resizeMode: 'contain' },
   tag: {
-    marginTop: 2,
-    width: 148,
-    height: 40,
+    marginTop: -4,
+    width: '100%',
+    alignItems: 'center',
+  },
+  ropes: {
+    position: 'absolute',
+    top: 0,
+    left: 26,
+    right: 26,
+    height: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    zIndex: 2,
+  },
+  rope: {
+    width: 2,
+    height: 12,
+    borderRadius: 1,
+    backgroundColor: '#d2b06a',
+    shadowColor: '#3a2410',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 0,
+  },
+  tagBoard: { marginTop: 8, width: '100%' },
+  tagFace: {
+    minHeight: 26,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tagArt: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, width: 148, height: 40, resizeMode: 'contain' },
-  tagText: { color: '#fff4c8', fontWeight: '900', fontSize: 7, letterSpacing: 0.35, textAlign: 'center', zIndex: 1 },
+  tagText: {
+    color: '#fff4c8',
+    fontWeight: '900',
+    fontSize: 8,
+    letterSpacing: 0.15,
+    textAlign: 'center',
+    width: '100%',
+    textShadowColor: 'rgba(20, 8, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 0,
+  },
   worldCard: {
     flex: 1,
     minHeight: 88,
@@ -174,6 +267,7 @@ const styles = StyleSheet.create({
   },
   continueKicker: { color: '#ffffff', fontWeight: '900', fontSize: 13, letterSpacing: 0.4 },
   continueMeta: { color: '#d7f0b8', fontWeight: '700', fontSize: 11 },
+  continueReward: { color: '#ffe08a', fontWeight: '800', fontSize: 11 },
   featureArt: { width: '100%', height: 72, borderRadius: 12, resizeMode: 'cover', backgroundColor: '#2a4a20' },
   mapCard: {
     flex: 1,
@@ -188,4 +282,24 @@ const styles = StyleSheet.create({
   },
   mapKicker: { color: '#5a3c18', fontWeight: '900', fontSize: 13, letterSpacing: 0.4 },
   mapMeta: { color: '#7a5828', fontWeight: '700', fontSize: 11 },
+  freePlayCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 20,
+    padding: 12,
+    backgroundColor: '#f4ead2',
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    borderColor: '#e2c48a',
+    borderBottomColor: '#8a5a22',
+  },
+  freePlayDim: { opacity: 0.72 },
+  freePlayCopy: { flex: 1, minWidth: 0 },
+  freePlayTitle: { color: '#3d2a14', fontWeight: '900', fontSize: 15, letterSpacing: 0.6 },
+  freePlayMeta: { color: '#7a5828', fontWeight: '700', fontSize: 12, marginTop: 4, lineHeight: 16 },
+  freePlayCta: { width: 108 },
+  lockMark: { width: 18, height: 20, alignItems: 'center' },
+  lockShackle: { width: 10, height: 7, borderWidth: 2, borderBottomWidth: 0, borderColor: '#7a6a50', borderTopLeftRadius: 8, borderTopRightRadius: 8 },
+  lockBody: { width: 16, height: 11, borderRadius: 3, backgroundColor: '#8a7a60', marginTop: -1 },
 });

@@ -18,6 +18,12 @@ describe('maze landmark art placement', () => {
       expect(landmarkArtPlacements(puzzle)).toEqual(placements);
     }
   });
+  it('places Sunny Acres memory props on decorative corn', () => {
+    const puzzle = MAZE_PUZZLES[0];
+    expect(puzzle.id).toBe('sunny-acres-corn');
+    expect((puzzle.landmarks ?? []).map(item => item.id)).toEqual(['rock', 'signpost', 'scarecrow', 'sunflowers']);
+    expect(landmarkArtPlacements(puzzle)).toHaveLength(4);
+  });
   it('omits a prop when there is no safe decorative host', () => {
     const puzzle = { ...MAZE_PUZZLES[0], cols: 3, rows: 3, terrain: Array.from({length:3}, () => ['path','path','path'] as const).map(row => [...row]), cobs: [], landmarks: [{ id:'well', name:'Well', origin:{col:1,row:1} }] };
     expect(landmarkArtPlacements(puzzle)).toEqual([]);

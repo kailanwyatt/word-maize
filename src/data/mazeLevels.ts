@@ -38,7 +38,12 @@ const LEGACY_BOARDS: Record<string, MazeLevel> = {
     displayAnswer: 'CORN',
     contentVersion: 'sunny-acres-corn-v1',
     topology: 'legacy',
-    landmarks: [],
+    landmarks: [
+      { id: 'rock', name: 'Rock', origin: { col: 1, row: 1 } },
+      { id: 'signpost', name: 'Signpost', origin: { col: 9, row: 1 } },
+      { id: 'scarecrow', name: 'Scarecrow', origin: { col: 9, row: 5 } },
+      { id: 'sunflowers', name: 'Sunflowers', origin: { col: 1, row: 11 } },
+    ],
     playable: true,
   },
   'sunny-hen': buildMazeLevel({ id: 'sunny-hen', order: 2, chapter: 1, title: 'At the fork', answer: 'HEN', clue: 'A female chicken.', layout: 'fork', decoys: 'AO', revealDurationMs: 4000, lesson: 'branches', objective: 'Remember which branch holds each letter.', tip: 'Use the central junction as your landmark.' }),

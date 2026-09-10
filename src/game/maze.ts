@@ -83,8 +83,10 @@ export type MazeRun = {
   usedRaincoat: boolean;
   usedHuskClip: boolean;
   usedScarecrow: boolean;
+  lanternCount: number;
   lanternActive: boolean;
   huskClipActive: boolean;
+  huskClips: string[];
   stormBonusMs: number;
   barnFinds: Partial<Inventory>;
   pickedFindIds: string[];
@@ -125,12 +127,12 @@ export const MAZE_INSPECT_RANGE = 0.85;
 /** Adjacent-cell center is 1.0 from the husk. Stay under the far lip (~1.5) so the ear opens at the plant, not a tile away. */
 export const MAZE_PLANT_REACH = 1.2;
 
-/** Phone-size renderer contract for later maze art. Collision uses the tile, not sprite pixels. */
+/** Phone-size renderer contract. Collision uses cell units; these sizes are pixels only. */
 export const MAZE_RENDER = {
-  tile: 48,
-  wallSprite: { width: 48, height: 56, footOffsetY: 8 },
-  plantSprite: { width: 48, height: 70, footOffsetY: 8, art: 80 },
-  farmerSprite: { width: 40, height: 56, footOffsetY: 4, art: 64 },
+  tile: 60,
+  wallSprite: { width: 86, height: 114, footOffsetY: 18 },
+  plantSprite: { width: 60, height: 88, footOffsetY: 10, art: 100 },
+  farmerSprite: { width: 50, height: 70, footOffsetY: 5, art: 80 },
 } as const;
 
 /** One footfall per maze cell so a step lands as the farmer enters the next square. */
@@ -206,8 +208,10 @@ export function createMazeRun(puzzle: MazePuzzle, campaign = true): MazeRun {
     usedRaincoat: false,
     usedHuskClip: false,
     usedScarecrow: false,
+    lanternCount: 0,
     lanternActive: false,
     huskClipActive: false,
+    huskClips: [],
     stormBonusMs: 0,
     barnFinds: {},
     pickedFindIds: [],
@@ -426,9 +430,14 @@ export function farmerFacesCob(run: MazeRun, cob: MazeCob) {
   return across <= 0.72;
 }
 
-export function visibleLetterCobs(puzzle: MazePuzzle, run: MazeRun) {
+/** Letter plants in reach, facing or not. Peek and harvest use this; the husk letter is a timed reveal. */
+export function nearbyLetterCobs(puzzle: MazePuzzle, run: MazeRun) {
   if (!run.solved || !run.started) return [];
-  return cobsInRange(puzzle, run).filter(cob => !cobBlockedByWildlife(run, cob.id) && farmerFacesCob(run, cob));
+  return cobsInRange(puzzle, run).filter(cob => !cobBlockedByWildlife(run, cob.id));
+}
+
+export function visibleLetterCobs(puzzle: MazePuzzle, run: MazeRun) {
+  return nearbyLetterCobs(puzzle, run).filter(cob => farmerFacesCob(run, cob));
 }
 
 export function markNearbyVisits(puzzle: MazePuzzle, run: MazeRun): MazeRun {
@@ -454,10 +463,11 @@ export function inspectCob(puzzle: MazePuzzle, run: MazeRun, cobId: string, elap
   const cob = availableCobs(puzzle, run).find(item => item.id === cobId);
   if (!cob) return { ok: false, reason: 'missing' };
   if (!cobsInRange(puzzle, run).some(item => item.id === cobId)) return { ok: false, reason: 'range' };
-  const inspected = run.inspectedCobIds.includes(cobId) ? run.inspectedCobIds : [...run.inspectedCobIds, cobId];
+  const firstVisit = !run.inspectedCobIds.includes(cobId);
+  const inspected = firstVisit ? [...run.inspectedCobIds, cobId] : run.inspectedCobIds;
   return {
     ok: true,
-    run: { ...run, inspectedCobIds: inspected, elapsedActiveMs, totalInspections: run.totalInspections + 1 },
+    run: { ...run, inspectedCobIds: inspected, elapsedActiveMs, totalInspections: run.totalInspections + (firstVisit ? 1 : 0) },
     reveal: { cobId, hideAtElapsedMs: elapsedActiveMs + peekDurationMs(puzzle, run) },
   };
 }
@@ -469,7 +479,37 @@ export function revealIfActive(reveal: MazeReveal | null, elapsedActiveMs: numbe
 }
 
 export function peekDurationMs(puzzle: MazePuzzle, run: MazeRun) {
-  return puzzle.revealDurationMs * (run.huskClipActive ? 2 : 1);
+  return puzzle.revealDurationMs;
+}
+
+export function clippedLetterIds(run: MazeRun) {
+  return run.huskClips.filter(id => !run.harvestedCobIds.includes(id));
+}
+
+export function clipFacingHusk(puzzle: MazePuzzle, run: MazeRun):
+  | { ok: true; run: MazeRun; cobId: string }
+  | { ok: false; reason: string } {
+  const faced = visibleLetterCobs(puzzle, run);
+  if (!faced.length) return { ok: false, reason: 'Face a letter plant to clip its husk.' };
+  const cob = faced.reduce((best, item) => {
+    const dist = Math.hypot(run.player.x - (item.wall.col + 0.5), run.player.y - (item.wall.row + 0.5));
+    const bestDist = Math.hypot(run.player.x - (best.wall.col + 0.5), run.player.y - (best.wall.row + 0.5));
+    return dist < bestDist ? item : best;
+  });
+  if (run.huskClips.includes(cob.id)) return { ok: false, reason: 'That husk is already clipped open.' };
+  const inspected = run.inspectedCobIds.includes(cob.id) ? run.inspectedCobIds : [...run.inspectedCobIds, cob.id];
+  return {
+    ok: true,
+    cobId: cob.id,
+    run: {
+      ...run,
+      huskClips: [...run.huskClips, cob.id],
+      huskClipActive: true,
+      usedHuskClip: true,
+      inspectedCobIds: inspected,
+      totalInspections: run.totalInspections + (inspected.length === run.inspectedCobIds.length ? 0 : 1),
+    },
+  };
 }
 
 export function harvestCob(puzzle: MazePuzzle, run: MazeRun, cobId: string, _reveal: MazeReveal | null, options?: { ignoreRange?: boolean }):
@@ -756,6 +796,14 @@ export function restoreMazeRun(puzzle: MazePuzzle, value: unknown): MazeRun {
   const solved = needsSolvePhase(puzzle) ? saved.solved === true : true;
   const cobMoves = saved.cobMoves && typeof saved.cobMoves === 'object' ? saved.cobMoves : {};
   const exploredKeys = Array.isArray(saved.exploredKeys) ? saved.exploredKeys.filter(key => typeof key === 'string') : fresh.exploredKeys;
+  const rawClips = Array.isArray((value as { huskClips?: unknown }).huskClips)
+    ? (value as { huskClips: unknown[] }).huskClips
+    : [];
+  const huskClips = [...new Set(rawClips.map(clip => {
+    if (typeof clip === 'string') return clip;
+    if (clip && typeof clip === 'object' && 'cobId' in clip && typeof clip.cobId === 'string') return clip.cobId;
+    return null;
+  }).filter((id): id is string => !!id))];
   return {
     puzzleId: puzzle.id,
     player,
@@ -777,8 +825,10 @@ export function restoreMazeRun(puzzle: MazePuzzle, value: unknown): MazeRun {
     usedRaincoat: saved.usedRaincoat === true,
     usedHuskClip: saved.usedHuskClip === true,
     usedScarecrow: saved.usedScarecrow === true,
-    lanternActive: saved.lanternActive === true,
-    huskClipActive: saved.huskClipActive === true,
+    lanternCount: Math.min(4, Math.max(0, Math.floor(Number(saved.lanternCount) || (saved.lanternActive === true ? 1 : 0)))),
+    lanternActive: (saved.lanternActive === true) || Math.floor(Number(saved.lanternCount) || 0) > 0,
+    huskClipActive: saved.huskClipActive === true || huskClips.length > 0,
+    huskClips,
     stormBonusMs: Math.max(0, Math.floor(Number(saved.stormBonusMs) || 0)),
     barnFinds: saved.barnFinds && typeof saved.barnFinds === 'object' ? saved.barnFinds : {},
     pickedFindIds: Array.isArray(saved.pickedFindIds) ? saved.pickedFindIds.filter(id => typeof id === 'string') : [],

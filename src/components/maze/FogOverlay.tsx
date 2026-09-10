@@ -2,9 +2,9 @@ import { createElement, useEffect } from 'react';
 import { Image, Platform, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { fogAssets } from '../../../assets/word-maize/effects/fog/assets';
-import { FOG_PRESETS, fogIntensityFor, fogRadiiPx, type FogIntensity } from '../../game/mazeFog';
+import { FOG_PRESETS, fogIntensityFor, fogLanternCount, fogRadiiPx, type FogIntensity } from '../../game/mazeFog';
 import type { StormPhase } from '../../game/mazeStorm';
-import type { MazeSight } from '../../game/mazeVisibility';
+import { lanternBrighten, type MazeSight } from '../../game/mazeVisibility';
 
 export const DEBUG_MAZE_FOG = false;
 
@@ -19,7 +19,7 @@ export type FogOverlayProps = {
   viewportHeight: number;
   paused?: boolean;
   reducedMotion?: boolean;
-  lantern?: boolean;
+  lantern?: number | boolean;
   debug?: boolean;
   bottomInset?: number;
 };
@@ -28,10 +28,10 @@ export type FogOverlayProps = {
 const SPOTLIGHT_DARK_T = 0.28;
 
 const FOG_OPACITY = {
-  light: 0.55,
-  medium: 0.8,
-  heavy: 1,
-  storm: 0.9,
+  light: 0.48,
+  medium: 0.7,
+  heavy: 0.88,
+  storm: 0.78,
 } as const;
 
 export function FogOverlay({
@@ -39,10 +39,11 @@ export function FogOverlay({
   viewportWidth, viewportHeight, paused = false, reducedMotion = false, lantern = false, bottomInset = 0,
 }: FogOverlayProps) {
   if (!enabled || viewportWidth < 2 || viewportHeight < 2) return null;
+  if (lanternBrighten(fogLanternCount(lantern)) >= 1) return null;
   const grade = intensity ?? fogIntensityFor(sight, phase);
-  const { inner, outer } = fogRadiiPx(sight, grade, reducedMotion, { width: viewportWidth, height: viewportHeight }, lantern);
-  const night = FOG_PRESETS[grade].density;
-  const fogAmt = FOG_OPACITY[grade];
+  const { inner, outer, densityMul, compact } = fogRadiiPx(sight, grade, reducedMotion, { width: viewportWidth, height: viewportHeight }, lantern);
+  const night = FOG_PRESETS[grade].density * densityMul * (compact ? 0.9 : 1);
+  const fogAmt = FOG_OPACITY[grade] * Math.max(0, densityMul) * (compact ? 0.82 : 1);
   const radii = holeRadii(inner, outer);
   return (
     <View pointerEvents="none" style={[styles.layer, { bottom: bottomInset }]} accessibilityElementsHidden>

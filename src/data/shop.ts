@@ -26,10 +26,10 @@ export const TOOL_INFO: Record<ToolId, { title: string; blurb: string }> = {
   butterBrush: { title: 'Butter Brush', blurb: 'Clears weeds, pests, webs, or frost—or reveals a useful word path.' },
   cornPicker: { title: 'Corn Picker', blurb: 'Harvests one visible kernel immediately, including a squirrel’s target.' },
   mower: { title: 'Mower', blurb: 'Cuts a straight line of decorative corn so you can walk a shortcut.' },
-  tractor: { title: 'Tractor', blurb: 'Rolls a short strip, mows a corridor, and harvests up to three letters in order.' },
-  lantern: { title: 'Lantern', blurb: 'A larger lamp for mist, evening, and storm. Lights farther around you for the rest of the field.' },
+  tractor: { title: 'Tractor', blurb: 'Mows a facing 3-by-4 corn swath and harvests letters in that span. The last letter stays manual.' },
+  lantern: { title: 'Lantern', blurb: 'Each lantern brightens mist, evening, or storm by 25%. Stack up to four on a field.' },
   raincoat: { title: 'Raincoat', blurb: 'Adds about 90 seconds to a storm forecast. Storm ribbons still use the original deadline.' },
-  huskClip: { title: 'Husk Clip', blurb: 'Peeks last twice as long for the rest of this field. Husks still close.' },
+  huskClip: { title: 'Husk Clip', blurb: 'Clip a facing plant so its letter stays open for the rest of this field.' },
 };
 
 export const SHOP_PRODUCTS: ShopProduct[] = [
@@ -132,9 +132,9 @@ export const COIN_TOOL_OFFERS: CoinToolOffer[] = [
   { id: 'coin-picker', title: 'Corn Picker', blurb: 'One Corn Picker to harvest a stubborn visible kernel.', coins: 340, tools: { cornPicker: 1 } },
   { id: 'coin-lantern', title: 'Field Lantern', blurb: 'One larger lamp for mist, evening, or storm.', coins: 280, tools: { lantern: 1 } },
   { id: 'coin-mower', title: 'Field Mower', blurb: 'One mower charge that cuts a line through decorative corn.', coins: 300, tools: { mower: 1 } },
-  { id: 'coin-tractor', title: 'Field Tractor', blurb: 'One tractor burst that rolls a strip and harvests in order.', coins: 520, tools: { tractor: 1 } },
+  { id: 'coin-tractor', title: 'Field Tractor', blurb: 'One 3-by-4 corn swath that mows a shortcut and harvests letters in span.', coins: 520, tools: { tractor: 1 } },
   { id: 'coin-raincoat', title: 'Storm Raincoat', blurb: 'One extra 90 seconds on a storm forecast.', coins: 260, tools: { raincoat: 1 } },
-  { id: 'coin-husk', title: 'Husk Clip', blurb: 'One clip that doubles peek time for a field.', coins: 220, tools: { huskClip: 1 } },
+  { id: 'coin-husk', title: 'Husk Clip', blurb: 'Clip one facing plant so its letter stays open for the rest of the field.', coins: 220, tools: { huskClip: 1 } },
   { id: 'coin-belt', title: 'Field Belt', blurb: 'One of each cob tool, packed for a hard cob.', coins: 720, tools: { scarecrow: 1, butterBrush: 1, cornPicker: 1 } },
 ];
 

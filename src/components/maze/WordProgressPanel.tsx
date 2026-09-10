@@ -21,9 +21,16 @@ export function WordProgressPanel({
             )
         ))}
       </View>
-      <Text style={styles.find} numberOfLines={1}>
-        {complete ? 'WORD COMPLETE' : target ? `FIND:  ${target}` : ' '}
-      </Text>
+      {complete ? (
+        <View style={styles.done}><Text style={styles.doneText}>WORD COMPLETE</Text></View>
+      ) : target ? (
+        <View style={styles.find}>
+          <Text style={styles.findLabel}>FIND</Text>
+          <Text style={styles.findLetter}>{target}</Text>
+        </View>
+      ) : (
+        <View style={styles.findIdle} />
+      )}
     </View>
   );
 }
@@ -35,15 +42,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 3,
     borderColor: '#d7ad4b',
-    paddingTop: 5,
+    paddingTop: 4,
     paddingBottom: 6,
     paddingHorizontal: 10,
     alignItems: 'center',
-    minHeight: 72,
+    minHeight: 78,
   },
-  boardCompact: { paddingTop: 4, paddingBottom: 4, minHeight: 64 },
+  boardCompact: { paddingTop: 3, paddingBottom: 4, minHeight: 70 },
   title: { color: '#f3d27a', fontWeight: '900', fontSize: 11, letterSpacing: 1.6 },
-  slots: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5, justifyContent: 'center' },
+  slots: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4, justifyContent: 'center' },
   tile: {
     minWidth: 22,
     height: 26,
@@ -60,5 +67,22 @@ const styles = StyleSheet.create({
   letter: { color: '#5d7f2c', fontWeight: '900', fontSize: 14 },
   letterFilled: { color: '#3f6a16' },
   gap: { width: 8, height: 26 },
-  find: { color: '#fff6c6', fontWeight: '900', fontSize: 12, marginTop: 4, letterSpacing: 0.8 },
+  find: {
+    marginTop: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0c43a',
+    borderRadius: 10,
+    paddingVertical: 2,
+    paddingLeft: 8,
+    paddingRight: 10,
+    gap: 6,
+    borderWidth: 2,
+    borderColor: '#fff4b0',
+  },
+  findLabel: { color: '#5a3210', fontWeight: '900', fontSize: 11, letterSpacing: 1.2 },
+  findLetter: { color: '#3b1a08', fontWeight: '900', fontSize: 22, lineHeight: 24 },
+  findIdle: { height: 28, marginTop: 5 },
+  done: { marginTop: 5, backgroundColor: '#5cae31', borderRadius: 10, paddingVertical: 4, paddingHorizontal: 10 },
+  doneText: { color: '#fff6c6', fontWeight: '900', fontSize: 11, letterSpacing: 0.8 },
 });

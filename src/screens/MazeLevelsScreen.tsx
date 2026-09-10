@@ -7,6 +7,8 @@ import { Chevron } from '../components/HomeGlyphs';
 import { MAZE_CAMPAIGN_TARGETS } from '../data/mazeCatalog';
 import { MAZE_PUZZLES } from '../data/mazeLevels';
 import { isFreePlayUnlocked, isMazeLevelUnlocked, MAZE_CHAPTERS } from '../game/mazeCampaign';
+import { bestMazeScore } from '../game/mazeScores';
+import { useMessages } from '../i18n';
 import { useGameStore } from '../store/GameStore';
 
 const CHAPTER_THUMBS = wordMaizeAssets.ui.chapterThumbs;
@@ -22,6 +24,7 @@ function LockMark() {
 
 export function MazeLevelsScreen() {
   const router = useRouter();
+  const t = useMessages();
   const { save, setSetting } = useGameStore();
   const unlockedIds = save.maze.unlockedIds ?? [];
   const rewardedIds = save.maze.rewardedIds;
@@ -73,7 +76,14 @@ export function MazeLevelsScreen() {
                 const unlocked = isMazeLevelUnlocked(MAZE_PUZZLES, level.id, rewardedIds, unlockedIds, devUnlock);
                 const continuing = !!save.maze.runs[level.id] && !save.maze.runs[level.id]?.completed;
                 const ribbon = save.maze.ribbons?.[level.id];
+                const score = bestMazeScore(save.maze.scores, level.id);
                 const action = !unlocked ? 'Locked' : continuing ? 'Continue' : completed ? 'Replay' : 'Enter';
+                const rewardBits = [
+                  score && score.coins > 0 ? `+${score.coins} coins` : null,
+                  score ? `${score.points} pts` : null,
+                  ribbon?.unaided ? 'Unaided' : null,
+                  ribbon?.storm ? 'Beat the Storm' : ribbon?.harvested ? 'Harvested' : null,
+                ].filter(Boolean).join(' · ');
                 return (
                   <Pressable
                     key={level.id}
@@ -86,7 +96,7 @@ export function MazeLevelsScreen() {
                     <View style={styles.fieldCopy}>
                       <Text style={styles.fieldTitle}>{level.order}. {level.displayAnswer}{completed ? ' ✓' : ''}</Text>
                       <Text style={styles.fieldBody} numberOfLines={2}>{level.objective}</Text>
-                      {ribbon?.harvested ? <Text style={styles.ribbon}>{ribbon.unaided ? 'Unaided · ' : ''}{ribbon.storm ? 'Beat the Storm' : 'Harvested'}</Text> : null}
+                      {rewardBits ? <Text style={styles.ribbon}>{rewardBits}</Text> : null}
                     </View>
                     {unlocked ? <Text style={styles.fieldAction}>{action.toUpperCase()}</Text> : <LockMark />}
                   </Pressable>
@@ -126,15 +136,15 @@ export function MazeLevelsScreen() {
               })}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={freePlay ? 'Open Free Play' : 'Free Play unlocks after ten fields'}
+                accessibilityLabel={freePlay ? t.home.freePlayOpen : t.home.freePlayLocked}
                 disabled={!freePlay}
                 onPress={() => freePlay && router.push('/maze/free')}
                 style={[styles.freePlay, !freePlay && styles.dimmed]}
               >
                 <Image source={wordMaizeAssets.ui.iconGamepad} style={styles.freePlayIcon} />
                 <View style={styles.chapterCopy}>
-                  <Text style={styles.chapterTitle}>Free Play</Text>
-                  <Text style={styles.chapterText}>{freePlay ? 'Make a custom field' : 'Unlocks after 10 fields'}</Text>
+                  <Text style={styles.chapterTitle}>{t.freePlay.title}</Text>
+                  <Text style={styles.chapterText}>{freePlay ? t.home.freePlayOpen : t.home.freePlayLocked}</Text>
                 </View>
                 {freePlay ? <Chevron color="#6a4420" size={16} /> : <LockMark />}
               </Pressable>
