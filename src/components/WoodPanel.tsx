@@ -1,22 +1,23 @@
 import { PropsWithChildren } from 'react';
-import { ImageBackground, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { ImageBackground, ImageStyle, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 
 type Props = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
+  imageStyle?: StyleProp<ImageStyle>;
   light?: boolean;
 }>;
 
 /** A repeatable material surface. Layout, text, and interaction remain native. */
-export function WoodPanel({ children, style, light = false }: Props) {
+export function WoodPanel({ children, style, imageStyle, light = false }: Props) {
   return (
     <ImageBackground
       source={wordMaizeAssets.ui.materials.woodPlanks}
       resizeMode="repeat"
       style={[styles.surface, style]}
-      imageStyle={styles.texture}
+      imageStyle={[styles.texture, imageStyle]}
     >
-      <View pointerEvents="none" style={[styles.tone, light && styles.toneLight]} />
+      <View pointerEvents="none" style={[styles.tone, light && styles.toneLight, imageStyle]} />
       {children}
     </ImageBackground>
   );

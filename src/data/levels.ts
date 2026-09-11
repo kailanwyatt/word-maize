@@ -15,13 +15,13 @@ const LEVEL_NAMES = [
   'Millstone Morning', 'Market Day', 'Lantern Rows', 'Autumn Maze', 'First Farm Restored',
   'Crows at the Creek', 'Feathered Thieves', 'Scarecrow Post', 'Bridge Watch', 'Two Troubles',
   'Creekside Rescue', 'Squirrel Stash', 'High Branches', 'Old Mill Crossing', 'Patch Stands Guard',
-  'Crow Council', 'Riverbank Rush', 'Protected Harvest', 'Bridge Builders', 'Crow Creek Restored',
+  'Crow Council', 'Riverbank Rush', 'Protected Harvest', 'Bridge Builders', 'Cayon Creek Restored',
   'Overgrown Gate', 'Apple Lane', 'Tangled Vines', 'Mill Garden', 'Golden Orchard',
   'Root Cellar', 'Drought Day', 'Rain Barrel', 'Locked Grove', 'Garden Rescue',
   'Cider Press', 'Golden Kernels', 'Orchard Challenge', 'Festival Supplies', 'Orchard Restored',
   'Twilight Fields', 'Rising Wind', 'Lantern Trail', 'Storm Watch', 'Night Harvest',
   'Moonlit Rows', 'Festival Wagons', 'Wind and Rain', 'Golden Night', 'Patch’s Promise',
-  'Valley Together', 'Final Supplies', 'Before the Storm', 'Festival Harvest', 'Moonlight Maize',
+  'Valley Together', 'Final Supplies', 'Before the Storm', 'Festival Harvest', "Pinney's Maize",
 ];
 
 const LATE_CAMPAIGN_WORDS: string[][] = [
@@ -37,7 +37,7 @@ const LATE_CAMPAIGN_WORDS: string[][] = [
   ['VALLEY', 'TOGETHER', 'FARM'], ['FINAL', 'SUPPLIES', 'READY'], ['BEFORE', 'STORM', 'SAFE'], ['FESTIVAL', 'HARVEST', 'CROWD'], ['MOONLIGHT', 'MAIZE', 'HOME'],
 ];
 
-const WORLD_NAMES = ['Sweet Corn Fields', 'Crow Creek', 'Orchard Hollow', 'Moonlight Maize'] as const;
+const WORLD_NAMES = ["Frankland's Corn Fields", 'Cayon Creek', 'Fig Tree Hollow', "Pinney's Maize"] as const;
 
 export const CORN_EDUCATIONAL_FACTS: Partial<Record<number, string>> = {
   1: 'FIELD NOTE · Sweet corn is harvested while the kernels are young, tender, and naturally high in sugar.',
@@ -81,7 +81,7 @@ function chapterOneLate(id: number) {
   const story = id === 15 ? {
     speaker: 'Patch',
     title: LEVEL_NAMES[id - 1],
-    text: 'The road through Sweet Corn Fields is changing. One strong harvest will carry us forward.',
+    text: "The road through Frankland's Corn Fields is changing. One strong harvest will carry us forward.",
   } : undefined;
   return {
     target,
@@ -121,7 +121,7 @@ function varietyProgression(id: number) {
   const tutorial = id === 16 ? ['Crows swoop after two valid words. Save the marked kernel first, or wait two more words for its return. Scarecrow clears a crow immediately.']
     : id === 20 ? ['A squirrel guards a letter. Each word of 5 or more letters releases one guarded kernel. Corn Picker harvests it immediately.']
     : id === 32 ? ['Weeds block letters and spread every three valid words, at most twice per level. Harvest beside a weed to cut it back, even across the cob seam. Butter Brush clears a weed.']
-    : id === 46 ? ['Moonlight Maize combines every skill from the valley.'] : [];
+    : id === 46 ? ["Pinney's Maize combines every skill from the valley."] : [];
 
   if (archetype === 1) {
     const minWords = 6 + chapter;
@@ -231,7 +231,7 @@ const CHAPTER_ONE = {
       { id: 'long-word-5', kind: 'longestWord', value: 5, label: 'Find a 5-letter word' },
       { id: 'eight-words', kind: 'maxWords', value: 8, label: 'Finish in 8 words or fewer' },
     ],
-    tutorial: ['Longer words earn more coins.', 'Tap the last selected kernel to undo one letter.'],
+    tutorial: ['Swipe horizontally or use the arrows to rotate.', 'Selected letters stay selected while you search around the cob.'],
   },
   3: {
     target: 50, reward: 120, words: ['WHEAT', 'GRAIN', 'MAIZE', 'HUSK'],
@@ -250,16 +250,16 @@ const CHAPTER_ONE = {
       { id: 'long-word-6', kind: 'longestWord', value: 6, label: 'Find a 6-letter word' },
       { id: 'nine-words', kind: 'maxWords', value: 9, label: 'Finish in 9 words or fewer' },
     ],
-    tutorial: ['Swipe horizontally or use the arrows to rotate.', 'Selected letters stay selected while you search around the cob.'],
+    tutorial: ['Longer words earn more coins.', 'Tap the last selected kernel to undo one letter.', 'Keep rotating — TRACTOR and HARVEST wrap around the cob.'],
   },
   5: {
     target: 55, reward: 140, words: ['ORCHARD', 'APPLE', 'PEAR', 'PEACH'],
     objective: { harvestPercent: 55, minLongestWord: 5 },
     stars: [
       { id: 'long-word-7', kind: 'longestWord', value: 7, label: 'Find a 7-letter word' },
-      { id: 'harvest-70', kind: 'harvestPercent', value: 70, label: 'Harvest 70%' },
+      { id: 'sun-clock-45', kind: 'firstWordWithinSeconds', value: 45, label: 'Find a word within 45 seconds' },
     ],
-    tutorial: ['Rotate whenever the next letter is hidden. There is no adjacency rule.'],
+    tutorial: ['A sun clock wants one word soon. The field is still yours if it runs out.', 'Rotate whenever the next letter is hidden. There is no adjacency rule.'],
   },
   6: {
     target: 58, reward: 150, words: ['RIVER', 'CREEK', 'POND', 'WATER'],
@@ -300,7 +300,10 @@ const CHAPTER_ONE = {
       { id: 'long-word-7', kind: 'longestWord', value: 7, label: 'Find a 7-letter word' },
       { id: 'harvest-75', kind: 'harvestPercent', value: 75, label: 'Harvest 75%' },
     ],
-    tutorial: ['Plan longer words before using rare letters.'],
+    tutorial: [
+      'A marked kernel is going bad. Harvest it in a word, or use the Butter Brush, before it falls off.',
+      'Unlike caterpillars, a fallen kernel does not come back.',
+    ],
   },
   10: {
     target: 65, reward: 250, words: ['BUTTER', 'KERNEL', 'GOLDEN', 'SWEET'],
@@ -310,7 +313,7 @@ const CHAPTER_ONE = {
       { id: 'no-tools', kind: 'noTools', label: 'Finish without a tool' },
     ],
     tutorial: ['This Bumper Crop combines rotation, layers, longer words, and careful tool use.'],
-    story: { speaker: 'Patch', title: 'Bumper Crop', text: 'One last field! Fill the festival wagon and Sweet Corn Fields will shine again. Keep an eye on the next rows — more hungry pests are gathering.' },
+    story: { speaker: 'Patch', title: 'Bumper Crop', text: "One last field! Fill the festival wagon and Frankland's Corn Fields will shine again. Keep an eye on the next rows — more hungry pests are gathering." },
   },
 } as const;
 
@@ -365,7 +368,8 @@ function makeLevel(
     moonlit: cornType === 'blue' && kernel.layer === 0 && activePositions.has(`${kernel.row}:${kernel.column}`),
     festival: cornType === 'golden' && kernel.layer === 0 && activePositions.has(`${kernel.row}:${kernel.column}`),
   }));
-  const baseObstacleKind = id === 36 ? 'web'
+  const baseObstacleKind = id === 9 ? 'rot'
+    : id === 36 ? 'web'
     : id === 48 || id === 52 ? 'frost'
     : id >= 8 && id <= 15 ? 'caterpillar'
     : id >= 16 && id <= 25 ? (id === 20 || id === 24 ? 'squirrel' : 'crow')
@@ -381,7 +385,7 @@ function makeLevel(
   const obstacleKinds = masteryObstacles
     ? [...masteryObstacles]
     : baseObstacleKind
-      ? Array.from({ length: baseObstacleKind === 'caterpillar' ? (id >= 13 ? 3 : 2) : id % 5 === 0 ? 2 : 1 }, () => baseObstacleKind)
+      ? Array.from({ length: baseObstacleKind === 'rot' ? 1 : baseObstacleKind === 'caterpillar' ? (id >= 13 ? 3 : 2) : id % 5 === 0 ? 2 : 1 }, () => baseObstacleKind)
       : [];
   const weather = [54, 57, 59, 60].includes(id)
     ? { kind: 'storm' as const, interval: 2 }
@@ -431,7 +435,7 @@ function makeLevel(
     ],
     educationalFact: CORN_EDUCATIONAL_FACTS[id],
     story: 'story' in config ? config.story : undefined,
-    shuffleOnStart: 'shuffle' in config ? config.shuffle : id > 10,
+    shuffleOnStart: 'shuffle' in config ? config.shuffle : id > 1,
     rotationEnabled: true,
     hintPaths: planted
       .map(coords => pathIds(coords.filter(([row, column]) => row < rows.length && column < columns)))
@@ -440,7 +444,7 @@ function makeLevel(
       id: `${obstacleKind}-${id}-${index}`,
       kind: obstacleKind,
       kernelId: `${1 + index}-${index === 0 ? 2 % columns : 1 % columns}-0`,
-      countdown: obstacleKind === 'caterpillar' ? 20 + index * 7 : obstacleKind === 'crow' ? 2 : 0,
+      countdown: obstacleKind === 'caterpillar' ? 20 + index * 7 : obstacleKind === 'rot' ? 30 : obstacleKind === 'crow' ? 2 : 0,
       strength: obstacleKind === 'frost' ? (id >= 54 ? 2 : 1) : undefined,
       anchorIds: obstacleKind === 'web' ? [`0-${index % columns}-0`, `0-${(index + 1) % columns}-0`] : undefined,
     })),
@@ -448,7 +452,7 @@ function makeLevel(
   };
 }
 
-export const WORLD_NAME = 'Sweet Corn Fields';
+export const WORLD_NAME = "Frankland's Corn Fields";
 export const NEXT_WORLD_NAME = 'Popcorn Acres';
 export const CAMPAIGN_WORLDS = [...WORLD_NAMES];
 export const worldNameForLevel = worldForLevel;

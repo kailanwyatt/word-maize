@@ -5,7 +5,7 @@ import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { WoodPanel } from '../components/WoodPanel';
 import { CAMPAIGN_WORLDS } from '../data/levels';
-import { CHAPTER_SUMMARIES, CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, chapterRange, chapterStarCount, isChapterUnlocked } from '../game/campaign';
+import { chapterSummary, CHAPTER_TITLES, chapterHarvests, chapterIndexForLevel, chapterRange, chapterStarCount, isChapterUnlocked } from '../game/campaign';
 import { useGameStore } from '../store/GameStore';
 
 const CHAPTER_ART = [
@@ -28,7 +28,7 @@ export function ChapterSelectScreen() {
   const currentChapter = chapterIndexForLevel(store.currentLevelId);
 
   const openChapter = (index: number) => {
-    if (!isChapterUnlocked(index, store.completedIds)) {
+    if (!isChapterUnlocked(index, store.completedIds, store.save.settings.devUnlock)) {
       Alert.alert('Still locked', `Harvest level ${index * 15} first to open this farm.`);
       return;
     }
@@ -50,7 +50,7 @@ export function ChapterSelectScreen() {
             <View key={row} style={styles.row}>
               {[0, 1].map(col => {
                 const index = row * 2 + col;
-                const unlocked = isChapterUnlocked(index, store.completedIds);
+                const unlocked = isChapterUnlocked(index, store.completedIds, store.save.settings.devUnlock);
                 const harvests = chapterHarvests(store.completedIds, index);
                 const stars = chapterStarCount(store.save.levels, index);
                 const range = chapterRange(index);
@@ -71,7 +71,7 @@ export function ChapterSelectScreen() {
                     <WoodPanel style={styles.copy}>
                       <Text style={styles.chapter}>{CHAPTER_TITLES[index]}</Text>
                       <Text style={styles.world} numberOfLines={2}>{CAMPAIGN_WORLDS[index]}</Text>
-                      <Text style={styles.blurb} numberOfLines={2}>{CHAPTER_SUMMARIES[index]}</Text>
+                      <Text style={styles.blurb} numberOfLines={2}>{chapterSummary(index, store.save.settings.farmerName)}</Text>
                       <Text style={styles.meta}>LEVELS {range.start}–{range.end}</Text>
                       <View style={styles.progressTrack}>
                         <View style={[styles.progressFill, { width: `${(harvests.clears / harvests.total) * 100}%` }]} />

@@ -195,9 +195,5 @@ function makeWisp(width, height, seed, thin) {
 }
 
 fs.mkdirSync(outDir, { recursive: true });
-writeGrayAlpha(path.join(outDir, 'fog-texture-soft.png'), 1024, 1024, makeSoft(1024), 214);
-writeGrayAlpha(path.join(outDir, 'fog-noise.png'), 512, 512, makeNoise(512), 220);
-writeGrayAlpha(path.join(outDir, 'fog-wisp-01.png'), 1024, 512, makeWisp(1024, 512, 3, false), 232);
-writeGrayAlpha(path.join(outDir, 'fog-wisp-02.png'), 1024, 512, makeWisp(1024, 512, 71, true), 226);
 writeFogPlate(path.join(outDir, 'fog-spotlight.png'), 1024, 1024, makeSpotlight(1024), 0, 0, 0);
-console.log(`Wrote fog textures to ${outDir}`);
+console.log(`Wrote fog spotlight to ${outDir}`);

@@ -21,19 +21,19 @@ const CHAPTER_OPEN: Record<number, StoryBeat> = {
   2: {
     id: 'chapter:2',
     lines: [
-      { speaker: 'Patch', pose: 'pointing', text: 'Green Fields stretch farther. An inspected husk remembers your visit, not the letter. Use the junctions.' },
+      { speaker: 'Patch', pose: 'pointing', text: 'Green Valley stretches farther. An inspected husk remembers your visit, not the letter. Use the junctions.' },
     ],
   },
   3: {
     id: 'chapter:3',
     lines: [
-      { speaker: 'May', pose: 'welcome', text: 'Word Hunt first. Solve the clue, then walk. The maize will not show the next letter until the word is in.' },
+      { speaker: 'May', pose: 'welcome', text: 'Zion Word Hunt first. Solve the clue, then walk. The maize will not show the next letter until the word is in.' },
     ],
   },
   4: {
     id: 'chapter:4',
     lines: [
-      { speaker: 'May', pose: 'welcome', text: 'Tall Corn means bigger sectors. Landmarks — wells, mills, hay — keep your place when the rows look the same.' },
+      { speaker: 'May', pose: 'welcome', text: 'Wingfield means bigger sectors. Landmarks — wells, mills, hay — keep your place when the rows look the same.' },
     ],
   },
   5: {
@@ -45,13 +45,13 @@ const CHAPTER_OPEN: Record<number, StoryBeat> = {
   6: {
     id: 'chapter:6',
     lines: [
-      { speaker: 'May', pose: 'welcome', text: 'Evening light is short. Stay near the lamp of your path, and open the field map if a junction goes dim.' },
+      { speaker: 'May', pose: 'welcome', text: 'Half Moon. Evening light is short. Stay near the lamp of your path, and open the field map if a junction goes dim.' },
     ],
   },
   7: {
     id: 'chapter:7',
     lines: [
-      { speaker: 'Patch', pose: 'speaking', text: 'Mist hides what you have not walked. Explored ground stays in mind. A lantern in the Barn helps, but your feet still teach the maze.' },
+      { speaker: 'Patch', pose: 'speaking', text: 'Misty Nevis Peak. Mist hides what you have not walked. Explored ground stays in mind. A lantern in the Barn helps, but your feet still teach the maze.' },
     ],
   },
   8: {
@@ -87,6 +87,12 @@ export const STORY_BEATS = {
       { speaker: 'May', pose: 'welcome', text: 'The forecast is running. Harvest before it closes for the storm ribbon. If you take shelter, the field still counts.' },
     ],
   } satisfies StoryBeat,
+  mower: {
+    id: 'mechanic:mower',
+    lines: [
+      { speaker: 'Patch', pose: 'pointing', text: 'Some letter plants hide behind decorative corn. Face that wall, tap Mower, and cut a straight path. It will not cut letter plants.' },
+    ],
+  } satisfies StoryBeat,
   clue: {
     id: 'mechanic:clue',
     lines: [
@@ -112,7 +118,9 @@ export function chapterClearBeat(chapter: number): StoryBeat {
     lines: [
       { speaker: 'May', pose: 'celebrate', text: chapter >= 8
         ? 'The last chapter is harvested. Walk the map whenever you miss a field.'
-        : 'Chapter harvested. The next fields are waiting when you are ready.' },
+        : chapter === 1
+          ? 'Sandy Point is harvested. Green Valley is waiting when you are ready.'
+          : 'Chapter harvested. The next fields are waiting when you are ready.' },
     ],
   };
 }
@@ -140,6 +148,7 @@ export function nextStoryBeat(input: {
   if (input.completed && input.chapterDone) return unseen(chapterClearBeat(input.chapter));
   if (!input.started) {
     if (input.puzzleId === 'sunny-acres-corn') return unseen(STORY_BEATS.firstField);
+    if (input.puzzleId === 'maze-07-seed') return unseen(STORY_BEATS.mower);
     if (input.chapterLevel === 1) return unseen(chapterOpenBeat(input.chapter));
     if (input.needsClue && !input.solved) return unseen(STORY_BEATS.clue);
     if (input.mist) return unseen(STORY_BEATS.mist);

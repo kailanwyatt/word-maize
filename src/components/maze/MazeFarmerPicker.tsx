@@ -1,34 +1,16 @@
-import { useEffect, useRef } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mazeAssets } from '../../../assets/word-maize/maze/assets';
 import { MAZE_FARMERS, type MazeFarmerId } from '../../data/mazeFarmers';
 
-const CARD = 148;
-const GAP = 12;
-
 export function MazeFarmerPicker({
-  value, onChange,
+  value, onChange, compact = false,
 }: {
   value: MazeFarmerId;
   onChange: (id: MazeFarmerId) => void;
+  compact?: boolean;
 }) {
-  const scroll = useRef<ScrollView>(null);
-  useEffect(() => {
-    const index = Math.max(0, MAZE_FARMERS.findIndex(farmer => farmer.id === value));
-    scroll.current?.scrollTo({ x: index * (CARD + GAP), animated: false });
-  }, [value]);
   return (
-    <ScrollView
-      ref={scroll}
-      horizontal
-      nestedScrollEnabled
-      directionalLockEnabled
-      style={styles.scroller}
-      showsHorizontalScrollIndicator={false}
-      snapToInterval={CARD + GAP}
-      decelerationRate="fast"
-      contentContainerStyle={styles.row}
-    >
+    <View style={styles.grid}>
       {MAZE_FARMERS.map(farmer => {
         const selected = farmer.id === value;
         return (
@@ -38,73 +20,49 @@ export function MazeFarmerPicker({
             accessibilityLabel={`Farmer profile ${farmer.name}`}
             accessibilityState={{ selected }}
             onPress={() => onChange(farmer.id)}
-            style={[styles.card, selected && styles.selected]}
+            style={[styles.cell, compact && styles.cellCompact, selected && styles.selected]}
           >
-            <View style={styles.portrait}>
-              <Image source={mazeAssets.farmerProfiles[farmer.id]} resizeMode="contain" style={styles.art} />
-            </View>
-            <View style={[styles.markBar, selected && styles.markBarOn]}>
-              <View style={[styles.radio, selected && styles.radioOn]}>
-                {selected ? <Text style={styles.check}>✓</Text> : null}
+            <Image source={mazeAssets.farmerProfiles[farmer.id]} resizeMode="contain" style={styles.art} />
+            {selected ? (
+              <View style={styles.check}>
+                <Text style={styles.checkMark}>✓</Text>
               </View>
-            </View>
+            ) : null}
           </Pressable>
         );
       })}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroller: { flexGrow: 0 },
-  row: { gap: GAP, paddingVertical: 4, paddingRight: 24 },
-  card: {
-    width: CARD,
-    height: 214,
-    borderRadius: 18,
-    borderWidth: 3,
-    borderColor: '#c9a87a',
-    backgroundColor: '#f3e4c4',
-    overflow: 'hidden',
-  },
-  selected: { borderColor: '#3d8c22' },
-  portrait: {
-    flex: 1,
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  cell: {
+    width: '22%',
+    aspectRatio: 0.9,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#e2c48a',
+    backgroundColor: '#f6ead0',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    backgroundColor: '#efe0bc',
   },
-  art: {
-    width: CARD,
-    height: 188,
-  },
-  markBar: {
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#d8c09a',
-  },
-  markBarOn: { backgroundColor: '#3d8c22' },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#fff8e8',
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioOn: {
-    backgroundColor: '#58c22e',
-    borderColor: '#fff8e8',
-  },
+  cellCompact: { borderRadius: 12 },
+  selected: { borderColor: '#3d8c22', borderWidth: 3, backgroundColor: '#e7f5c5' },
+  art: { width: '112%', height: '112%', marginBottom: -6 },
   check: {
-    color: '#ffffff',
-    fontWeight: '900',
-    fontSize: 13,
-    lineHeight: 16,
-    marginTop: -1,
+    position: 'absolute',
+    right: 4,
+    bottom: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#58c22e',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  checkMark: { color: '#ffffff', fontWeight: '900', fontSize: 11, lineHeight: 13, marginTop: -1 },
 });

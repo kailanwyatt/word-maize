@@ -1,19 +1,12 @@
 # Word Maize
 
-Word Maize is a portrait casual word game for iOS, Android, and web. Players rotate a dimensional corn-cob board, tap visible kernels in spelling order, and press the assembled word to submit it. Valid words send kernels into the harvest basket, expose sockets and deeper layers, and restore a farming valley across a 60-level campaign.
+Portrait casual word game for iOS, Android, and web. World Maize is the main campaign: walk a corn maze, remember hidden letters, and harvest a word. The Fair keeps Cob Harvest, Endless Harvest, and extra cob puzzles.
 
-This repository contains the Expo + React Native MVP, including the approved cob presentation, campaign maps, local progression, six corn varieties, obstacles, weather, tools, shop scaffolding, rewarded ads/IAP adapters, and the post-campaign Endless Harvest mode.
+## Guide
 
-## Authoritative documentation
+[docs/WORD_MAIZE.md](docs/WORD_MAIZE.md) — how play works, repo layout, goals, and remaining work.
 
-- [Game overview](docs/GAME_OVERVIEW.md) — identity, audience, pillars, modes, story, and MVP boundaries
-- [Gameplay systems](docs/GAMEPLAY_SYSTEMS.md) — controls, rules, objectives, scoring, corn varieties, obstacles, weather, and tools
-- [Campaign and content](docs/CAMPAIGN_CONTENT.md) — Levels 1–60, worlds, progression, tutorials, maps, and Endless Harvest
-- [Technical architecture](docs/TECHNICAL_ARCHITECTURE.md) — runtime, modules, save format, asset pipeline, testing, and release constraints
-- [Corn art contract](docs/CORN_VARIETIES_AND_ENDLESS_PLAN.md) — approved sprite geometry and variety production rules
-- [Tutorial and balance specification](docs/TUTORIAL_AND_BALANCE_SPEC.md) — mechanic introductions, educational field notes, difficulty, energy, rewards, and tool pricing
-
-Older planning and handoff files remain useful historical context, but the documents above describe the current implementation.
+Completed plans and unused art are outside this repo, in `../word-maize-archive`.
 
 ## Run
 
@@ -22,16 +15,14 @@ npm install
 npm start
 ```
 
-Use `npm run ios`, `npm run android`, or `npm run web` for a target platform.
-
-Gameplay and the local purchase/ad fallbacks run in Expo Go. Real RevenueCat purchases and AdMob rewarded ads require an Expo development build:
+`npm run ios`, `npm run android`, or `npm run web` for a target. Gameplay and local purchase/ad fallbacks run in Expo Go. Real RevenueCat and AdMob need an Expo development build:
 
 ```bash
 npx eas build --profile development --platform ios
 npm run start:dev
 ```
 
-Production keys belong in `app.json` extras and EAS secrets. Expo Go cannot load those native SDKs.
+Keys belong in `app.json` extras and EAS secrets.
 
 ## Verify
 
@@ -41,4 +32,4 @@ npm test
 npm run art:corn:validate
 ```
 
-The deterministic game rules live in `src/game`; screens consume those rules and must not reproduce them.
+Deterministic rules live in `src/game`. Screens consume those APIs and must not reproduce them.

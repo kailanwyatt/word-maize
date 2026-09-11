@@ -1,4 +1,4 @@
-import campaign from '../../docs/planning/maze-campaign-levels.json';
+import campaign from './maze-campaign-levels.json';
 
 export type MazeVisibility = 'day' | 'evening' | 'mist' | 'storm';
 export type MazeWildlifeTag = string;
@@ -36,13 +36,13 @@ export const MAZE_CAMPAIGN_CONTENT_VERSION = 'campaign-v2';
 export const MAZE_CAMPAIGN_TARGETS = campaign.levels as MazeCampaignTarget[];
 
 export const MAZE_CHAPTER_META = [
-  { id: 1, title: 'Sunny Acres', description: 'Explore, remember, and harvest.' },
-  { id: 2, title: 'Green Fields', description: 'Choose routes and manage more letters.' },
-  { id: 3, title: 'Word Hunt', description: 'Solve the clue, then harvest.' },
-  { id: 4, title: 'Tall Corn', description: 'Navigate larger sectors.' },
+  { id: 1, title: 'Sandy Point', description: 'Explore, remember, and harvest.' },
+  { id: 2, title: 'Green Valley', description: 'Choose routes and manage more letters.' },
+  { id: 3, title: 'Zion Word Hunt', description: 'Solve the clue, then harvest.' },
+  { id: 4, title: 'Wingfield', description: 'Navigate larger sectors.' },
   { id: 5, title: 'Crow Country', description: 'Recover from wildlife events.' },
-  { id: 6, title: 'Evening Harvest', description: 'Find letters in limited light.' },
-  { id: 7, title: 'Misty Valley', description: 'Remember explored ground in mist.' },
+  { id: 6, title: 'Half Moon', description: 'Find letters in limited light.' },
+  { id: 7, title: 'Misty Nevis Peak', description: 'Remember explored ground in mist.' },
   { id: 8, title: 'Storm Season', description: 'Finish before the forecast closes.' },
 ] as const;
 

@@ -1,11 +1,11 @@
 import { Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 
-export function SplashView({ progress }: { progress: number }) {
+export function SplashView({ progress, loading }: { progress: number; loading: string }) {
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.homeFarm} style={styles.wrap} resizeMode="cover">
       <Image source={wordMaizeAssets.ui.logo} style={styles.logo} />
-      <Text style={styles.sub}>Harvesting words...</Text>
+      <Text style={styles.sub}>{loading}</Text>
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${Math.round(progress * 100)}%` }]} />
       </View>

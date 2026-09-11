@@ -22,6 +22,7 @@ export type LevelRunStats = {
   words: string[];
   toolsUsed: number;
   layersRevealed: number;
+  firstWordMs?: number | null;
 };
 
 export function objectiveComplete(level: Level, stats: LevelRunStats): boolean {
@@ -38,6 +39,9 @@ export function starGoalComplete(goal: StarGoal, stats: LevelRunStats): boolean 
   if (goal.kind === 'maxWords') return stats.words.length <= goal.value;
   if (goal.kind === 'noTools') return stats.toolsUsed === 0;
   if (goal.kind === 'layersRevealed') return stats.layersRevealed >= goal.value;
+  if (goal.kind === 'firstWordWithinSeconds') {
+    return stats.firstWordMs != null && stats.firstWordMs <= goal.value * 1000;
+  }
   return stats.percent >= goal.value;
 }
 

@@ -30,6 +30,7 @@ export function KernelTile({
   blocked = false,
   webAnchor = false,
   pickerMode = false,
+  allowPressWhenEmpty = false,
 }: {
   layout: KernelLayout;
   size: number;
@@ -47,12 +48,13 @@ export function KernelTile({
   blocked?: boolean;
   webAnchor?: boolean;
   pickerMode?: boolean;
+  allowPressWhenEmpty?: boolean;
 }) {
   const { kernel, x, y, scaleX, scale, shade } = layout;
   const dormant = kernel.variety === 'white' && kernel.dormant === true;
   const moonlitHidden = isMoonlitHidden(kernel, shade, selected || hinted);
   const activeObstacle = obstacle && obstacle.status !== 'cleared' ? obstacle : undefined;
-  const isKernelObstacle = activeObstacle?.kind === 'weed' || activeObstacle?.kind === 'caterpillar' || activeObstacle?.kind === 'frost';
+  const isKernelObstacle = activeObstacle?.kind === 'weed' || activeObstacle?.kind === 'caterpillar' || activeObstacle?.kind === 'frost' || activeObstacle?.kind === 'rot';
   const isBoardActorTarget = activeObstacle?.kind === 'crow' || activeObstacle?.kind === 'squirrel';
   const cornArt = varietyArt(kernel);
   const kernelArt = activeObstacle?.kind === 'weed'
@@ -73,7 +75,7 @@ export function KernelTile({
       obstaclePulse.setValue(0);
       return;
     }
-    const duration = activeObstacle.kind === 'caterpillar' ? 360 : 700;
+    const duration = activeObstacle.kind === 'caterpillar' || activeObstacle.kind === 'rot' ? 360 : 700;
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(obstaclePulse, { toValue: 1, duration, useNativeDriver: true }),
       Animated.timing(obstaclePulse, { toValue: 0, duration, useNativeDriver: true }),
@@ -123,8 +125,8 @@ export function KernelTile({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${moonlitHidden ? 'Hidden moonlit letter' : `Letter ${kernel.letter}`}, row ${kernel.row + 1}, column ${kernel.column + 1}${webAnchor ? ', web anchor: harvest to release trapped letter' : ''}${dormant ? ', sleeping White Corn kernel' : ''}${obstacle && obstacle.status !== 'cleared' ? `, ${obstacle.kind} obstacle ${obstacleBadge(obstacle)}` : ''}`}
-      accessibilityState={{ selected, disabled: kernel.harvested || moonlitHidden || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35 }}
-      disabled={kernel.harvested || moonlitHidden || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35}
+      accessibilityState={{ selected, disabled: (kernel.harvested && !allowPressWhenEmpty) || moonlitHidden || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35 }}
+      disabled={(kernel.harvested && !allowPressWhenEmpty) || moonlitHidden || (!pickerMode && blocked) || (layout.opacity ?? 1) < 0.35}
       style={[
         styles.wrap,
         {
@@ -168,12 +170,15 @@ export function KernelTile({
             styles.kernel,
             dormant && styles.dormantKernel,
             faulted && styles.kernelFaulted,
+            activeObstacle?.kind === 'rot' && styles.rotKernel,
             rejected && { opacity: reject.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] }) },
             isKernelObstacle && {
               opacity: obstacleExit.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] }),
+              tintColor: activeObstacle?.kind === 'rot' ? '#6b3d14' : undefined,
               transform: [
+                { translateY: obstacleExit.interpolate({ inputRange: [0, 1], outputRange: [0, activeObstacle?.kind === 'rot' ? 56 : 0] }) },
                 { scale: obstacleExit.interpolate({ inputRange: [0, 0.35, 1], outputRange: [1, 1.12, 0.3] }) },
-                { rotate: obstacleExit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', activeObstacle?.kind === 'frost' ? '16deg' : '-10deg'] }) },
+                { rotate: obstacleExit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', activeObstacle?.kind === 'frost' ? '16deg' : activeObstacle?.kind === 'rot' ? '28deg' : '-10deg'] }) },
               ],
             },
           ]}
@@ -186,6 +191,7 @@ export function KernelTile({
           moonlitHidden && styles.moonlitLetter,
           { fontSize: size * 0.42 },
           activeObstacle?.kind === 'caterpillar' && { opacity: Math.max(0.4, (activeObstacle.secondsRemaining ?? 20) / activeObstacle.countdown) },
+          activeObstacle?.kind === 'rot' && { opacity: Math.max(0.35, (activeObstacle.secondsRemaining ?? 30) / activeObstacle.countdown), color: '#4a2410' },
           activeObstacle?.kind === 'crow' && activeObstacle.status === 'triggered' && { opacity: 0 },
         ]}>
           {moonlitHidden ? '✦' : kernel.letter}
@@ -213,7 +219,7 @@ export function KernelTile({
             ],
           },
         ]}>
-          <Image source={wordMaizeAssets.obstacles[activeObstacle.kind]} style={styles.obstacle} />
+          <Image source={wordMaizeAssets.obstacles.web} style={styles.obstacle} />
           <Text style={styles.countdown}>{obstacleBadge(activeObstacle)}</Text>
         </Animated.View> : null}
         {isKernelObstacle && activeObstacle ? <Text style={styles.kernelCountdown}>{obstacleBadge(activeObstacle)}</Text> : null}
@@ -244,6 +250,7 @@ const styles = StyleSheet.create({
   popChargeText: { color: '#fffdf2', fontWeight: '900', fontSize: 10 },
   festivalBadge: { position: 'absolute', right: '-10%', top: '-10%', zIndex: 6, width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#fff3a8', backgroundColor: '#8a4b12', color: '#ffd52a', textAlign: 'center', fontWeight: '900', fontSize: 14, overflow: 'hidden' },
   kernelFaulted: { tintColor: '#c45a32' },
+  rotKernel: { tintColor: '#6b3d14' },
   dormantLetter: { opacity: 0.5 },
   moonlitLetter: { color: '#d8dbff', opacity: 0.42, fontSize: 18 },
   dormantMark: { position: 'absolute', width: '56%', height: '56%', opacity: 0.75 },

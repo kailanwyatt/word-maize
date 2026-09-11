@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { CORN_MAZE, validateMazeLevels } from '../../data/mazeLevels';
+import { CORN_MAZE, MAZE_PUZZLES, validateMazeLevels } from '../../data/mazeLevels';
 import {
   farmerWalkFrame,
   cobsInRange,
   createMazeRun,
   currentTarget,
   facingFromVector,
+  floodFillPaths,
   harvestCob,
   isWalkable,
   cellKey,
   inspectCob,
   markNearbyVisits,
   mazeScore,
+  harvestReadyCobs,
+  mazeRevealedIds,
   nearbyLetterCobs,
+  farmerFacesCob,
   movePlayer,
   nearestCellCenter,
   parseMazeAscii,
@@ -24,6 +28,8 @@ import {
   type MazeRun,
 } from '../maze';
 import { canMowCell, cutMowerLine } from '../mazeMower';
+import { mazeDistances } from '../mazeCampaign';
+import { mazeFindsFor } from '../mazeFinds';
 
 describe('CORN maze', () => {
   it('ships a solvable authored board with two decoys', () => {
@@ -246,6 +252,75 @@ describe('CORN maze', () => {
     expect(visibleLetterCobs(maze, beside)).toEqual([]);
     const peeked = inspectCob(maze, beside, cob.id, 0);
     expect(peeked.ok).toBe(true);
+  });
+
+  it('harvests a nearby revealed target while facing the opposite way', () => {
+    const maze = parseMazeAscii({
+      id: 'harvest-unfaced',
+      seed: 'harvest-unfaced',
+      chapter: 1,
+      title: 'Unfaced',
+      answer: 'N',
+      clue: 'N',
+      ascii: `
+#####
+#...#
+#.N.#
+#.S.#
+#####
+      `,
+      revealDurationMs: 1000,
+    });
+    const cob = maze.cobs[0];
+    const beside = {
+      ...createMazeRun(maze),
+      solved: true,
+      started: true,
+      player: { x: cob.wall.col + 0.5, y: cob.wall.row - 0.5 },
+      facing: 'right' as const,
+    };
+    expect(farmerFacesCob(beside, cob)).toBe(false);
+    expect(nearbyLetterCobs(maze, beside).map(item => item.id)).toEqual([cob.id]);
+    expect(harvestReadyCobs(maze, beside, [])).toEqual([]);
+    const peeked = inspectCob(maze, beside, cob.id, 0);
+    expect(peeked.ok).toBe(true);
+    if (!peeked.ok) return;
+    const revealed = mazeRevealedIds(peeked.run, peeked.reveal);
+    expect(revealed).toEqual([cob.id]);
+    expect(harvestReadyCobs(maze, peeked.run, revealed).map(item => item.id)).toEqual([cob.id]);
+    const harvested = harvestCob(maze, peeked.run, cob.id, peeked.reveal);
+    expect(harvested.ok).toBe(true);
+  });
+
+  it('keeps BARN solvable and larger than a 13x13 hub', () => {
+    const barn = MAZE_PUZZLES.find(level => level.id === 'maze-06-barn')!;
+    expect(barn.cols).toBeGreaterThan(13);
+    expect(barn.rows).toBeGreaterThan(13);
+    expect(barn.cobs.map(cob => cob.letter).sort().join('')).toBe('ABEINORT');
+    expect(barn.landmarks?.some(item => item.id === 'well')).toBe(true);
+    expect(validateMazePuzzle(barn)).toEqual([]);
+    const reachable = floodFillPaths(barn, barn.spawn);
+    expect(barn.cobs.every(cob => reachable.has(cellKey(cob.inspect)))).toBe(true);
+  });
+
+  it('gates the SEED D plant behind decorative corn until the mower cuts a path', () => {
+    const seed = MAZE_PUZZLES.find(level => level.id === 'maze-07-seed')!;
+    const trapped = seed.cobs.find(cob => cob.letter === 'D')!;
+    const before = floodFillPaths(seed, seed.spawn);
+    expect(before.has(cellKey(trapped.inspect))).toBe(false);
+    const finds = mazeFindsFor(seed);
+    expect(finds).toEqual([{ id: 'maze-07-seed-find-0', cell: { col: 7, row: 5 }, tool: 'mower' }]);
+    const run = {
+      ...createMazeRun(seed),
+      solved: true,
+      started: true,
+      player: { x: 7.5, y: 5.5 },
+      facing: 'down' as const,
+    };
+    const cut = cutMowerLine(seed, run);
+    expect(cut.ok).toBe(true);
+    if (!cut.ok) return;
+    expect(mazeDistances(seed, seed.spawn, cut.run.mowedKeys).has(cellKey(trapped.inspect))).toBe(true);
   });
 
   it('turns in place to face a side plant instead of bouncing off the husk', () => {

@@ -1,22 +1,45 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Alert, Image, ImageBackground, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
-import { mazeAssets } from '../../assets/word-maize/maze/assets';
 import { CurrencyBar } from '../components/CurrencyBar';
 import { DialogCopy, FarmDialog } from '../components/FarmDialog';
+import { RaisedBoard } from '../components/RaisedBoard';
 import { COIN_TOOL_OFFERS, CoinToolOffer, SHOP_PRODUCTS, ShopProduct, TOOL_INFO, coinOfferForTool } from '../data/shop';
-import { Inventory, ToolId } from '../game/types';
+import { Inventory, TOOL_IDS, ToolId } from '../game/types';
 import { playGameSound } from '../audio/sounds';
 import { purchaseProduct } from '../monetization/purchases';
 import { showRewardedAd } from '../monetization/ads';
 import { PRIVACY_POLICY_URL, TERMS_URL } from '../monetization/config';
 import { useGameStore } from '../store/GameStore';
 
+type ShopTab = 'packs' | 'tools' | 'decor' | 'special';
+
+const TABS: { id: ShopTab; label: string }[] = [
+  { id: 'packs', label: 'Coin Packs' },
+  { id: 'tools', label: 'Tools' },
+  { id: 'decor', label: 'Decor' },
+  { id: 'special', label: 'Special' },
+];
+
+const COIN_PACK_IDS = ['coin_sack', 'coin_bushel', 'coin_barn'] as const;
+const TOOL_KIT_IDS = ['starter_shed', 'farmers_toolbox', 'field_kit', 'master_harvester'] as const;
+
+function offerLine(tools: Partial<Inventory>) {
+  return Object.entries(tools).filter(([, amount]) => amount).map(([tool, amount]) => `${amount} ${TOOL_INFO[tool as ToolId].title}`).join(' · ');
+}
+
+function productContents(product: ShopProduct) {
+  if (product.coins) return `${product.coins.toLocaleString('en-US')} coins`;
+  if (product.tools) return offerLine(product.tools);
+  return 'Permanent account upgrade';
+}
+
 export function ShopScreen() {
   const router = useRouter();
   const store = useGameStore();
+  const [tab, setTab] = useState<ShopTab>('packs');
   const [detail, setDetail] = useState<ShopProduct | ToolId | undefined>();
   const [confirm, setConfirm] = useState<ShopProduct | undefined>();
   const [purchasing, setPurchasing] = useState(false);
@@ -42,13 +65,6 @@ export function ShopScreen() {
   };
   const productDetail = typeof detail === 'object' ? detail : undefined;
   const toolDetail = typeof detail === 'string' ? detail : undefined;
-  const toolContents = (product: ShopProduct) => {
-    if (product.coins) return `${product.coins.toLocaleString('en-US')} coins for the Barn`;
-    if (product.tools) {
-      return Object.entries(product.tools).filter(([, amount]) => amount).map(([tool, amount]) => `${amount} ${TOOL_INFO[tool as ToolId].title}`).join(' · ');
-    }
-    return 'Permanent account upgrade';
-  };
   const watchForTool = async (tool: ToolId) => {
     if (rewarding) return;
     setRewarding(true);
@@ -70,93 +86,156 @@ export function ShopScreen() {
       return;
     }
     playGameSound('coin', 0.7);
-      Alert.alert('Tools packed', `${offer.title} was added to your Barn.`);
+    Alert.alert('Tools packed', `${offer.title} was added to your Barn.`);
   };
-  const offerArt = (tools: Partial<Inventory>) => {
-    const cob = tools.scarecrow || tools.butterBrush || tools.cornPicker;
-    if (!cob) return <Image source={mazeAssets.plants.empty} style={styles.bundleIconMain} />;
-    return (
-      <View style={styles.bundleArt}>
-        {tools.scarecrow ? <Image source={wordMaizeAssets.powerups.scarecrow} style={styles.bundleIcon} /> : null}
-        {tools.butterBrush ? <Image source={wordMaizeAssets.powerups.butterBrush} style={styles.bundleIconMain} /> : null}
-        {tools.cornPicker ? <Image source={wordMaizeAssets.powerups.cornPicker} style={styles.bundleIcon} /> : null}
-      </View>
-    );
-  };
-  const productArt = (product: ShopProduct) => {
-    if (product.entitlement === 'ad_free') return <Text style={styles.noAds}>ADS{`\n`}OFF</Text>;
-    if (product.coins) return <Image source={wordMaizeAssets.ui.coin} style={styles.bundleIconMain} />;
-    return offerArt(product.tools ?? {});
-  };
-  const coinPacks = SHOP_PRODUCTS.filter(product => product.coins);
-  const storeProducts = SHOP_PRODUCTS.filter(product => !product.coins);
+  const coinPacks = COIN_PACK_IDS.map(id => SHOP_PRODUCTS.find(product => product.id === id)!).filter(Boolean);
+  const toolKits = TOOL_KIT_IDS.map(id => SHOP_PRODUCTS.find(product => product.id === id)!).filter(Boolean);
+  const special = SHOP_PRODUCTS.find(product => product.entitlement === 'ad_free');
+
   return (
     <ImageBackground source={wordMaizeAssets.backgrounds.shopBarn} style={styles.bg} resizeMode="cover">
       <SafeAreaView style={styles.safe} edges={['top']}>
         <CurrencyBar onSettings={() => router.push('/settings')} />
-        <View style={styles.titleBoard}>
-          <Text style={styles.eyebrow}>FARMER MAY'S</Text>
-          <Text style={styles.title}>Farm Store</Text>
-          <Text style={styles.subtitle}>Stock the Barn before the next harvest</Text>
-        </View>
-        <ScrollView contentContainerStyle={styles.list}>
-          <View style={styles.featureCard}>
-            <Image source={wordMaizeAssets.ui.storeFeature} style={styles.featureArt} />
-            <View style={styles.featureShade} />
-            <View style={styles.featureCopy}><Text style={styles.featureEyebrow}>FARMER MAY'S PICK</Text><Text style={styles.featureTitle}>Stock the Barn</Text><Text style={styles.featureText}>Coins, lanterns, and mowers work across every field.</Text></View>
+        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          <RaisedBoard wood radius={16} depth={4} wrapStyle={styles.signWrap} style={styles.signFace}>
+            <Text style={styles.signTitle}>FARM STORE</Text>
+            <Text style={styles.signSub}>Tools, helpers, and boosts for your harvest</Text>
+          </RaisedBoard>
+
+          <View style={styles.pills}>
+            {TABS.map(item => {
+              const on = tab === item.id;
+              return (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={item.label}
+                  onPress={() => setTab(item.id)}
+                  style={[styles.pill, on && styles.pillOn]}
+                >
+                  <TabGlyph tab={item.id} on={on} />
+                  <Text style={[styles.pillText, on && styles.pillTextOn]}>{item.label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
+
           {__DEV__ ? <View style={styles.devNotice}><Text style={styles.devNoticeText}>DEVELOPMENT PREVIEW · STORE PURCHASES GRANT TEST ITEMS</Text></View> : null}
-          <View style={styles.sectionBoard}><Text style={styles.section}>COIN PACKS</Text></View>
-          {coinPacks.map(product => (
-            <Pressable key={product.id} style={styles.card} onPress={() => setDetail(product)}>
-              <View style={styles.productArt}>{productArt(product)}</View>
-              <View style={styles.productCopy}>
-                <Text style={styles.cardTitle}>{product.title}</Text>
-                <Text style={styles.blurb}>{product.blurb}</Text>
-                <Text style={styles.contents}>{toolContents(product)}</Text>
+
+          {tab === 'packs' ? (
+            <>
+              <CatalogPanel
+                icon={<Image source={wordMaizeAssets.ui.coin} style={styles.sectionIcon} />}
+                title="COIN PACKS"
+                subtitle="Stock up on coins to get tools, helpers, and more."
+              >
+                {coinPacks.map(product => (
+                  <CatalogRow
+                    key={product.id}
+                    art={<Image source={product.id === 'coin_barn' ? wordMaizeAssets.props.chest : wordMaizeAssets.ui.coin} style={styles.packArt} />}
+                    title={product.title}
+                    blurb={product.blurb}
+                    meta={productContents(product)}
+                    bestValue={product.id === 'coin_bushel'}
+                    onPress={() => setDetail(product)}
+                    cta={<IapPrice label={product.displayPrice} />}
+                  />
+                ))}
+              </CatalogPanel>
+              <CatalogPanel
+                icon={<Image source={wordMaizeAssets.powerups.mower} style={styles.sectionIcon} />}
+                title="SPEND HARVEST COINS"
+                subtitle="Get tools and helpers to make your maze even more fun."
+              >
+                {COIN_TOOL_OFFERS.map(offer => (
+                  <CatalogRow
+                    key={offer.id}
+                    art={<Image source={offerArtSource(offer.tools)} style={styles.toolArt} />}
+                    title={offer.title}
+                    blurb={offer.blurb}
+                    meta={offerLine(offer.tools)}
+                    onPress={() => buyWithCoins(offer)}
+                    cta={<CoinPrice amount={offer.coins} dim={store.save.coins < offer.coins} />}
+                  />
+                ))}
+              </CatalogPanel>
+            </>
+          ) : null}
+
+          {tab === 'tools' ? (
+            <>
+              <CatalogPanel
+                icon={<Image source={wordMaizeAssets.ui.tabShop} style={styles.sectionIcon} />}
+                title="TOOL KITS"
+                subtitle="IAP bundles that restock the Barn in one purchase."
+              >
+                {toolKits.map(product => (
+                  <CatalogRow
+                    key={product.id}
+                    art={offerArt(product.tools ?? {})}
+                    title={product.title}
+                    blurb={product.blurb}
+                    meta={productContents(product)}
+                    onPress={() => setDetail(product)}
+                    cta={<IapPrice label={product.displayPrice} />}
+                  />
+                ))}
+              </CatalogPanel>
+              <CatalogPanel
+                icon={<Image source={wordMaizeAssets.powerups.scarecrow} style={styles.sectionIcon} />}
+                title="YOUR BARN"
+                subtitle="Tap a helper to watch an ad or buy one with coins."
+              >
+                {TOOL_IDS.map(tool => (
+                  <CatalogRow
+                    key={tool}
+                    art={<Image source={wordMaizeAssets.powerups[tool]} style={styles.toolArt} />}
+                    title={TOOL_INFO[tool].title}
+                    blurb={TOOL_INFO[tool].blurb}
+                    onPress={() => setDetail(tool)}
+                    cta={
+                      <View style={styles.ownedBadge}>
+                        <Text style={styles.ownedCount}>×{store.save.inventory[tool] ?? 0}</Text>
+                        <Text style={styles.ownedLabel}>BARN</Text>
+                      </View>
+                    }
+                  />
+                ))}
+              </CatalogPanel>
+            </>
+          ) : null}
+
+          {tab === 'decor' ? (
+            <CatalogPanel
+              icon={<Image source={wordMaizeAssets.kernels.approvedNormal} style={styles.sectionIcon} />}
+              title="DECOR"
+              subtitle="Farm dressing for the valley is still growing."
+            >
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>Coming soon</Text>
+                <Text style={styles.emptyBody}>No decorations to buy yet. Helpers and coin packs are on the other shelves.</Text>
               </View>
-              <View style={styles.priceButton}><Text style={styles.price}>{product.displayPrice}</Text></View>
-            </Pressable>
-          ))}
-          <View style={styles.sectionBoard}><Text style={styles.section}>SPEND HARVEST COINS</Text></View>
-          {COIN_TOOL_OFFERS.map(offer => (
-            <Pressable key={offer.id} style={styles.card} onPress={() => buyWithCoins(offer)}>
-              <View style={styles.productArt}>{offerArt(offer.tools)}</View>
-              <View style={styles.productCopy}>
-                <Text style={styles.cardTitle}>{offer.title}</Text>
-                <Text style={styles.blurb}>{offer.blurb}</Text>
-                <Text style={styles.contents}>{Object.entries(offer.tools).filter(([, amount]) => amount).map(([tool, amount]) => `${amount} ${TOOL_INFO[tool as ToolId].title}`).join(' · ')}</Text>
-              </View>
-              <View style={[styles.priceButton, styles.coinPrice, store.save.coins < offer.coins && styles.ownedPrice]}>
-                <Image source={wordMaizeAssets.ui.coin} style={styles.priceCoin} />
-                <Text style={styles.price}>{offer.coins}</Text>
-              </View>
-            </Pressable>
-          ))}
-          <View style={styles.sectionBoard}><Text style={styles.section}>FARM STORE</Text></View>
-          {storeProducts.map(product => (
-            <Pressable key={product.id} style={[styles.card, product.id === 'farmers_toolbox' && styles.featuredProduct]} onPress={() => setDetail(product)}>
-              {product.id === 'farmers_toolbox' ? <View style={styles.valueRibbon}><Text style={styles.valueRibbonText}>BEST VALUE</Text></View> : null}
-              <View style={styles.productArt}>{productArt(product)}</View>
-              <View style={styles.productCopy}>
-                <Text style={styles.cardTitle}>{product.title}</Text>
-                <Text style={styles.blurb}>{product.blurb}</Text>
-                <Text style={styles.contents}>{toolContents(product)}</Text>
-              </View>
-              <View style={[styles.priceButton, product.entitlement === 'ad_free' && store.save.adFree && styles.ownedPrice]}><Text style={styles.price}>{product.entitlement === 'ad_free' && store.save.adFree ? 'OWNED' : product.displayPrice}</Text></View>
-            </Pressable>
-          ))}
-          <View style={styles.sectionBoard}><Text style={styles.section}>YOUR BARN</Text></View>
-          {(Object.keys(TOOL_INFO) as ToolId[]).map(tool => (
-            <Pressable key={tool} style={styles.toolCard} onPress={() => setDetail(tool)}>
-              <View style={styles.toolArt}><Image source={tool === 'scarecrow' || tool === 'butterBrush' || tool === 'cornPicker' ? wordMaizeAssets.powerups[tool] : mazeAssets.plants.empty} style={styles.tool} /></View>
-              <View style={styles.productCopy}>
-                <Text style={styles.cardTitle}>{TOOL_INFO[tool].title}</Text>
-                <Text style={styles.blurb} numberOfLines={2}>{TOOL_INFO[tool].blurb}</Text>
-              </View>
-              <View style={styles.ownedBadge}><Text style={styles.ownedCount}>×{store.save.inventory[tool] ?? 0}</Text><Text style={styles.ownedLabel}>BARN</Text></View>
-            </Pressable>
-          ))}
+            </CatalogPanel>
+          ) : null}
+
+          {tab === 'special' && special ? (
+            <CatalogPanel
+              icon={<Image source={wordMaizeAssets.ui.mapStarFilled} style={styles.sectionIcon} />}
+              title="SPECIAL"
+              subtitle="A one-time upgrade for the whole farm."
+            >
+              <CatalogRow
+                art={<View style={styles.noAds}><Text style={styles.noAdsText}>ADS{'\n'}OFF</Text></View>}
+                title={special.title}
+                blurb={special.blurb}
+                meta={productContents(special)}
+                onPress={() => setDetail(special)}
+                cta={<IapPrice label={store.save.adFree ? 'OWNED' : special.displayPrice} dim={store.save.adFree} />}
+              />
+            </CatalogPanel>
+          ) : null}
+
           <View style={styles.legalRow}>
             <Pressable accessibilityRole="link" onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}><Text style={styles.legalLink}>Privacy Policy</Text></Pressable>
             <Text style={styles.legalDot}>•</Text>
@@ -203,52 +282,206 @@ export function ShopScreen() {
   );
 }
 
+function TabGlyph({ tab, on }: { tab: ShopTab; on: boolean }) {
+  if (tab === 'packs') return <Image source={wordMaizeAssets.ui.coin} style={styles.pillIcon} />;
+  if (tab === 'tools') return <Image source={wordMaizeAssets.ui.tabShop} style={[styles.pillIcon, on && styles.pillIconOn]} />;
+  if (tab === 'decor') return <Image source={wordMaizeAssets.kernels.approvedNormal} style={styles.pillIcon} />;
+  return <Image source={wordMaizeAssets.ui.mapStarFilled} style={styles.pillIcon} />;
+}
+
+function offerArtSource(tools: Partial<Inventory>) {
+  const ids = (Object.keys(tools) as ToolId[]).filter(tool => tools[tool]);
+  return wordMaizeAssets.powerups[ids.find(tool => tool !== 'scarecrow') ?? ids[0] ?? 'scarecrow'];
+}
+
+function offerArt(tools: Partial<Inventory>) {
+  const ids = (Object.keys(tools) as ToolId[]).filter(tool => tools[tool]);
+  if (!ids.length) return <Image source={wordMaizeAssets.ui.coin} style={styles.toolArt} />;
+  const main = ids.find(tool => tools[tool] && tool !== 'scarecrow') ?? ids[0];
+  return (
+    <View style={styles.bundleArt}>
+      {ids.filter(tool => tool !== main).slice(0, 2).map(tool => (
+        <Image key={tool} source={wordMaizeAssets.powerups[tool]} style={styles.bundleIcon} />
+      ))}
+      <Image source={wordMaizeAssets.powerups[main]} style={styles.bundleIconMain} />
+    </View>
+  );
+}
+
+function CatalogPanel({
+  icon, title, subtitle, children,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.panel}>
+      <View style={styles.panelHead}>
+        <View style={styles.panelIcon}>{icon}</View>
+        <View style={styles.panelCopy}>
+          <Text style={styles.panelTitle}>{title}</Text>
+          <Text style={styles.panelSub}>{subtitle}</Text>
+        </View>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function CatalogRow({
+  art, title, blurb, meta, bestValue, onPress, cta,
+}: {
+  art: ReactNode;
+  title: string;
+  blurb: string;
+  meta?: string;
+  bestValue?: boolean;
+  onPress: () => void;
+  cta: ReactNode;
+}) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={[styles.row, bestValue && styles.rowRibbon]}>
+      {bestValue ? <View style={styles.valueRibbon}><Text style={styles.valueRibbonText}>BEST VALUE</Text></View> : null}
+      <View style={styles.rowArt}>{art}</View>
+      <View style={styles.rowCopy}>
+        <Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>
+        <Text style={styles.rowBlurb} numberOfLines={2}>{blurb}</Text>
+        {meta ? <Text style={styles.rowMeta} numberOfLines={1}>{meta}</Text> : null}
+      </View>
+      {cta}
+    </Pressable>
+  );
+}
+
+function IapPrice({ label, dim }: { label: string; dim?: boolean }) {
+  return (
+    <View style={[styles.iapBtn, dim && styles.iapDim]}>
+      <Text style={styles.iapText}>{label}</Text>
+    </View>
+  );
+}
+
+function CoinPrice({ amount, dim }: { amount: number; dim?: boolean }) {
+  return (
+    <View style={[styles.coinBtn, dim && styles.coinDim]}>
+      <Image source={wordMaizeAssets.ui.coin} style={styles.priceCoin} />
+      <Text style={styles.coinText}>{amount}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   bg: { flex: 1 },
   safe: { flex: 1 },
-  titleBoard: { alignSelf: 'center', minWidth: 250, marginTop: 4, paddingHorizontal: 28, paddingVertical: 9, borderRadius: 14, borderWidth: 3, borderColor: '#c78a32', backgroundColor: 'rgba(68,36,15,0.94)', alignItems: 'center' },
-  eyebrow: { color: '#e9c968', fontWeight: '900', fontSize: 9, letterSpacing: 2 },
-  title: { color: '#fff6c6', fontWeight: '900', fontSize: 27, lineHeight: 31, textShadowColor: '#1d1408', textShadowRadius: 4 },
-  subtitle: { color: '#ead9a7', fontWeight: '700', fontSize: 11 },
-  list: { padding: 12, paddingBottom: 28, gap: 10 },
-  featureCard: { height: 126, borderRadius: 19, borderWidth: 3, borderColor: '#d6a43d', overflow: 'hidden', backgroundColor: '#3b240f' },
-  featureArt: { width: '100%', height: '100%', resizeMode: 'cover' },
-  featureShade: { position: 'absolute', inset: 0, backgroundColor: 'rgba(35,18,6,.34)' },
-  featureCopy: { position: 'absolute', left: 13, bottom: 11, right: 13 },
-  featureEyebrow: { color: '#ffd968', fontWeight: '900', fontSize: 9, letterSpacing: 1.5 },
-  featureTitle: { color: '#fff8cf', fontWeight: '900', fontSize: 20, textShadowColor: '#231205', textShadowRadius: 4 },
-  featureText: { color: '#fff1ba', fontWeight: '700', fontSize: 10 },
+  list: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 28, gap: 10 },
+  signWrap: { alignSelf: 'center', minWidth: 248, maxWidth: 320 },
+  signFace: { paddingHorizontal: 22, paddingVertical: 10, alignItems: 'center' },
+  signTitle: { color: '#fff6c6', fontWeight: '900', fontSize: 26, letterSpacing: 1.2, textShadowColor: '#1d1408', textShadowRadius: 4 },
+  signSub: { color: '#ead9a7', fontWeight: '700', fontSize: 11, textAlign: 'center', marginTop: 2 },
+  pills: { flexDirection: 'row', gap: 6 },
+  pill: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 244, 214, 0.92)',
+    borderWidth: 2,
+    borderColor: '#c9a15a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  pillOn: { backgroundColor: '#4f9a28', borderColor: '#fff3a0' },
+  pillIcon: { width: 18, height: 18, resizeMode: 'contain' },
+  pillIconOn: { tintColor: '#fff6c6' },
+  pillText: { color: '#6a4420', fontWeight: '900', fontSize: 8, letterSpacing: 0.1, marginTop: 2, textAlign: 'center' },
+  pillTextOn: { color: '#fff6c6' },
   devNotice: { borderRadius: 9, paddingVertical: 6, paddingHorizontal: 9, backgroundColor: 'rgba(41,62,29,.94)', borderWidth: 1, borderColor: '#87b950' },
-  devNoticeText: { color: '#e7f5c5', fontWeight: '900', fontSize: 8, textAlign: 'center', letterSpacing: .6 },
-  card: { minHeight: 104, backgroundColor: 'rgba(255,242,189,0.96)', borderWidth: 3, borderColor: '#73441f', borderRadius: 18, padding: 10, flexDirection: 'row', alignItems: 'center', shadowColor: '#201007', shadowOpacity: 0.34, shadowRadius: 4, shadowOffset: { width: 0, height: 3 } },
-  featuredProduct: { borderColor: '#efbd3d', backgroundColor: 'rgba(255,247,202,.98)' },
-  valueRibbon: { position: 'absolute', right: 10, top: -7, zIndex: 3, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8, backgroundColor: '#d88122', borderWidth: 1, borderColor: '#fff0a0' },
-  valueRibbonText: { color: 'white', fontWeight: '900', fontSize: 7, letterSpacing: .7 },
-  productArt: { width: 76, height: 82, borderRadius: 14, borderWidth: 2, borderColor: '#d3a24d', backgroundColor: '#f0c75d', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  bundleArt: { width: 74, height: 74, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  bundleIcon: { width: 30, height: 46, resizeMode: 'contain', marginHorizontal: -6 },
-  bundleIconMain: { width: 38, height: 58, resizeMode: 'contain', zIndex: 2 },
-  noAds: { color: '#fff8d1', backgroundColor: '#b33b27', borderRadius: 28, width: 58, height: 58, textAlign: 'center', textAlignVertical: 'center', fontWeight: '900', fontSize: 14, lineHeight: 16, borderWidth: 3, borderColor: '#fff1a2' },
-  productCopy: { flex: 1, marginHorizontal: 10 },
-  cardTitle: { fontWeight: '900', fontSize: 17, color: '#51351f' },
-  blurb: { color: '#6a4522', fontWeight: '700', fontSize: 12, lineHeight: 16, marginTop: 3 },
-  contents: { color: '#477126', fontWeight: '900', fontSize: 9, marginTop: 5 },
-  priceButton: { backgroundColor: '#5b9f2c', borderWidth: 2, borderColor: '#386b19', borderRadius: 12, minWidth: 72, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 8 },
-  price: { color: 'white', fontWeight: '900', fontSize: 14 },
-  coinPrice: { flexDirection: 'row', gap: 4, paddingHorizontal: 10 },
-  priceCoin: { width: 16, height: 16, resizeMode: 'contain', marginBottom: 0 },
-  ownedPrice: { backgroundColor: '#7d765f', borderColor: '#5d5747' },
-  sectionBoard: { alignSelf: 'center', marginTop: 8, backgroundColor: 'rgba(68,36,15,0.94)', borderRadius: 12, borderWidth: 2, borderColor: '#c78a32', paddingHorizontal: 22, paddingVertical: 7 },
-  section: { color: '#fff6c6', fontWeight: '900', letterSpacing: 1.2 },
-  toolCard: { minHeight: 92, backgroundColor: 'rgba(255,242,189,0.96)', borderWidth: 3, borderColor: '#73441f', borderRadius: 18, padding: 10, flexDirection: 'row', alignItems: 'center' },
-  toolArt: { width: 66, height: 66, borderRadius: 14, backgroundColor: '#efc65f', borderWidth: 2, borderColor: '#d3a24d', alignItems: 'center', justifyContent: 'center' },
-  tool: { width: 58, height: 58, resizeMode: 'contain' },
-  ownedBadge: { minWidth: 58, paddingVertical: 7, borderRadius: 12, backgroundColor: '#51351f', alignItems: 'center' },
-  ownedCount: { color: '#ffe36c', fontWeight: '900', fontSize: 18 },
+  devNoticeText: { color: '#e7f5c5', fontWeight: '900', fontSize: 8, textAlign: 'center', letterSpacing: 0.6 },
+  panel: {
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 246, 220, 0.96)',
+    borderWidth: 2,
+    borderBottomWidth: 5,
+    borderColor: '#e2c48a',
+    borderBottomColor: '#8a5a22',
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  panelHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6, paddingBottom: 8 },
+  panelIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  sectionIcon: { width: 32, height: 32, resizeMode: 'contain' },
+  panelCopy: { flex: 1, minWidth: 0 },
+  panelTitle: { color: '#3d2a14', fontWeight: '900', fontSize: 15, letterSpacing: 0.6 },
+  panelSub: { color: '#7a5828', fontWeight: '700', fontSize: 11, marginTop: 2, lineHeight: 14 },
+  row: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#ead9a7',
+    position: 'relative',
+  },
+  rowRibbon: { paddingTop: 22 },
+  valueRibbon: { position: 'absolute', left: 6, top: 4, zIndex: 3, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: '#c44a2a', borderWidth: 1, borderColor: '#fff0a0' },
+  valueRibbonText: { color: 'white', fontWeight: '900', fontSize: 7, letterSpacing: 0.6 },
+  rowArt: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
+  packArt: { width: 44, height: 44, resizeMode: 'contain' },
+  toolArt: { width: 46, height: 46, resizeMode: 'contain' },
+  bundleArt: { width: 52, height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  bundleIcon: { width: 22, height: 36, resizeMode: 'contain', marginHorizontal: -6 },
+  bundleIconMain: { width: 32, height: 48, resizeMode: 'contain', zIndex: 2 },
+  noAds: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#b33b27', borderWidth: 2, borderColor: '#fff1a2', alignItems: 'center', justifyContent: 'center' },
+  noAdsText: { color: '#fff8d1', fontWeight: '900', fontSize: 11, lineHeight: 13, textAlign: 'center' },
+  rowCopy: { flex: 1, minWidth: 0 },
+  rowTitle: { fontWeight: '900', fontSize: 15, color: '#3d2a14' },
+  rowBlurb: { color: '#7a5828', fontWeight: '700', fontSize: 11, lineHeight: 14, marginTop: 2 },
+  rowMeta: { color: '#4f7f26', fontWeight: '800', fontSize: 10, marginTop: 3 },
+  iapBtn: {
+    minWidth: 72,
+    minHeight: 44,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: '#58c22e',
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: '#9ef06a',
+    borderBottomColor: '#1d6a12',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iapDim: { backgroundColor: '#7d765f', borderColor: '#c9c2a8', borderBottomColor: '#5d5747' },
+  iapText: { color: '#ffffff', fontWeight: '900', fontSize: 13 },
+  coinBtn: {
+    minWidth: 72,
+    minHeight: 44,
+    paddingHorizontal: 8,
+    borderRadius: 18,
+    backgroundColor: '#ead071',
+    borderWidth: 2,
+    borderBottomWidth: 4,
+    borderColor: '#fff3a0',
+    borderBottomColor: '#8a5a22',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  coinDim: { opacity: 0.55 },
+  coinText: { color: '#5a2808', fontWeight: '900', fontSize: 14 },
+  priceCoin: { width: 16, height: 16, resizeMode: 'contain' },
+  ownedBadge: { minWidth: 52, paddingVertical: 6, borderRadius: 12, backgroundColor: '#51351f', alignItems: 'center' },
+  ownedCount: { color: '#ffe36c', fontWeight: '900', fontSize: 16 },
   ownedLabel: { color: '#ead9a7', fontWeight: '900', fontSize: 8 },
-  shade: { flex: 1, backgroundColor: 'rgba(20,40,30,0.68)', alignItems: 'center', justifyContent: 'center' },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: '#5d8b31', textAlign: 'center', marginBottom: 8 },
-  body: { fontSize: 16, lineHeight: 24, textAlign: 'center', color: '#51351f', fontWeight: '700' },
+  empty: { paddingHorizontal: 10, paddingVertical: 18, alignItems: 'center' },
+  emptyTitle: { color: '#3d2a14', fontWeight: '900', fontSize: 16 },
+  emptyBody: { color: '#7a5828', fontWeight: '700', fontSize: 12, lineHeight: 17, textAlign: 'center', marginTop: 6 },
   legalRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
   legalLink: { color: '#fff3ba', fontWeight: '800', textDecorationLine: 'underline' },
   legalDot: { color: '#e5bd63', fontWeight: '900' },

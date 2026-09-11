@@ -10,9 +10,8 @@ import { playGameSound } from '../audio/sounds';
 
 function rewardIcon(reward: (typeof DAILY_REWARDS)[number]) {
   if (reward.chest) return wordMaizeAssets.props.chest;
-  if (reward.tools?.scarecrow) return wordMaizeAssets.powerups.scarecrow;
-  if (reward.tools?.butterBrush) return wordMaizeAssets.powerups.butterBrush;
-  if (reward.tools?.cornPicker) return wordMaizeAssets.powerups.cornPicker;
+  const tool = (['scarecrow', 'butterBrush', 'cornPicker', 'lantern', 'mower', 'tractor', 'raincoat', 'huskClip'] as const).find(id => reward.tools?.[id]);
+  if (tool) return wordMaizeAssets.powerups[tool];
   return wordMaizeAssets.ui.coin;
 }
 

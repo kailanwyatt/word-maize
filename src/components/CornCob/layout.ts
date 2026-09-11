@@ -39,6 +39,40 @@ export function rowRadius(row: number, rows: number, radius: number) {
   return radius * (0.82 + 0.18 * Math.sin(Math.PI * (row + 1) / (rows + 1)));
 }
 
+function layoutOneKernel(
+  kernel: Kernel,
+  rotation: number,
+  columns: number,
+  rows: number,
+  tuning: Tuning,
+  metrics: CobMetrics,
+): { center: Point; layout: KernelLayout } {
+  const frontLimit = (tuning.visibleColumns - 1) / 2;
+  const offset = signedColumnOffset(kernel.column, rotation, columns);
+  const distance = Math.abs(offset);
+  const angle = (offset / tuning.visibleColumns) * Math.PI;
+  const x = metrics.width / 2 + Math.sin(angle) * rowRadius(kernel.row, rows, metrics.radius);
+  const y = metrics.top + kernel.row * (metrics.cobHeight / Math.max(1, rows - 1));
+  const edge = Math.min(1, distance / Math.max(0.65, frontLimit));
+  const rowT = kernel.row / Math.max(1, rows - 1);
+  const opacity = Math.max(0, Math.min(1, (frontLimit + 1.05 - distance) / 0.8));
+  const tilt = edge > 0.36
+    ? -Math.sign(offset) * (0.5 - rowT) * 24 * Math.pow((edge - 0.36) / 0.64, 1.15)
+    : 0;
+  return { center: { x, y }, layout: { kernel, x, y, scaleX: 1 - edge * 0.44, scale: 1 - edge * 0.08, tilt, shade: edge, opacity } };
+}
+
+function collectLayouts(kernels: Kernel[], rotationFor: (kernel: Kernel) => number, columns: number, rows: number, tuning: Tuning, metrics: CobMetrics) {
+  const centers: Record<string, Point> = {};
+  const visible: KernelLayout[] = [];
+  kernels.forEach(kernel => {
+    const placed = layoutOneKernel(kernel, rotationFor(kernel), columns, rows, tuning, metrics);
+    centers[kernel.id] = placed.center;
+    visible.push(placed.layout);
+  });
+  return { centers, visible: visible.sort((a, b) => b.shade - a.shade) };
+}
+
 export function layoutKernels(
   kernels: Kernel[],
   columns: number,
@@ -47,25 +81,19 @@ export function layoutKernels(
   tuning: Tuning,
   metrics: CobMetrics,
 ): { centers: Record<string, Point>; visible: KernelLayout[] } {
-  const centers: Record<string, Point> = {};
-  const visible: KernelLayout[] = [];
-  const frontLimit = (tuning.visibleColumns - 1) / 2;
-  kernels.forEach(kernel => {
-    const offset = signedColumnOffset(kernel.column, rotation, columns);
-    const distance = Math.abs(offset);
-    const angle = (offset / tuning.visibleColumns) * Math.PI;
-    const x = metrics.width / 2 + Math.sin(angle) * rowRadius(kernel.row, rows, metrics.radius);
-    const y = metrics.top + kernel.row * (metrics.cobHeight / Math.max(1, rows - 1));
-    const edge = Math.min(1, distance / Math.max(0.65, frontLimit));
-    const rowT = kernel.row / Math.max(1, rows - 1);
-    const opacity = Math.max(0, Math.min(1, (frontLimit + 1.05 - distance) / 0.8));
-    const tilt = edge > 0.36
-      ? -Math.sign(offset) * (0.5 - rowT) * 24 * Math.pow((edge - 0.36) / 0.64, 1.15)
-      : 0;
-    centers[kernel.id] = { x, y };
-    visible.push({ kernel, x, y, scaleX: 1 - edge * 0.44, scale: 1 - edge * 0.08, tilt, shade: edge, opacity });
-  });
-  return { centers, visible: visible.sort((a, b) => b.shade - a.shade) };
+  return collectLayouts(kernels, () => rotation, columns, rows, tuning, metrics);
+}
+
+/** Twist & Spell: each ring has its own rotation while sharing cob metrics. */
+export function layoutKernelsWithRowRotations(
+  kernels: Kernel[],
+  columns: number,
+  rows: number,
+  rowRotations: number[],
+  tuning: Tuning,
+  metrics: CobMetrics,
+): { centers: Record<string, Point>; visible: KernelLayout[] } {
+  return collectLayouts(kernels, kernel => rowRotations[kernel.row] ?? 0, columns, rows, tuning, metrics);
 }
 
 export function hitKernel(point: Point, visible: KernelLayout[], size: number, touchMultiplier: number): Kernel | undefined {

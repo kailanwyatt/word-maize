@@ -37,6 +37,20 @@ describe('distinct obstacle mechanics', () => {
     expect(tickCaterpillars(saved, kernels, 100).eatenIds).toEqual([]);
   });
 
+  it('drops a rotting kernel permanently without free regrow', () => {
+    const initial = initializeObstacles([{ id: 'r', kind: 'rot', kernelId: '0-0-0', countdown: 30 }]);
+    expect(initial[0].secondsRemaining).toBe(30);
+    const saved = advanceObstacles(initial, ['0-0-0'], context(['0-0-0']));
+    expect(tickCaterpillars(saved, kernels, 100).fallenIds).toEqual([]);
+    const tick = tickCaterpillars(initial, kernels, 30);
+    expect(tick.fallenIds).toEqual(['0-0-0']);
+    expect(tick.eatenIds).toEqual([]);
+    expect(tick.kernels.find(k => k.id === '0-0-0')).toMatchObject({ harvested: true });
+    expect(tick.kernels.find(k => k.id === '0-0-0')?.eaten).toBeFalsy();
+    expect(regrowEatenKernels(tick.kernels).find(k => k.id === '0-0-0')?.harvested).toBe(true);
+    expect(harvestPercent(tick.kernels)).toBeGreaterThan(0);
+  });
+
   it('returns crow targets after two further valid words', () => {
     let states = initializeObstacles([{ id: 'c', kind: 'crow', kernelId: '0-0-0', countdown: 2 }]);
     states = advanceObstacles(advanceObstacles(states, []), []);

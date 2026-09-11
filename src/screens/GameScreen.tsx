@@ -1,13 +1,14 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Alert, Image, ImageBackground, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AppState, Alert, Image, ImageBackground, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { BumperCropModal } from '../components/BumperCropModal';
 import { CornCob } from '../components/CornCob/CornCob';
 import { DebugPanel } from '../components/DebugPanel';
-import { FarmButton, Panel } from '../components/FarmButton';
+import { DialogCopy, FarmDialog } from '../components/FarmDialog';
+import { ModeHelpDialog } from '../components/ModeHelpDialog';
 import { HarvestMeter } from '../components/HarvestMeter';
 import { Tool, ToolBelt } from '../components/ToolBelt';
 import { WordSubmitButton } from '../components/WordSubmitButton';
@@ -16,6 +17,7 @@ import { WeatherOverlay } from '../components/WeatherOverlay';
 import { playGameSound } from '../audio/sounds';
 import { LEVELS, levelById } from '../data/levels';
 import { chapterIndexForLevel } from '../game/campaign';
+import { farmerPhrase, personalizeFarmerCopy } from '../game/farmerCopy';
 import { TOOL_INFO } from '../data/shop';
 import { exposedKernels, resetLevel, shuffleExposedLetters } from '../game/board';
 import { WORD_LIST } from '../game/dictionary';
@@ -98,12 +100,16 @@ export function GameScreen() {
   const [obstacles, setObstacles] = useState(() => restoreObstacles(source.obstacles, savedRun?.obstacles));
   const [acceptedTurns, setAcceptedTurns] = useState(savedRun?.acceptedTurns ?? savedRun?.foundWords.length ?? 0);
   const [clearingObstacleIds, setClearingObstacleIds] = useState<string[]>([]);
+  const [playMs, setPlayMs] = useState(savedRun?.playMs ?? 0);
+  const [firstWordMs, setFirstWordMs] = useState<number | null>(savedRun?.firstWordMs ?? (savedRun?.foundWords.length ? savedRun.playMs ?? 0 : null));
   const [weatherEventKey, setWeatherEventKey] = useState(0);
   const [weatherFeedback, setWeatherFeedback] = useState<string>();
   const busyRef = useRef(false);
   const finishingRef = useRef(false);
   const completionSoundRef = useRef(false);
   const hydratedRef = useRef(store.ready);
+  const playMsRef = useRef(playMs);
+  playMsRef.current = playMs;
   const busy = harvestingIds.length > 0 || status === 'valid' || busyRef.current;
   const gameWidth = Math.min(viewport.width, 430);
   const cobHeight = Math.min(viewport.height * 0.58, 520);
@@ -128,7 +134,9 @@ export function GameScreen() {
       other.row === kernel.row && other.column === kernel.column && other.layer < kernel.layer && other.harvested && !other.eaten,
     ),
   ).map(kernel => `${kernel.row}:${kernel.column}`)).size;
-  const runStats = { percent, words: foundWords, toolsUsed, layersRevealed };
+  const runStats = { percent, words: foundWords, toolsUsed, layersRevealed, firstWordMs };
+  const timedWordGoal = source.starGoals.find(goal => goal.kind === 'firstWordWithinSeconds');
+  const sunClockMs = timedWordGoal && firstWordMs == null ? Math.max(0, timedWordGoal.value * 1000 - playMs) : null;
   const effectiveLevel = { ...source, objective: { ...source.objective, harvestPercent: tuning.harvestTarget } };
   const complete = objectiveComplete(effectiveLevel, runStats);
   const starResult = evaluateLevelStars(effectiveLevel, runStats);
@@ -180,6 +188,8 @@ export function GameScreen() {
     setToolsUsed(run.toolsUsed);
     setObstacles(restoreObstacles(source.obstacles, run.obstacles));
     setAcceptedTurns(run.acceptedTurns ?? run.foundWords.length);
+    setPlayMs(run.playMs ?? 0);
+    setFirstWordMs(run.firstWordMs ?? (run.foundWords.length ? run.playMs ?? 0 : null));
   }, [levelId, source, store.ready, store.save.activeLevelRun]);
 
   useEffect(() => {
@@ -197,6 +207,8 @@ export function GameScreen() {
     setInCoins(run?.earnedCoins ?? 0);
     setToolsUsed(run?.toolsUsed ?? 0);
     setAcceptedTurns(run?.acceptedTurns ?? run?.foundWords.length ?? 0);
+    setPlayMs(run?.playMs ?? 0);
+    setFirstWordMs(run?.firstWordMs ?? (run?.foundWords.length ? run.playMs ?? 0 : null));
     setObstacles(restoreObstacles(source.obstacles, run?.obstacles));
     setHarvestingIds([]); setHints([]); setActiveTool(undefined); setStatus('idle'); setShuffles(1); setDoubled(false);
     selection.clear();
@@ -217,26 +229,52 @@ export function GameScreen() {
       toolsUsed,
       obstacles,
       acceptedTurns,
+      firstWordMs,
+      playMs,
       updatedAt: Date.now(),
     });
-  }, [acceptedTurns, foundWords, inCoins, level.kernels, levelId, obstacles, store.ready, store.saveLevelRun, toolsUsed]);
+  }, [acceptedTurns, foundWords, firstWordMs, inCoins, level.kernels, levelId, obstacles, playMs, store.ready, store.saveLevelRun, toolsUsed]);
 
   useEffect(() => {
     if (!store.ready || !focused || !appActive || paused || introOpen || powerUpsOpen || outOf || debugOpen || clearingObstacleIds.length > 0 || busy || complete) return;
-    if (!obstacles.some(s => s.kind === 'caterpillar' && s.status !== 'cleared')) return;
+    if (!obstacles.some(s => (s.kind === 'caterpillar' || s.kind === 'rot') && s.status !== 'cleared')) return;
     const timer = setInterval(() => {
       if (busyRef.current || finishingRef.current || AppState.currentState !== 'active') return;
       const next = tickCaterpillars(obstacles, level.kernels, 1);
-      setObstacles(next.obstacles);
       if (next.eatenIds.length) {
+        setObstacles(next.obstacles);
         setLevel(prev => ({ ...prev, kernels: wakeDormantNeighbors(next.kernels, next.eatenIds, prev.columns) }));
         selection.clear();
         setHints([]);
         playGameSound('obstacle', 0.7);
       }
+      if (next.fallenIds.length) {
+        const fallingIds = obstacles.filter(state => next.fallenIds.includes(state.kernelId)).map(state => state.id);
+        setObstacles(next.obstacles.map(state => (
+          next.fallenIds.includes(state.kernelId) ? { ...state, status: 'active' as const, secondsRemaining: 0 } : state
+        )));
+        setClearingObstacleIds(ids => [...ids, ...fallingIds]);
+        selection.clear();
+        setHints([]);
+        playGameSound('obstacle', 0.7);
+        setTimeout(() => {
+          setObstacles(next.obstacles);
+          setLevel(prev => ({ ...prev, kernels: wakeDormantNeighbors(next.kernels, next.fallenIds, prev.columns) }));
+          setClearingObstacleIds(ids => ids.filter(id => !fallingIds.includes(id)));
+        }, store.save.settings.reducedMotion ? 40 : 360);
+      } else if (!next.eatenIds.length) {
+        setObstacles(next.obstacles);
+      }
     }, 1000);
     return () => clearInterval(timer);
   }, [store.ready, focused, appActive, paused, introOpen, powerUpsOpen, outOf, debugOpen, clearingObstacleIds, busy, complete, obstacles, level.kernels]);
+
+  useEffect(() => {
+    if (!timedWordGoal || firstWordMs != null) return;
+    if (!store.ready || !focused || !appActive || paused || introOpen || powerUpsOpen || outOf || debugOpen || complete) return;
+    const timer = setInterval(() => setPlayMs(value => value + 1000), 1000);
+    return () => clearInterval(timer);
+  }, [timedWordGoal, firstWordMs, store.ready, focused, appActive, paused, introOpen, powerUpsOpen, outOf, debugOpen, complete]);
 
   const measureHarvestTarget = useCallback(() => {
     cobRef.current?.measureInWindow((cx, cy) => {
@@ -321,6 +359,7 @@ export function GameScreen() {
         });
         setObstacles(prev => advanceObstacles(prev, actualHarvestIds, { kernels: level.kernels, columns: level.columns, wordIds: result.harvestIds }));
         setFoundWords(v => (v.includes(result.word) ? v : [...v, result.word]));
+        setFirstWordMs(value => value ?? playMsRef.current);
         setInCoins(v => v + coinsForWord(result.word) + weatherCoinBonus(source.weather, result.word) + goldenBonus);
         setHarvestingIds([]);
         busyRef.current = false;
@@ -367,7 +406,7 @@ export function GameScreen() {
     if (!store.save.inventory[tool]) { setOutOf(tool); return; }
     const countered = obstacles.find(obstacle => obstacle.status !== 'cleared' && (
       (tool === 'scarecrow' && obstacle.kind === 'crow')
-      || (tool === 'butterBrush' && (obstacle.kind === 'weed' || obstacle.kind === 'caterpillar' || obstacle.kind === 'web' || obstacle.kind === 'frost'))
+      || (tool === 'butterBrush' && (obstacle.kind === 'weed' || obstacle.kind === 'caterpillar' || obstacle.kind === 'web' || obstacle.kind === 'frost' || obstacle.kind === 'rot'))
     ));
     if (countered && store.consumeTool(tool)) {
       setToolsUsed(value => value + 1);
@@ -474,7 +513,7 @@ export function GameScreen() {
 
   return (
     <View style={styles.shell}>
-      <ImageBackground source={gameplayBackground} style={[styles.bg, { width: gameWidth }]} resizeMode="cover">
+      <ImageBackground source={gameplayBackground} style={styles.bg} resizeMode="cover">
         <WeatherOverlay
           weather={source.weather}
           eventKey={weatherEventKey}
@@ -494,6 +533,7 @@ export function GameScreen() {
                 {source.objective.minLongestWord ? ` · ${source.objective.minLongestWord}+ LETTER` : ''}
                 {source.objective.minLayersRevealed ? ` · REVEAL ${source.objective.minLayersRevealed}` : ''}
               </Text>
+              {sunClockMs != null ? <Text style={styles.sunClock}>SUN {Math.ceil(sunClockMs / 1000)}s</Text> : null}
             </WoodPanel>
             <View style={styles.topRight}>
               <View style={styles.energyChip}>
@@ -577,16 +617,9 @@ export function GameScreen() {
               <Image source={wordMaizeAssets.ui.btnShuffle} style={styles.shuffleIcon} />
             </Pressable>
           </View>
-          <Modal visible={powerUpsOpen} transparent animationType="slide">
-            <View style={styles.modalShade}>
-              <Panel>
-                <Text style={styles.modalTitle}>Power-Ups</Text>
-                <ToolBelt counts={store.save.inventory} active={activeTool} onUse={(t) => { useTool(t); setPowerUpsOpen(false); }} />
-                <View style={{ height: 12 }} />
-                <FarmButton label="CLOSE" onPress={() => setPowerUpsOpen(false)} />
-              </Panel>
-            </View>
-          </Modal>
+          <FarmDialog visible={powerUpsOpen} title="Power-Ups" onClose={() => setPowerUpsOpen(false)}>
+            <ToolBelt counts={store.save.inventory} active={activeTool} onUse={(t) => { useTool(t); setPowerUpsOpen(false); }} />
+          </FarmDialog>
           <DebugPanel
             open={debugOpen}
             onToggle={() => setDebugOpen(v => !v)}
@@ -597,6 +630,7 @@ export function GameScreen() {
               { label: 'NEXT', onPress: () => router.replace(`/game/${Math.min(60, levelId + 1)}`) },
               { label: 'TOOLS +10', onPress: () => store.addTools({ scarecrow: 10, butterBrush: 10, cornPicker: 10 }) },
               { label: 'UNLOCK 1–60', onPress: store.unlockCampaign },
+              { label: store.save.settings.devUnlock ? 'DEV UNLOCK ON' : 'UNLOCK ALL', onPress: () => store.setSetting('devUnlock', !store.save.settings.devUnlock) },
               { label: 'REPLAY INTRO', onPress: () => setIntroOpen(true) },
               { label: 'RESET SAVE', onPress: () => Alert.alert('Reset playtest save?', 'This clears coins, stars, tools, and chapter progress.', [
                 { text: 'Cancel', style: 'cancel' },
@@ -608,22 +642,18 @@ export function GameScreen() {
         </SafeAreaView>
       </ImageBackground>
 
-      <Modal visible={paused} transparent animationType="fade">
-        <View style={styles.modalShade}>
-          <Panel>
-            <Text style={styles.modalTitle}>Paused</Text>
-            <FarmButton label="RESUME" onPress={() => setPaused(false)} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="RESTART" onPress={() => Alert.alert('Restart level?', 'Your progress in this level will be cleared.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Restart', style: 'destructive', onPress: () => { resetBoard(); setPaused(false); } }])} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="HOW TO PLAY" onPress={() => { setPaused(false); router.push('/how-to-play'); }} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="SETTINGS" onPress={() => { setPaused(false); router.push('/settings'); }} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="QUIT TO FARM" onPress={() => router.replace('/(tabs)/play')} />
-          </Panel>
-        </View>
-      </Modal>
+      <FarmDialog
+        visible={paused}
+        title="Paused"
+        onClose={() => setPaused(false)}
+        primary={{ label: 'RESUME', onPress: () => setPaused(false) }}
+        actions={[
+          { label: 'RESTART', onPress: () => Alert.alert('Restart level?', 'Your progress in this level will be cleared.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Restart', style: 'destructive', onPress: () => { resetBoard(); setPaused(false); } }]), tone: 'slate' },
+          { label: 'HOW TO PLAY', onPress: () => { setPaused(false); router.push('/how-to-play'); }, tone: 'slate' },
+          { label: 'SETTINGS', onPress: () => { setPaused(false); router.push('/settings'); }, tone: 'slate' },
+          { label: 'QUIT TO THE FAIR', onPress: () => router.replace('/(tabs)/fair'), tone: 'slate' },
+        ]}
+      />
 
       <BumperCropModal
         visible={complete}
@@ -642,45 +672,49 @@ export function GameScreen() {
         completionLabel={endless ? `Endless cob ${endlessStage} complete` : undefined}
       />
 
-      <Modal visible={!!outOf && outOf !== 'energy'} transparent animationType="fade">
-        <View style={styles.modalShade}>
-          <Panel>
-            <Text style={styles.modalTitle}>Out of {outOf ? TOOL_INFO[outOf as Tool].title : 'tools'}</Text>
-            <Text style={styles.stats}>Watch a harvest ad for one more, or restock at the Farm Store.</Text>
-            <View style={{ height: 12 }} />
-            <FarmButton label={store.save.adFree ? 'GET 1 FREE' : 'WATCH AD GET 1 FREE'} onPress={() => outOf && outOf !== 'energy' && grantToolFromAd(outOf)} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="VISIT SHOP" onPress={() => { setOutOf(undefined); router.push('/(tabs)/shop'); }} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="KEEP HARVESTING" onPress={() => setOutOf(undefined)} />
-          </Panel>
-        </View>
-      </Modal>
+      <FarmDialog
+        visible={!!outOf && outOf !== 'energy'}
+        title={`Out of ${outOf ? TOOL_INFO[outOf as Tool].title : 'tools'}`}
+        onClose={() => setOutOf(undefined)}
+        primary={{ label: store.save.adFree ? 'GET 1 FREE' : 'WATCH AD GET 1 FREE', onPress: () => outOf && outOf !== 'energy' && grantToolFromAd(outOf) }}
+        actions={[
+          { label: 'VISIT SHOP', onPress: () => { setOutOf(undefined); router.push('/(tabs)/shop'); }, tone: 'gold' },
+          { label: 'KEEP HARVESTING', onPress: () => setOutOf(undefined), tone: 'slate' },
+        ]}
+      >
+        <DialogCopy>Watch a harvest ad for one more, or restock at the Farm Store.</DialogCopy>
+      </FarmDialog>
 
-      <Modal visible={introOpen} transparent animationType="fade">
-        <View style={styles.modalShade}>
-          <Panel>
-            {source.story?.speaker === 'Patch' ? <Image source={wordMaizeAssets.characters.patchPointing} style={styles.storyCharacter} /> : null}
-            {source.story?.speaker === 'Farmer May' ? <Image source={wordMaizeAssets.characters.farmerMayWelcome} style={styles.storyCharacter} /> : null}
-            <Text style={styles.storySpeaker}>{source.story?.speaker ?? 'PATCH'}</Text>
-            <Text style={styles.modalTitle}>{source.story?.title ?? `Level ${levelId}`}</Text>
-            {source.story ? <Text style={styles.storyText}>{source.story.text}</Text> : null}
-            {source.tutorial.map((line, index) => <Text key={line} style={styles.tutorialLine}>{index + 1}. {line}</Text>)}
-            {source.educationalFact ? <View style={styles.fieldNote}><Text style={styles.fieldNoteText}>{source.educationalFact}</Text></View> : null}
-            <Text style={styles.goalHeading}>GOAL</Text>
-            <Text style={styles.stats}>Harvest {source.objective.harvestPercent}%{source.objective.minWords ? ` and find ${source.objective.minWords} words` : ''}{source.objective.minLongestWord ? ` with a ${source.objective.minLongestWord}-letter word` : ''}{source.objective.minLayersRevealed ? ` and reveal ${source.objective.minLayersRevealed} hidden kernel${source.objective.minLayersRevealed > 1 ? 's' : ''}` : ''}.</Text>
-            <View style={{ height: 12 }} />
-            <FarmButton label="LET'S GROW" onPress={() => { if (levelId === 1) store.markTutorialSeen(); store.markLevelIntroSeen(levelId); setIntroOpen(false); }} />
-          </Panel>
-        </View>
-      </Modal>
+      {endless
+        ? <ModeHelpDialog mode="endless" blocked={introOpen} />
+        : <ModeHelpDialog mode="cob" blocked={introOpen} />}
+
+      <FarmDialog
+        visible={introOpen}
+        title={source.story?.title ?? `Level ${levelId}`}
+        primary={{ label: "LET'S GROW", onPress: () => {
+          if (levelId === 1) store.markTutorialSeen();
+          if (!endless) store.markModeHelpSeen('cob');
+          store.markLevelIntroSeen(levelId);
+          setIntroOpen(false);
+        } }}
+      >
+        {source.story?.speaker === 'Patch' ? <Image source={wordMaizeAssets.characters.patchPointing} style={styles.storyCharacter} /> : null}
+        {source.story?.speaker === 'Farmer May' ? <Image source={wordMaizeAssets.characters.farmerMayWelcome} style={styles.storyCharacter} /> : null}
+        <Text style={styles.storySpeaker}>{source.story?.speaker === 'Farmer May' ? farmerPhrase(store.save.settings.farmerName, 'speaker') : (source.story?.speaker ?? 'PATCH')}</Text>
+        {source.story ? <DialogCopy>{personalizeFarmerCopy(source.story.text, store.save.settings.farmerName)}</DialogCopy> : null}
+        {source.tutorial.map((line, index) => <DialogCopy key={line}>{index + 1}. {line}</DialogCopy>)}
+        {source.educationalFact ? <View style={styles.fieldNote}><Text style={styles.fieldNoteText}>{source.educationalFact}</Text></View> : null}
+        <Text style={styles.goalHeading}>GOAL</Text>
+        <DialogCopy>Harvest {source.objective.harvestPercent}%{source.objective.minWords ? ` and find ${source.objective.minWords} words` : ''}{source.objective.minLongestWord ? ` with a ${source.objective.minLongestWord}-letter word` : ''}{source.objective.minLayersRevealed ? ` and reveal ${source.objective.minLayersRevealed} hidden kernel${source.objective.minLayersRevealed > 1 ? 's' : ''}` : ''}.</DialogCopy>
+      </FarmDialog>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  shell: { flex: 1, width: '100%', alignItems: 'center', backgroundColor: '#061a2e' },
-  bg: { flex: 1 },
+  shell: { flex: 1, width: '100%', overflow: 'hidden', backgroundColor: '#1a3a18' },
+  bg: { flex: 1, width: '100%' },
   safe: { flex: 1, alignItems: 'stretch', paddingHorizontal: 8, paddingBottom: 6 },
   topBar: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, zIndex: 8 },
   hudButton: { width: 46, height: 46, minWidth: 44, minHeight: 44, borderRadius: 14, backgroundColor: '#38220f', borderWidth: 3, borderColor: '#e4bb40', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
@@ -694,6 +728,7 @@ const styles = StyleSheet.create({
   sign: { flex: 1, backgroundColor: '#38220f', borderWidth: 3, borderColor: '#e4bb40', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', minHeight: 46 },
   level: { color: '#ffffff', fontWeight: '900', fontSize: 18, letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 2 },
   objective: { color: '#fadd74', fontWeight: '700', fontSize: 10, marginTop: 1, textAlign: 'center' },
+  sunClock: { color: '#ffe28a', fontWeight: '900', fontSize: 11, marginTop: 2, letterSpacing: 0.6 },
   wordRow: { alignItems: 'center', marginTop: 8, marginBottom: 4, minHeight: 44, zIndex: 6 },
   cob: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: 240, zIndex: 11, overflow: 'visible' },
   dock: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 4, paddingHorizontal: 2, paddingTop: 6, zIndex: 10 },

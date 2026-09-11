@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "wordmaize",
-    "description": "Harvest words from a rotating corn cob.",
+    "description": "Explore a corn maze, remember hidden letters, and harvest the word.",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -28,7 +28,10 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -37,7 +40,6 @@
     },
     "plugins": [
       "expo-router",
-      "expo-web-browser",
       "expo-dev-client",
       [
         "expo-build-properties",
@@ -70,7 +72,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": ""
+        "projectId": "28cbdae6-08ad-43b0-905a-eb087d60519f"
       },
       "revenueCatIosKey": "",
       "revenueCatAndroidKey": "",
@@ -79,6 +81,7 @@
       "enableDevelopmentStoreGrants": true,
       "admobRewardedUnitIdIos": "ca-app-pub-3940256099942544/1712485313",
       "admobRewardedUnitIdAndroid": "ca-app-pub-3940256099942544/5224354917"
-    }
+    },
+    "owner": "suiteplugins"
   }
 }

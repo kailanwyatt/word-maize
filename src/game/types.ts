@@ -3,7 +3,7 @@ export type CornVariety = 'sweet' | 'white' | 'flint' | 'popcorn' | 'blue' | 'go
 export type ToolId = 'scarecrow' | 'butterBrush' | 'cornPicker' | 'mower' | 'tractor' | 'lantern' | 'raincoat' | 'huskClip';
 export const TOOL_IDS: ToolId[] = ['scarecrow', 'butterBrush', 'cornPicker', 'mower', 'tractor', 'lantern', 'raincoat', 'huskClip'];
 export const MAZE_TOOL_IDS: ToolId[] = ['lantern', 'mower', 'tractor', 'raincoat', 'huskClip', 'scarecrow'];
-export type ObstacleKind = 'caterpillar' | 'crow' | 'squirrel' | 'weed' | 'web' | 'frost';
+export type ObstacleKind = 'caterpillar' | 'crow' | 'squirrel' | 'weed' | 'web' | 'frost' | 'rot';
 export type LevelObstacle = { id: string; kind: ObstacleKind; kernelId: string; countdown: number; anchorIds?: string[]; strength?: number };
 export type WeatherKind = 'rain' | 'wind' | 'drought' | 'storm';
 export type LevelWeather = { kind: WeatherKind; interval: number; coinBonusPerLetter?: number };
@@ -40,7 +40,8 @@ export type StarGoal =
   | { id: string; kind: 'maxWords'; value: number; label: string }
   | { id: string; kind: 'noTools'; label: string }
   | { id: string; kind: 'layersRevealed'; value: number; label: string }
-  | { id: string; kind: 'harvestPercent'; value: number; label: string };
+  | { id: string; kind: 'harvestPercent'; value: number; label: string }
+  | { id: string; kind: 'firstWordWithinSeconds'; value: number; label: string };
 
 export type Level = {
   id: number;

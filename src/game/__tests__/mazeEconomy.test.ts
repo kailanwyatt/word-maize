@@ -23,10 +23,16 @@ const crowLevel = MAZE_PUZZLES.find(level => level.wildlife === 'crow-1')!;
 const inventory = { ...EMPTY_INVENTORY, lantern: 1, raincoat: 1, huskClip: 1, tractor: 1, scarecrow: 1, mower: 1 };
 
 describe('maze field finds', () => {
-  it('keeps the first three Sunny Acres fields crate-free and later finds deterministic', () => {
+  it('keeps the first three Sandy Point fields crate-free and later finds deterministic', () => {
     expect(mazeFindsFor(MAZE_PUZZLES[0])).toEqual([]);
     expect(mazeFindsFor(MAZE_PUZZLES[1])).toEqual([]);
     expect(mazeFindsFor(MAZE_PUZZLES[2])).toEqual([]);
+    const seed = MAZE_PUZZLES.find(level => level.id === 'maze-07-seed')!;
+    expect(mazeFindsFor(seed)).toEqual([{ id: 'maze-07-seed-find-0', cell: { col: 7, row: 5 }, tool: 'mower' }]);
+    const tractor = MAZE_PUZZLES.find(level => level.id === 'maze-09-tractor')!;
+    expect(mazeFindsFor(tractor)).toEqual([
+      expect.objectContaining({ id: 'maze-09-tractor-find-0', tool: 'huskClip' }),
+    ]);
     const later = MAZE_PUZZLES.filter(level => level.order > 3);
     const counts = new Set(later.map(level => mazeFindsFor(level).length));
     expect([...counts].every(count => count <= 2)).toBe(true);
@@ -267,6 +273,7 @@ describe('maze story beats', () => {
     expect(nextStoryBeat({ ...base, campaign: false })).toBeNull();
     expect(nextStoryBeat({ ...base, puzzleId: 'green-plant', chapter: 2, chapterLevel: 1 })?.id).toBe('chapter:2');
     expect(nextStoryBeat({ ...base, started: true, wildlife: true })?.id).toBe(STORY_BEATS.wildlife.id);
+    expect(nextStoryBeat({ ...base, puzzleId: 'maze-07-seed' })?.id).toBe(STORY_BEATS.mower.id);
     expect(nextStoryBeat({ ...base, completed: true, chapterDone: true, chapter: 3 })?.id).toBe('complete:3');
     expect(nextStoryBeat({ ...base, completed: true, finale: true })?.id).toBe(STORY_BEATS.finale.id);
     expect(nextStoryBeat({ ...base, seen: [STORY_BEATS.firstField.id] })).toBeNull();

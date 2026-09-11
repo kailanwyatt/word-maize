@@ -6,7 +6,7 @@ export const CORN_MAZE = parseMazeAscii({
   id: 'sunny-acres-corn',
   seed: 'sunny-acres-corn-v1',
   chapter: 1,
-  title: 'Sunny Acres',
+  title: 'Sandy Point',
   answer: 'CORN',
   clue: 'The crop this maze is made of.',
   presentationMode: 'full-word',
@@ -25,6 +25,66 @@ export const CORN_MAZE = parseMazeAscii({
 #.#A#.#E#.#
 #.........#
 ###########
+`,
+});
+
+const BARN_MAZE = parseMazeAscii({
+  id: 'maze-06-barn',
+  seed: 'maze-06-barn-v1',
+  chapter: 1,
+  title: 'Barn',
+  answer: 'BARN',
+  clue: 'A farm building for animals or crops.',
+  presentationMode: 'shown',
+  revealDurationMs: 4000,
+  ascii: `
+###################
+#........#........#
+#.#B#....#....#N#.#
+#.#.#....#....#.#.#
+#........#........#
+#........#........#
+####...........####
+#.................#
+#.#E#....S....#T#.#
+#.#.#.........#.#.#
+#.................#
+####...........####
+#........#........#
+#........#........#
+#.#A#....#....#R#.#
+#.#.#....#....#.#.#
+#........#........#
+#.#O#....#....#I#.#
+###################
+`,
+});
+
+const SEED_MAZE = parseMazeAscii({
+  id: 'maze-07-seed',
+  seed: 'maze-07-seed-v1',
+  chapter: 1,
+  title: 'Seed',
+  answer: 'SEED',
+  clue: 'What you plant to grow a new plant.',
+  presentationMode: 'shown',
+  revealDurationMs: 4000,
+  ascii: `
+###############
+#......@......#
+#.............#
+#.#O#S#.#E#.#E#
+#.#.#.#.#.#.#.#
+#.#T#.#.#E#A#.#
+#......#......#
+#......#......#
+#.....#.#.....#
+#.....#D#.....#
+#.............#
+#.............#
+#.............#
+#.............#
+###############
 `,
 });
 
@@ -50,6 +110,34 @@ const LEGACY_BOARDS: Record<string, MazeLevel> = {
   'sunny-gate': buildMazeLevel({ id: 'sunny-gate', order: 3, chapter: 1, title: 'The return trip', answer: 'GATE', clue: 'An entrance to the field.', layout: 'fork', decoys: 'NR', revealDurationMs: 4000, lesson: 'return', objective: 'Return to a letter you noticed earlier.', tip: 'The next letter may be back near the start. Notice plants along the way.' }),
   'sunny-apple': buildMazeLevel({ id: 'sunny-apple', order: 4, chapter: 1, title: 'Two Ps in the orchard', answer: 'APPLE', clue: 'An orchard fruit.', layout: 'fork', decoys: 'ON', revealDurationMs: 4000, lesson: 'duplicates', objective: 'Collect separate copies of repeated letters.', tip: 'APPLE needs two different P cobs. Harvesting one leaves the other available.' }),
   'sunny-sheep': buildMazeLevel({ id: 'sunny-sheep', order: 5, chapter: 1, title: 'Around the field', answer: 'SHEEP', clue: 'A woolly farm animal.', layout: 'loop', decoys: 'AT', revealDurationMs: 4000, lesson: 'loops', objective: 'Try another way around instead of always retracing your steps.', tip: 'The outer path is a loop. Remember which side of the field you explored.' }),
+  'maze-06-barn': {
+    ...BARN_MAZE,
+    order: 6,
+    lesson: 'branches',
+    objective: 'Use the well at the junction, then pick the right wing.',
+    tip: 'Decoy letters wait at the tempting ends. BARN is split across the barn wings.',
+    displayAnswer: 'BARN',
+    contentVersion: 'maze-06-barn-v1',
+    topology: 'legacy',
+    landmarks: [
+      { id: 'well', name: 'Well', origin: { col: 9, row: 5 } },
+      { id: 'rock', name: 'Rock', origin: { col: 1, row: 1 } },
+      { id: 'hay', name: 'Hay', origin: { col: 17, row: 1 } },
+    ],
+    playable: true,
+  },
+  'maze-07-seed': {
+    ...SEED_MAZE,
+    order: 7,
+    lesson: 'plan',
+    objective: 'Mow the decorative corn to reach a trapped letter.',
+    tip: 'The mower crate sits on the path facing the plug. It will not cut letter plants.',
+    displayAnswer: 'SEED',
+    contentVersion: 'maze-07-seed-v1',
+    topology: 'legacy',
+    landmarks: [],
+    playable: true,
+  },
   'green-plant': buildMazeLevel({ id: 'green-plant', order: 11, chapter: 2, title: 'Keep it in mind', answer: 'PLANT', clue: 'Something growing in the garden.', layout: 'loop', decoys: 'EOR', revealDurationMs: 3500, lesson: 'return', objective: 'Remember letters after their husks close.', tip: 'An inspected husk marks a visit, not the letter. There is no cost to checking again.' }),
   'green-banana': buildMazeLevel({ id: 'green-banana', order: 12, chapter: 2, title: 'A choice of As', answer: 'BANANA', clue: 'A curved yellow fruit.', layout: 'loop', decoys: 'ET', extraCopies: 'A', revealDurationMs: 3500, lesson: 'duplicates', objective: 'Choose between matching cobs on different routes.', tip: 'Any A works. Choose a nearby one, or one on your route toward a remembered N.' }),
   'green-carrot': buildMazeLevel({ id: 'green-carrot', order: 13, chapter: 2, title: 'The branching garden', answer: 'CARROT', clue: 'An orange root vegetable.', layout: 'branches', decoys: 'EN', revealDurationMs: 3500, lesson: 'branches', objective: 'Distinguish similar branches using their junctions.', tip: 'Think of letters by branch: left fork, upper loop, or the route back to the start.' }),

@@ -7,7 +7,7 @@ import { replenishEnergy } from '../game/energy';
 import { addToInventory, purchaseCoinOffer } from '../game/economy';
 import { RESTORATION_MILESTONES } from '../game/restoration';
 import { ENERGY_MAX, Inventory, LevelProgress, ToolId } from '../game/types';
-import { ActiveLevelRun, COB_PUZZLE_SAVE_KEY, defaultSave, GameSave, localDateString, mergeMazeSave, migrateSave, ModeHelpId, nextDailyDay, SAVE_KEY } from './types';
+import { ActiveLevelRun, COB_PUZZLE_SAVE_KEY, defaultSave, GameSave, isBetterPopAWordRun, localDateString, mergeMazeSave, migrateSave, ModeHelpId, nextDailyDay, SAVE_KEY, type PopAWordBest } from './types';
 import { PLAYABLE_MAZE_IDS } from '../data/mazeLevels';
 import { unlockAfterMazeComplete } from '../game/mazeCampaign';
 import type { MazeRun } from '../game/maze';
@@ -45,6 +45,8 @@ type GameStoreValue = {
   markMazeRewarded: (puzzleId: string, extras?: { unaided?: boolean; storm?: boolean; coins?: number; tools?: Partial<Inventory> }) => void;
   markFairRewarded: (rewardId: string, coins: number) => boolean;
   markStoryBeatSeen: (beatId: string) => void;
+  markToolHelpSeen: (tool: ToolId) => void;
+  recordPopAWordBest: (run: PopAWordBest) => void;
   completedIds: number[];
   currentLevelId: number;
 };
@@ -311,7 +313,7 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
       return {
         ...prev,
         coins: prev.coins + coins,
-        fair: { rewardedIds: [...prev.fair.rewardedIds, rewardId] },
+        fair: { ...prev.fair, rewardedIds: [...prev.fair.rewardedIds, rewardId] },
       };
     });
     return true;
@@ -319,6 +321,16 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const markStoryBeatSeen = useCallback((beatId: string) => patch(prev => (
     prev.seenStoryBeatIds.includes(beatId) ? prev : { ...prev, seenStoryBeatIds: [...prev.seenStoryBeatIds, beatId] }
+  )), [patch]);
+
+  const markToolHelpSeen = useCallback((tool: ToolId) => patch(prev => (
+    prev.seenToolHelp.includes(tool) ? prev : { ...prev, seenToolHelp: [...prev.seenToolHelp, tool] }
+  )), [patch]);
+
+  const recordPopAWordBest = useCallback((run: PopAWordBest) => patch(prev => (
+    isBetterPopAWordRun(run, prev.fair.popAWordBest)
+      ? { ...prev, fair: { ...prev.fair, popAWordBest: run } }
+      : prev
   )), [patch]);
 
   const claimDaily = useCallback(() => {
@@ -347,9 +359,9 @@ export function GameStoreProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<GameStoreValue>(() => ({
     ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool,
-    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markOnboardingSeen, markModeHelpSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, saveMazeRun, recordMazeFieldScore, markMazeRewarded, markFairRewarded, markStoryBeatSeen,
+    completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markOnboardingSeen, markModeHelpSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, saveMazeRun, recordMazeFieldScore, markMazeRewarded, markFairRewarded, markStoryBeatSeen, markToolHelpSeen, recordPopAWordBest,
     completedIds, currentLevelId: save.currentLevelId,
-  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markOnboardingSeen, markModeHelpSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, saveMazeRun, recordMazeFieldScore, markMazeRewarded, markFairRewarded, markStoryBeatSeen, completedIds]);
+  }), [ready, save, energyNow, spendEnergy, addEnergy, addCoins, addTools, consumeTool, completeLevel, setCurrentLevel, setSetting, claimDaily, markTutorialSeen, markOnboardingSeen, markModeHelpSeen, markLevelIntroSeen, resetProgress, unlockCampaign, saveLevelRun, clearLevelRun, setAdFree, claimRestoration, buyCoinOffer, startEndlessHarvest, completeEndlessStage, abandonEndlessHarvest, saveMazeRun, recordMazeFieldScore, markMazeRewarded, markFairRewarded, markStoryBeatSeen, markToolHelpSeen, recordPopAWordBest, completedIds]);
 
   return <GameStoreContext.Provider value={value}>{children}</GameStoreContext.Provider>;
 }

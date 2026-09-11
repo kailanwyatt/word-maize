@@ -143,4 +143,10 @@ export const wordMaizeAssets = {
   effects: {
     sparkleBurst: require('./effects/sparkle-burst.png'),
   },
+  fair: {
+    popAWord: {
+      bucket: require('../fair/pop-a-word/bucket.png'),
+      popcorn: require('../fair/pop-a-word/popcorn.png'),
+    },
+  },
 } as const;

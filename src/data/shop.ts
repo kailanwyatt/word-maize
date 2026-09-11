@@ -23,7 +23,7 @@ export type ShopProduct = {
 
 export const TOOL_INFO: Record<ToolId, { title: string; blurb: string }> = {
   scarecrow: { title: 'Scarecrow', blurb: 'Shoos a maze crow or pest from anywhere, or highlights a starting letter on a cob.' },
-  butterBrush: { title: 'Butter Brush', blurb: 'Clears weeds, pests, webs, or frost—or reveals a useful word path.' },
+  butterBrush: { title: 'Butter Brush', blurb: 'Clears weeds, pests, webs, frost, or rot—or reveals a useful word path.' },
   cornPicker: { title: 'Corn Picker', blurb: 'Harvests one visible kernel immediately, including a squirrel’s target.' },
   mower: { title: 'Mower', blurb: 'Cuts a straight line of decorative corn so you can walk a shortcut.' },
   tractor: { title: 'Tractor', blurb: 'Mows a facing 3-by-4 corn swath and harvests letters in that span. The last letter stays manual.' },
@@ -31,6 +31,13 @@ export const TOOL_INFO: Record<ToolId, { title: string; blurb: string }> = {
   raincoat: { title: 'Raincoat', blurb: 'Adds about 90 seconds to a storm forecast. Storm ribbons still use the original deadline.' },
   huskClip: { title: 'Husk Clip', blurb: 'Clip a facing plant so its letter stays open for the rest of this field.' },
 };
+
+export const TOOL_PRIMER_HOW_TO: Partial<Record<ToolId, string>> = {
+  mower: 'Face decorative corn, then tap Mower on the belt. It cuts a straight shortcut. It will not cut letter plants.',
+  huskClip: 'Face a plant, then clip so its letter stays open for the rest of this field.',
+};
+
+export const TOOL_PRIMER_IDS: ToolId[] = ['mower', 'huskClip'];
 
 export const SHOP_PRODUCTS: ShopProduct[] = [
   {

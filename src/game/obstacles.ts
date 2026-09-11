@@ -8,11 +8,15 @@ export type ObstacleState = LevelObstacle & {
   secondsRemaining?: number;
 };
 
+function isTimedKernel(kind: ObstacleKind) {
+  return kind === 'caterpillar' || kind === 'rot';
+}
+
 export function initializeObstacles(obstacles: LevelObstacle[]): ObstacleState[] {
   return obstacles.map(obstacle => ({
     ...obstacle, status: 'active',
     turnsRemaining: obstacle.kind === 'weed' ? 3 : obstacle.countdown,
-    secondsRemaining: obstacle.kind === 'caterpillar' ? obstacle.countdown : undefined,
+    secondsRemaining: isTimedKernel(obstacle.kind) ? obstacle.countdown : undefined,
   }));
 }
 
@@ -21,11 +25,12 @@ export function restoreObstacles(authored: LevelObstacle[], saved?: ObstacleStat
   if (!saved) return initializeObstacles(authored);
   return saved.map(state => {
     const source = authored.find(o => o.id === state.id);
+    const timed = isTimedKernel(state.kind);
     return { ...source, ...state,
-      countdown: state.kind === 'caterpillar' ? source?.countdown ?? 20 : state.countdown,
+      countdown: timed ? source?.countdown ?? (state.kind === 'rot' ? 30 : 20) : state.countdown,
       anchorIds: state.anchorIds ?? source?.anchorIds,
       strength: state.strength ?? source?.strength,
-      secondsRemaining: state.kind === 'caterpillar' ? state.secondsRemaining ?? source?.countdown ?? 20 : undefined,
+      secondsRemaining: timed ? state.secondsRemaining ?? source?.countdown ?? (state.kind === 'rot' ? 30 : 20) : undefined,
     };
   });
 }
@@ -111,19 +116,28 @@ export function frostProtectedIds(states: ObstacleState[]): Set<string> {
   return new Set(states.filter(s => s.kind === 'frost' && s.status !== 'cleared').map(s => s.kernelId));
 }
 
-/** Pure clock step. Each caterpillar eats at most its own exposed kernel. */
+/** Pure clock step. Caterpillars eat (regrowable). Rot falls off for good. */
 export function tickCaterpillars(states: ObstacleState[], kernels: Kernel[], seconds: number) {
   const exposed = new Set(exposedKernels(kernels).map(k => k.id));
   const eatenIds: string[] = [];
+  const fallenIds: string[] = [];
   const obstacles = states.map(state => {
-    if (state.kind !== 'caterpillar' || state.status === 'cleared' || !exposed.has(state.kernelId)) return state;
-    const secondsRemaining = Math.max(0, (state.secondsRemaining ?? 20) - Math.max(0, seconds));
-    if (secondsRemaining === 0) eatenIds.push(state.kernelId);
+    if (!isTimedKernel(state.kind) || state.status === 'cleared' || !exposed.has(state.kernelId)) return state;
+    const fallback = state.kind === 'rot' ? 30 : 20;
+    const secondsRemaining = Math.max(0, (state.secondsRemaining ?? fallback) - Math.max(0, seconds));
+    if (secondsRemaining === 0) {
+      if (state.kind === 'rot') fallenIds.push(state.kernelId);
+      else eatenIds.push(state.kernelId);
+    }
     return { ...state, secondsRemaining, status: secondsRemaining === 0 ? 'cleared' as const : 'active' as const };
   });
   return {
-    obstacles, eatenIds,
-    kernels: kernels.map(k => eatenIds.includes(k.id) ? { ...k, harvested: true, eaten: true } : k),
+    obstacles, eatenIds, fallenIds,
+    kernels: kernels.map(k => {
+      if (eatenIds.includes(k.id)) return { ...k, harvested: true, eaten: true };
+      if (fallenIds.includes(k.id)) return { ...k, harvested: true };
+      return k;
+    }),
   };
 }
 
@@ -138,7 +152,7 @@ export function blockedKernelIds(states: ObstacleState[]): Set<string> {
 }
 
 export function obstacleBadge(state: ObstacleState): string {
-  if (state.kind === 'caterpillar') return `${Math.ceil(state.secondsRemaining ?? 20)}s`;
+  if (state.kind === 'caterpillar' || state.kind === 'rot') return `${Math.ceil(state.secondsRemaining ?? (state.kind === 'rot' ? 30 : 20))}s`;
   if (state.kind === 'squirrel') return '5+';
   if (state.kind === 'web') return `${state.anchorIds?.length ?? 0}⚓`;
   if (state.kind === 'frost') return `${state.strength ?? 1}❄`;
@@ -151,5 +165,6 @@ export function obstacleLabel(kind: ObstacleKind) {
   if (kind === 'squirrel') return 'Squirrel';
   if (kind === 'web') return 'Spider Web';
   if (kind === 'frost') return 'Frost';
+  if (kind === 'rot') return 'Rot';
   return 'Weeds';
 }

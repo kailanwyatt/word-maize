@@ -1,4 +1,4 @@
-import { Inventory, LevelProgress } from '../game/types';
+import { Inventory, LevelProgress, TOOL_IDS, type ToolId } from '../game/types';
 import type { ObstacleState } from '../game/obstacles';
 import type { MazeRun } from '../game/maze';
 import { PLAYABLE_MAZE_IDS } from '../data/mazeLevels';
@@ -43,6 +43,8 @@ export type ActiveLevelRun = {
   acceptedTurns?: number;
   crackedIds?: string[];
   popCharges?: Record<string, number>;
+  firstWordMs?: number | null;
+  playMs?: number;
   updatedAt: number;
 };
 
@@ -76,8 +78,18 @@ export function mergeMazeSave(maze: MazeSave | undefined, patch: Partial<MazeSav
   };
 }
 
+export type PopAWordBest = {
+  score: number;
+  wordsCompleted: number;
+  elapsedMs: number;
+  accuracy: number;
+  bestCombo: number;
+  at: number;
+};
+
 export type FairSave = {
   rewardedIds: string[];
+  popAWordBest: PopAWordBest | null;
 };
 
 export type ModeHelpId = 'maize' | 'cob' | 'crossword' | 'twist' | 'endless';
@@ -110,11 +122,12 @@ export type GameSave = {
   maze: MazeSave;
   fair: FairSave;
   seenStoryBeatIds: string[];
+  seenToolHelp: ToolId[];
 };
 
 export const SAVE_KEY = 'word-maize.save.v1';
 export const COB_PUZZLE_SAVE_KEY = 'word-maize-cob-prototypes-v1';
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 export const defaultSave = (): GameSave => ({
   version: SAVE_VERSION,
@@ -135,8 +148,9 @@ export const defaultSave = (): GameSave => ({
   claimedRestorations: [],
   endlessHarvest: { bestStage: 0, active: null },
   maze: { runs: {}, rewardedIds: [], unlockedIds: ['sunny-acres-corn'], ribbons: {}, scores: {}, pendingSync: [], freePlay: null },
-  fair: { rewardedIds: [] },
+  fair: { rewardedIds: [], popAWordBest: null },
   seenStoryBeatIds: [],
+  seenToolHelp: [],
 });
 
 export function migrateSeenModeHelp(value: unknown): SeenModeHelp {
@@ -145,6 +159,39 @@ export function migrateSeenModeHelp(value: unknown): SeenModeHelp {
   const saved = value as Partial<SeenModeHelp>;
   for (const id of MODE_HELP_IDS) next[id] = saved[id] === true;
   return next;
+}
+
+export function migrateSeenToolHelp(value: unknown): ToolId[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((id): id is ToolId => typeof id === 'string' && TOOL_IDS.includes(id as ToolId));
+}
+
+export function migratePopAWordBest(value: unknown): PopAWordBest | null {
+  if (!value || typeof value !== 'object') return null;
+  const saved = value as Partial<PopAWordBest>;
+  const score = Math.max(0, Math.floor(Number(saved.score) || 0));
+  const wordsCompleted = Math.max(0, Math.floor(Number(saved.wordsCompleted) || 0));
+  const elapsedMs = Math.max(0, Math.floor(Number(saved.elapsedMs) || 0));
+  const accuracy = Math.min(1, Math.max(0, Number(saved.accuracy) || 0));
+  const bestCombo = Math.max(0, Math.floor(Number(saved.bestCombo) || 0));
+  const at = Number.isFinite(saved.at) ? Number(saved.at) : 0;
+  if (!score && !wordsCompleted) return null;
+  return { score, wordsCompleted, elapsedMs, accuracy, bestCombo, at };
+}
+
+export function migrateFairSave(value: unknown): FairSave {
+  const saved = value && typeof value === 'object' ? value as Partial<FairSave> : {};
+  return {
+    rewardedIds: Array.isArray(saved.rewardedIds) ? saved.rewardedIds.filter(id => typeof id === 'string') : [],
+    popAWordBest: migratePopAWordBest(saved.popAWordBest),
+  };
+}
+
+export function isBetterPopAWordRun(next: PopAWordBest, best: PopAWordBest | null) {
+  if (!best) return true;
+  if (next.score !== best.score) return next.score > best.score;
+  if (next.wordsCompleted !== best.wordsCompleted) return next.wordsCompleted > best.wordsCompleted;
+  return next.elapsedMs > best.elapsedMs;
 }
 
 function hadPriorPlay(saved: Partial<GameSave>): boolean {
@@ -168,14 +215,11 @@ export function migrateSave(value: unknown): GameSave {
     ...saved,
     version: SAVE_VERSION,
     inventory: { ...fallback.inventory, ...(saved.inventory ?? {}) },
-    fair: {
-      rewardedIds: Array.isArray((saved as { fair?: FairSave }).fair?.rewardedIds)
-        ? (saved as { fair?: FairSave }).fair!.rewardedIds.filter(id => typeof id === 'string')
-        : [],
-    },
+    fair: migrateFairSave((saved as { fair?: FairSave }).fair),
     seenStoryBeatIds: Array.isArray(seenStory)
       ? seenStory.filter(id => typeof id === 'string')
       : [],
+    seenToolHelp: migrateSeenToolHelp((saved as { seenToolHelp?: unknown }).seenToolHelp),
     seenOnboarding: saved.seenOnboarding === true || hadPriorPlay(saved),
     seenModeHelp: migrateSeenModeHelp(saved.seenModeHelp),
     settings: {

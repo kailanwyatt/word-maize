@@ -1,11 +1,11 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { playGameSound } from '../audio/sounds';
 import { CurrencyBar } from '../components/CurrencyBar';
-import { FarmButton, Panel } from '../components/FarmButton';
+import { FarmDialog } from '../components/FarmDialog';
 import { CAMPAIGN_WORLDS, isLevelUnlocked, LEVELS } from '../data/levels';
 import { chapterIndexForLevel, chapterRange } from '../game/campaign';
 import { totalStars } from '../game/scoring';
@@ -66,7 +66,7 @@ export function MapScreen() {
     wordMaizeAssets.backgrounds.mapMoonlight,
   ];
   const nextWorld = CAMPAIGN_WORLDS[chapter + 1];
-  const nextChapterUnlocked = !nextWorld || isLevelUnlocked(chapter * 15 + 16, store.completedIds);
+  const nextChapterUnlocked = !nextWorld || isLevelUnlocked(chapter * 15 + 16, store.completedIds, store.save.settings.devUnlock);
 
   const scrollToLevel = useCallback((levelId: number, chapterIndex: number, animated: boolean) => {
     const localIndex = Math.max(0, Math.min(14, (levelId - 1) % 15));
@@ -81,12 +81,12 @@ export function MapScreen() {
     const nextPlayable = LEVELS.find(level => (
       level.id >= start
       && level.id <= end
-      && isLevelUnlocked(level.id, store.completedIds)
+      && isLevelUnlocked(level.id, store.completedIds, store.save.settings.devUnlock)
       && !(store.save.levels[level.id]?.stars)
     ));
     const focusId = inChapter
       ? store.currentLevelId
-      : (nextPlayable?.id ?? (isLevelUnlocked(end, store.completedIds) ? end : start));
+      : (nextPlayable?.id ?? (isLevelUnlocked(end, store.completedIds, store.save.settings.devUnlock) ? end : start));
     setSelectedId(focusId);
     const frame = requestAnimationFrame(() => scrollToLevel(focusId, chapter, false));
     const later = setTimeout(() => scrollToLevel(focusId, chapter, false), 80);
@@ -94,16 +94,16 @@ export function MapScreen() {
       cancelAnimationFrame(frame);
       clearTimeout(later);
     };
-  }, [chapter, scrollToLevel, store.completedIds, store.currentLevelId, store.save.levels]));
+  }, [chapter, scrollToLevel, store.completedIds, store.currentLevelId, store.save.levels, store.save.settings.devUnlock]));
 
   const changeChapter = (next: number) => {
     if (next < 0 || next > 3) return;
-    if (next > chapter && !isLevelUnlocked(next * 15 + 1, store.completedIds)) return;
+    if (next > chapter && !isLevelUnlocked(next * 15 + 1, store.completedIds, store.save.settings.devUnlock)) return;
     router.replace(`/map/${next + 1}`);
   };
 
   const play = (id: number) => {
-    if (!isLevelUnlocked(id, store.completedIds)) return;
+    if (!isLevelUnlocked(id, store.completedIds, store.save.settings.devUnlock)) return;
     const continuing = store.save.activeLevelRun?.levelId === id;
     const { energy } = store.energyNow();
     if (!continuing && energy < 1) { setNeedEnergy(true); return; }
@@ -115,7 +115,7 @@ export function MapScreen() {
     const result = await showRewardedAd('energy', store.save.adFree);
     if (result.rewarded) { store.addEnergy(1); playGameSound('reward', 0.72); setNeedEnergy(false); }
   };
-  const selectedUnlocked = isLevelUnlocked(selectedLevel.id, store.completedIds);
+  const selectedUnlocked = isLevelUnlocked(selectedLevel.id, store.completedIds, store.save.settings.devUnlock);
 
   return (
     <View style={styles.shell}>
@@ -133,7 +133,7 @@ export function MapScreen() {
             <Image source={backgrounds[chapter]} style={styles.mapBackground} resizeMode="cover" />
             {chapterLevels.map((level, index) => {
               const point = CHAPTER_PATHS[chapter][index];
-              const unlocked = isLevelUnlocked(level.id, store.completedIds);
+              const unlocked = isLevelUnlocked(level.id, store.completedIds, store.save.settings.devUnlock);
               const progress = store.save.levels[level.id];
               const selected = selectedId === level.id;
               const current = store.currentLevelId === level.id;
@@ -202,16 +202,13 @@ export function MapScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
-      <Modal visible={needEnergy} transparent animationType="fade">
-        <View style={styles.shade}>
-          <Panel>
-            <Text style={styles.modalTitle}>Out of energy</Text>
-            <FarmButton label={store.save.adFree ? 'GET 1 ENERGY' : 'WATCH AD FOR ENERGY'} onPress={refill} />
-            <View style={{ height: 10 }} />
-            <FarmButton label="CLOSE" onPress={() => setNeedEnergy(false)} />
-          </Panel>
-        </View>
-      </Modal>
+      <FarmDialog
+        visible={needEnergy}
+        title="Out of energy"
+        onClose={() => setNeedEnergy(false)}
+        primary={{ label: store.save.adFree ? 'GET 1 ENERGY' : 'WATCH AD FOR ENERGY', onPress: refill }}
+        actions={[{ label: 'CLOSE', onPress: () => setNeedEnergy(false), tone: 'slate' }]}
+      />
     </View>
   );
 }

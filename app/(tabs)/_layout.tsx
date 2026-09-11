@@ -3,6 +3,7 @@ import { ImageBackground, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabIcon } from '../../src/components/TabIcons';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
+import { useMessages } from '../../src/i18n';
 
 function TabBarWood() {
   return (
@@ -21,6 +22,7 @@ function TabBarWood() {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const t = useMessages();
   const padBottom = Math.max(insets.bottom, 8);
   return (
     <Tabs
@@ -33,36 +35,48 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: 'transparent',
           borderTopWidth: 0,
-          height: 62 + padBottom,
-          paddingTop: 6,
+          height: 72 + padBottom,
+          paddingTop: 8,
           paddingBottom: padBottom,
           elevation: 0,
         },
       }}
     >
       <Tabs.Screen
-        name="map"
+        name="play"
         options={{
-          title: 'Farm',
-          tabBarAccessibilityLabel: 'Farm',
-          tabBarIcon: ({ focused }) => <TabIcon label="FARM" focused={focused} kind="farm" />,
+          title: t.tabs.play,
+          tabBarAccessibilityLabel: t.tabs.play,
+          tabBarIcon: ({ focused }) => <TabIcon label={t.tabs.play} focused={focused} kind="play" />,
         }}
       />
       <Tabs.Screen
-        name="play"
+        name="fair"
         options={{
-          title: 'Play',
-          tabBarAccessibilityLabel: 'Play',
-          tabBarIcon: ({ focused }) => <TabIcon label="PLAY" focused={focused} kind="play" />,
+          title: t.tabs.fair,
+          tabBarAccessibilityLabel: t.tabs.fair,
+          tabBarIcon: ({ focused }) => <TabIcon label={t.tabs.fair} focused={focused} kind="fair" />,
         }}
       />
       <Tabs.Screen
         name="shop"
         options={{
-          title: 'Shop',
-          tabBarAccessibilityLabel: 'Shop',
-          tabBarIcon: ({ focused }) => <TabIcon label="SHOP" focused={focused} kind="shop" />,
+          title: t.tabs.shop,
+          tabBarAccessibilityLabel: t.tabs.shop,
+          tabBarIcon: ({ focused }) => <TabIcon label={t.tabs.shop} focused={focused} kind="shop" />,
         }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: t.tabs.profile,
+          tabBarAccessibilityLabel: t.tabs.profile,
+          tabBarIcon: ({ focused }) => <TabIcon label={t.tabs.profile} focused={focused} kind="profile" />,
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{ href: null }}
       />
     </Tabs>
   );

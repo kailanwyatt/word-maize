@@ -8,7 +8,7 @@ import { farmerPhrase, farmerTalkName, personalizeFarmerCopy } from '../farmerCo
 import { SHOP_PRODUCTS, COIN_TOOL_OFFERS, TOOL_INFO, validateShopProducts, validateCoinOffers } from '../../data/shop';
 import { EMPTY_INVENTORY, addToInventory, clampInventoryAmount, completionReward, fairPuzzleCoins, mazeClearCoins, purchaseCoinOffer } from '../economy';
 import { hitKernel } from '../../components/CornCob/layout';
-import { classifyMovement, resolvePointerRelease } from '../gestures';
+import { classifyMovement, fieldDoubleTap, fieldPointerRelease, fieldWalkStick, resolvePointerRelease } from '../gestures';
 import { harvestKernels, harvestPercent } from '../harvest';
 import { findDiscoverablePath } from '../powerups';
 import { wrapColumn, signedColumnOffset, snapRotation, rotationFromDrag, finishRotation, nearestRotationTarget, stepRotation, degreesPerColumn } from '../rotation';
@@ -18,7 +18,7 @@ import { ENERGY_REGEN_MS, Kernel, MAZE_TOOL_IDS } from '../types';
 import { CORN_EDUCATIONAL_FACTS, cornMechanicCountForLevel, isLevelUnlocked, LEVELS } from '../../data/levels';
 import { migrateSave, nextDailyDay, SAVE_VERSION } from '../../store/types';
 import { validateLevels } from '../levelValidation';
-import { evaluateLevelStars, objectiveComplete } from '../scoring';
+import { evaluateLevelStars, objectiveComplete, starGoalComplete } from '../scoring';
 import { advanceObstacles, blockedKernelIds, clearObstacle, initializeObstacles } from '../obstacles';
 import { weatherCoinBonus, weatherLabel, windStep } from '../weather';
 import { claimableRestorationMilestone, completedRestorationStage, nextRestorationMilestone, RESTORATION_MILESTONES } from '../restoration';
@@ -119,11 +119,14 @@ describe('tap selection', () => {
   });
 });
 
-describe('Sweet Corn Fields progression', () => {
+describe("Frankland's Corn Fields progression", () => {
   it('keeps all ten authored boards deterministic and valid', () => {
     const chapter = LEVELS.slice(0, 10);
     expect(chapter).toHaveLength(10);
-    expect(chapter.every(level => !level.shuffleOnStart)).toBe(true);
+    expect(chapter[0].shuffleOnStart).toBe(false);
+    expect(chapter.slice(1).every(level => level.shuffleOnStart)).toBe(true);
+    expect(chapter[1].tutorial.join(' ')).toMatch(/rotate/i);
+    expect(chapter[4].starGoals.some(goal => goal.kind === 'firstWordWithinSeconds')).toBe(true);
     expect(validateLevels(chapter)).toEqual([]);
   });
 
@@ -142,6 +145,15 @@ describe('Sweet Corn Fields progression', () => {
     const level = LEVELS[0];
     const result = evaluateLevelStars(level, { percent: 65, words: ['SEED', 'CORN'], toolsUsed: 0, layersRevealed: 0 });
     expect(result).toEqual({ stars: 3, completedGoalIds: ['long-word-4', 'harvest-60'] });
+  });
+
+  it('awards the sun-clock star only when the first word beats the clock', () => {
+    const level = LEVELS[4];
+    const clock = level.starGoals.find(goal => goal.kind === 'firstWordWithinSeconds')!;
+    const base = { percent: 70, words: ['ORCHARD'], toolsUsed: 0, layersRevealed: 0 };
+    expect(starGoalComplete(clock, { ...base, firstWordMs: 12_000 })).toBe(true);
+    expect(starGoalComplete(clock, { ...base, firstWordMs: 50_000 })).toBe(false);
+    expect(starGoalComplete(clock, { ...base, firstWordMs: null })).toBe(false);
   });
 });
 
@@ -188,6 +200,27 @@ describe('tap versus drag', () => {
   it('keeps rotating after the threshold even if later movement is small', () => {
     expect(classifyMovement(2, 0, 18, 'rotate')).toBe('rotate');
     expect(resolvePointerRelease('rotate', 2, 18)).toBe('rotate');
+  });
+});
+
+describe('field drag versus tap', () => {
+  it('keeps a short press as a plant tap and a swipe as a walk', () => {
+    expect(fieldPointerRelease(4, 6, 120)).toBe('tap');
+    expect(fieldPointerRelease(40, 8, 120)).toBe('walk');
+    expect(fieldPointerRelease(2, 2, 400)).toBe('walk');
+  });
+
+  it('turns a field drag into a stick once it clears the slop', () => {
+    expect(fieldWalkStick(4, 0)).toEqual({ x: 0, y: 0 });
+    const right = fieldWalkStick(48, 0);
+    expect(right.x).toBeGreaterThan(0.9);
+    expect(right.y).toBe(0);
+  });
+
+  it('counts a second nearby tap as a harvest double-tap', () => {
+    expect(fieldDoubleTap(10, 10, 200, { x: 12, y: 11, at: 40 })).toBe(true);
+    expect(fieldDoubleTap(10, 10, 200, { x: 80, y: 11, at: 40 })).toBe(false);
+    expect(fieldDoubleTap(10, 10, 500, { x: 12, y: 11, at: 40 })).toBe(false);
   });
 });
 
@@ -390,6 +423,7 @@ describe('tutorial clarity and campaign balance', () => {
   it('introduces one obstacle family at a time before combining them', () => {
     const firstObstacleLevel = (kind: string) => LEVELS.find(level => level.obstacles.some(obstacle => obstacle.kind === kind))?.id;
     expect(firstObstacleLevel('caterpillar')).toBe(8);
+    expect(firstObstacleLevel('rot')).toBe(9);
     expect(firstObstacleLevel('crow')).toBe(16);
     expect(firstObstacleLevel('squirrel')).toBe(20);
     expect(firstObstacleLevel('weed')).toBe(32);
@@ -582,6 +616,9 @@ describe('farm obstacles', () => {
     expect(eight.obstacles.some(obstacle => obstacle.kind === 'caterpillar')).toBe(true);
     expect(eight.story?.title).toBe('Hungry Visitors');
     expect(eight.tutorial.join(' ')).toMatch(/Caterpillar/i);
+    const nine = LEVELS.find(level => level.id === 9)!;
+    expect(nine.obstacles).toEqual([expect.objectContaining({ kind: 'rot', countdown: 30 })]);
+    expect(nine.tutorial.join(' ')).toMatch(/going bad|falls off/i);
   });
 
   it('counts down crows and blocks their kernel when they swoop', () => {
@@ -727,7 +764,7 @@ describe('store catalog', () => {
 });
 
 describe('campaign hub and late harvests', () => {
-  it('names the farm from the current chapter, not always Sweet Corn Fields', () => {
+  it("names the farm from the current chapter, not always Frankland's Corn Fields", () => {
     expect(chapterIndexForLevel(1)).toBe(0);
     expect(chapterIndexForLevel(16)).toBe(1);
     expect(chapterIndexForLevel(46)).toBe(3);
@@ -741,10 +778,10 @@ describe('campaign hub and late harvests', () => {
     expect(isChapterUnlocked(3, [], true)).toBe(true);
     expect(chapterStarCount({ 1: { stars: 3 }, 16: { stars: 2 } }, 0)).toBe(3);
     expect(chapterStarCount({ 1: { stars: 3 }, 16: { stars: 2 } }, 1)).toBe(2);
-    expect(farmQuote({ levelId: 16, world: 'Crow Creek', chapterComplete: false })).toMatch(/creek/i);
-    expect(farmQuote({ levelId: 15, world: 'Sweet Corn Fields', chapterComplete: true })).toMatch(/Crow Creek/);
-    expect(farmQuote({ levelId: 1, world: 'Sweet Corn Fields', chapterComplete: false })).toContain("Farmer May's");
-    expect(farmQuote({ levelId: 1, world: 'Sweet Corn Fields', chapterComplete: false, farmerName: 'Kurt' })).toContain("Kurt's");
+    expect(farmQuote({ levelId: 16, world: 'Cayon Creek', chapterComplete: false })).toMatch(/creek/i);
+    expect(farmQuote({ levelId: 15, world: "Frankland's Corn Fields", chapterComplete: true })).toMatch(/Cayon Creek/);
+    expect(farmQuote({ levelId: 1, world: "Frankland's Corn Fields", chapterComplete: false })).toContain("Farmer May's");
+    expect(farmQuote({ levelId: 1, world: "Frankland's Corn Fields", chapterComplete: false, farmerName: 'Kurt' })).toContain("Kurt's");
     expect(chapterSummary(0)).toContain("Farmer May's");
     expect(chapterSummary(0, 'Kurt')).toBe("Wake Kurt's first farm.");
     expect(chapterSummary(0, 'Alexandria-Louise')).toBe('Wake your first farm.');
@@ -792,8 +829,9 @@ describe('save migration', () => {
     expect(migrated.seenLevelIntros).toEqual([]);
     expect(migrated.endlessHarvest).toEqual({ bestStage: 0, active: null });
     expect(migrated.maze).toEqual({ runs: {}, rewardedIds: [], unlockedIds: ['sunny-acres-corn'], ribbons: {}, scores: {}, pendingSync: [], freePlay: null });
-    expect(migrated.fair).toEqual({ rewardedIds: [] });
+    expect(migrated.fair).toEqual({ rewardedIds: [], popAWordBest: null });
     expect(migrated.seenStoryBeatIds).toEqual([]);
+    expect(migrated.seenToolHelp).toEqual([]);
     expect(migrated.settings.skipStory).toBe(false);
     expect(migrated.settings.devUnlock).toBe(false);
     expect(migrated.settings.showMazePad).toBe(false);
@@ -841,6 +879,10 @@ describe('save migration', () => {
     expect(migrateSave({ settings: { language: 'zz' } }).settings.language).toBe('en');
     expect(migrateSave({ seenModeHelp: { maize: true, cob: 'yes' } }).seenModeHelp).toEqual({
       maize: true, cob: false, crossword: false, twist: false, endless: false,
+    });
+    expect(migrateSave({ seenToolHelp: ['mower', 'nope'] }).seenToolHelp).toEqual(['mower']);
+    expect(migrateSave({ fair: { rewardedIds: ['pop'], popAWordBest: { score: 120, wordsCompleted: 3, elapsedMs: 52_000, accuracy: 0.8, bestCombo: 4, at: 9 } } }).fair.popAWordBest).toEqual({
+      score: 120, wordsCompleted: 3, elapsedMs: 52_000, accuracy: 0.8, bestCombo: 4, at: 9,
     });
   });
 });

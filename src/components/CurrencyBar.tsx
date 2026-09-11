@@ -23,7 +23,7 @@ export function CurrencyBar({ onSettings, tone = 'wood' }: { onSettings?: () => 
   const { save, energyNow } = useGameStore();
   const stars = totalStars(save.levels);
   const { energy } = energyNow();
-  const openSettings = onSettings ?? (() => router.push('/settings'));
+  const openSettings = onSettings ?? (() => router.push('/(tabs)/profile'));
   const openShop = () => router.push('/(tabs)/shop');
   const glass = tone === 'glass';
   const pillStyle = glass ? styles.glassPill : styles.woodPill;
@@ -66,7 +66,7 @@ export function CurrencyBar({ onSettings, tone = 'wood' }: { onSettings?: () => 
         )}
       </Pressable>
       <View style={styles.spacer} />
-      <Pressable accessibilityRole="button" onPress={openSettings} style={styles.gear} accessibilityLabel="Settings">
+      <Pressable accessibilityRole="button" onPress={openSettings} style={styles.gear} accessibilityLabel="Profile">
         {glass ? (
           <View style={[styles.gearFace, styles.glassGear]}><GearIcon color="#ffffff" size={20} /></View>
         ) : (

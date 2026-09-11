@@ -244,6 +244,7 @@ export function parseMazeAscii(input: {
   const lines = input.ascii.trim().split('\n').map(line => line.trim());
   const rows = lines.length;
   const cols = lines[0]?.length ?? 0;
+  const atSpawn = lines.some(line => line.includes('@'));
   const terrain: Terrain[][] = [];
   const cobs: MazeCob[] = [];
   let spawn: MazeCell | undefined;
@@ -254,7 +255,7 @@ export function parseMazeAscii(input: {
     terrain[row] = [];
     for (let col = 0; col < cols; col += 1) {
       const ch = lines[row][col];
-      if (ch === 'S') {
+      if (ch === '@' || (ch === 'S' && !atSpawn)) {
         terrain[row][col] = 'path';
         spawn = { col, row };
       } else if (ch === '.') {
@@ -305,6 +306,16 @@ export function parseMazeAscii(input: {
 }
 
 export function floodFillPaths(puzzle: MazePuzzle, origin: MazeCell) {
+  return floodFillWalk(puzzle, origin);
+}
+
+/** Path tiles plus interior decorative corn the mower can cut. */
+export function floodFillPathsAllowingMow(puzzle: MazePuzzle, origin: MazeCell) {
+  const dummy = createMazeRun(puzzle);
+  return floodFillWalk(puzzle, origin, (col, row) => canMowCell(puzzle, dummy, col, row));
+}
+
+function floodFillWalk(puzzle: MazePuzzle, origin: MazeCell, extraWalkable?: (col: number, row: number) => boolean) {
   const seen = new Set<string>();
   const queue = [origin];
   if (terrainAt(puzzle, origin.col, origin.row) !== 'path') return seen;
@@ -314,7 +325,9 @@ export function floodFillPaths(puzzle: MazePuzzle, origin: MazeCell) {
     for (const dir of CARDINALS) {
       const next = { col: cell.col + dir.col, row: cell.row + dir.row };
       const key = cellKey(next);
-      if (seen.has(key) || terrainAt(puzzle, next.col, next.row) !== 'path') continue;
+      if (seen.has(key)) continue;
+      const walkable = terrainAt(puzzle, next.col, next.row) === 'path' || extraWalkable?.(next.col, next.row);
+      if (!walkable) continue;
       seen.add(key);
       queue.push(next);
     }
@@ -346,7 +359,7 @@ export function validateMazePuzzle(puzzle: MazePuzzle): string[] {
     wallKeys.add(wall);
   }
 
-  const reachable = floodFillPaths(puzzle, puzzle.spawn);
+  const reachable = floodFillPathsAllowingMow(puzzle, puzzle.spawn);
   for (const cob of puzzle.cobs) {
     if (!reachable.has(cellKey(cob.inspect))) issues.push(`Cob ${cob.id} inspect cell is unreachable`);
   }
@@ -434,6 +447,21 @@ export function farmerFacesCob(run: MazeRun, cob: MazeCob) {
 export function nearbyLetterCobs(puzzle: MazePuzzle, run: MazeRun) {
   if (!run.solved || !run.started) return [];
   return cobsInRange(puzzle, run).filter(cob => !cobBlockedByWildlife(run, cob.id));
+}
+
+export function mazeRevealedIds(run: MazeRun, reveal: MazeReveal | null) {
+  const active = revealIfActive(reveal, run.elapsedActiveMs);
+  return [...new Set([
+    ...(active ? [active.cobId] : []),
+    ...clippedLetterIds(run),
+  ])];
+}
+
+/** FIND-letter plants in range whose husk is showing (peek or husk clip). Facing is not required. */
+export function harvestReadyCobs(puzzle: MazePuzzle, run: MazeRun, revealedIds: string[]) {
+  const target = currentTarget(puzzle, run);
+  if (!target) return [];
+  return nearbyLetterCobs(puzzle, run).filter(cob => cob.letter === target && revealedIds.includes(cob.id));
 }
 
 export function visibleLetterCobs(puzzle: MazePuzzle, run: MazeRun) {

@@ -18,7 +18,7 @@ describe('maze landmark art placement', () => {
       expect(landmarkArtPlacements(puzzle)).toEqual(placements);
     }
   });
-  it('places Sunny Acres memory props on decorative corn', () => {
+  it('places Sandy Point memory props on decorative corn', () => {
     const puzzle = MAZE_PUZZLES[0];
     expect(puzzle.id).toBe('sunny-acres-corn');
     expect((puzzle.landmarks ?? []).map(item => item.id)).toEqual(['rock', 'signpost', 'scarecrow', 'sunflowers']);

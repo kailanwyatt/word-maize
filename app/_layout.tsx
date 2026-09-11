@@ -8,15 +8,18 @@ import { isExpoGo } from '../src/monetization/config';
 import { configurePurchases, refreshAdFree } from '../src/monetization/purchases';
 import { configureAds } from '../src/monetization/ads';
 import { SplashView } from '../src/screens/SplashView';
+import { OnboardingScreen } from '../src/screens/OnboardingScreen';
 import { RuntimeBridge } from '../src/components/RuntimeBridge';
+import { messagesFor } from '../src/i18n';
 import { GameStoreProvider, useGameStore } from '../src/store/GameStore';
 
 const nativeStores = !isExpoGo;
 
 function Gate({ children }: { children: ReactNode }) {
-  const { ready, setAdFree } = useGameStore();
+  const { ready, save, setAdFree } = useGameStore();
   const [progress, setProgress] = useState(0.14);
   const [minTime, setMinTime] = useState(false);
+  const loading = messagesFor(save.settings.language).splash.loading;
 
   useEffect(() => {
     const tick = setInterval(() => setProgress(value => Math.min(0.9, value + 0.07)), 110);
@@ -31,7 +34,15 @@ function Gate({ children }: { children: ReactNode }) {
     return () => { clearInterval(tick); clearTimeout(wait); };
   }, [setAdFree]);
 
-  if (!ready || !minTime) return <SplashView progress={progress} />;
+  if (!ready || !minTime) return <SplashView progress={progress} loading={loading} />;
+  if (!save.seenOnboarding) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <OnboardingScreen />
+      </>
+    );
+  }
   return children;
 }
 
@@ -43,11 +54,15 @@ export default function RootLayout() {
           <RuntimeBridge />
           <Gate>
             <StatusBar style="light" />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#1a3a18' } }}>
-              <Stack.Screen name="maze/index" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
-              <Stack.Screen name="maze/free" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
-              <Stack.Screen name="maze/[id]" options={{ gestureEnabled: false, fullScreenGestureEnabled: false }} />
-            </Stack>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: 'slide_from_right',
+                gestureEnabled: false,
+                fullScreenGestureEnabled: false,
+                contentStyle: { flex: 1, backgroundColor: '#1a3a18' },
+              }}
+            />
           </Gate>
         </GameStoreProvider>
       </View>

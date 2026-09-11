@@ -11,6 +11,7 @@ export function WordSubmitButton({
   onSubmit,
   onClear,
   reducedMotion = false,
+  emptyLabel = IDLE,
 }: {
   word: string;
   status: 'idle' | 'valid' | 'invalid';
@@ -19,10 +20,11 @@ export function WordSubmitButton({
   onSubmit: () => void;
   onClear?: () => void;
   reducedMotion?: boolean;
+  emptyLabel?: string;
 }) {
   const shake = useRef(new Animated.Value(0)).current;
-  const label = pickerMode ? 'PICK ONE KERNEL' : word || IDLE;
-  const showClear = !pickerMode && word.length > 0 && status !== 'valid';
+  const label = pickerMode ? 'PICK ONE KERNEL' : word || emptyLabel;
+  const showClear = !pickerMode && !!onClear && word.length > 0 && status !== 'valid';
 
   useEffect(() => {
     if (status !== 'invalid') {

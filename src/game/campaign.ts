@@ -1,4 +1,5 @@
 import { Level } from './types';
+import { farmerPhrase } from './farmerCopy';
 
 export const CHAPTER_TITLES = ['CHAPTER ONE', 'CHAPTER TWO', 'CHAPTER THREE', 'CHAPTER FOUR'] as const;
 
@@ -24,6 +25,11 @@ export const CHAPTER_SUMMARIES = [
   'Light the festival fields at night.',
 ] as const;
 
+export function chapterSummary(index: number, farmerName = '') {
+  if (index === 0) return `Wake ${farmerPhrase(farmerName, 'your')} first farm.`;
+  return CHAPTER_SUMMARIES[index];
+}
+
 export function isChapterUnlocked(chapterIndex: number, completedIds: number[], devUnlock = false) {
   if (devUnlock || chapterIndex <= 0) return true;
   return completedIds.includes(chapterIndex * 15);
@@ -41,18 +47,19 @@ export function farmQuote(input: {
   world: string;
   chapterComplete: boolean;
   claimableTitle?: string;
+  farmerName?: string;
 }) {
   if (input.claimableTitle) return `${input.claimableTitle} is ready to claim. The valley is waking up!`;
-  if (input.levelId === 1) return 'Farmer May’s first crop has gone quiet. Let’s wake it up with a few good words!';
+  if (input.levelId === 1) return `${farmerPhrase(input.farmerName ?? '', 'your')} first crop has gone quiet. Let’s wake it up with a few good words!`;
   if (input.chapterComplete) {
-    if (input.world === 'Sweet Corn Fields') return 'Sweet Corn Fields is shining again. The wagon is ready for Crow Creek!';
-    if (input.world === 'Crow Creek') return 'The creek road is clear. Orchard Hollow is waiting beyond the mill.';
-    if (input.world === 'Orchard Hollow') return 'The orchard is restored. Lanterns are already lighting the road to Moonlight Maize.';
+    if (input.world === "Frankland's Corn Fields") return "Frankland's Corn Fields is shining again. The wagon is ready for Cayon Creek!";
+    if (input.world === 'Cayon Creek') return 'The creek road is clear. Fig Tree Hollow is waiting beyond the mill.';
+    if (input.world === 'Fig Tree Hollow') return "The orchard is restored. Lanterns are already lighting the road to Pinney's Maize.";
     return 'Every farm is shining. The Harvest Festival can finally begin!';
   }
-  if (input.world === 'Crow Creek') return `Crows are working the creek. Level ${input.levelId} will keep them off the crop.`;
-  if (input.world === 'Orchard Hollow') return `Vines and weather are thick in the orchard. Level ${input.levelId} still needs a careful harvest.`;
-  if (input.world === 'Moonlight Maize') return `The festival fields are restless tonight. Level ${input.levelId} is the next lantern on the trail.`;
+  if (input.world === 'Cayon Creek') return `Crows are working the creek. Level ${input.levelId} will keep them off the crop.`;
+  if (input.world === 'Fig Tree Hollow') return `Vines and weather are thick in the orchard. Level ${input.levelId} still needs a careful harvest.`;
+  if (input.world === "Pinney's Maize") return `The festival fields are restless tonight. Level ${input.levelId} is the next lantern on the trail.`;
   return `Level ${input.levelId} is waiting on the cob. One more harvest and the farm keeps waking up.`;
 }
 

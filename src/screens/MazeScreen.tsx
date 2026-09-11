@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AppState, Image, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { AppState, Image, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,27 +22,27 @@ import { ModeHelpDialog } from '../components/ModeHelpDialog';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
 import { MAZE_CAMPAIGN_TARGETS } from '../data/mazeCatalog';
 import { mazePuzzleById, MAZE_PUZZLES } from '../data/mazeLevels';
-import { TOOL_INFO } from '../data/shop';
+import { TOOL_INFO, TOOL_PRIMER_HOW_TO, TOOL_PRIMER_IDS } from '../data/shop';
 import { mazeClearCoins } from '../game/economy';
 import { nextMazeLevel } from '../game/mazeCampaign';
 import { applyFreePlayPrefs } from '../game/mazeFreePlay';
 import {
-  clippedLetterIds,
   cobsInRange,
   createMazeRun,
   currentTarget,
   farmerFacesCob,
   harvestCob,
+  harvestReadyCobs,
   inspectCob,
   liveCobs,
   MAZE_RENDER,
   MAZE_STICK_DEADZONE,
+  mazeRevealedIds,
   mazeScore,
   mazeUnaided,
   nearbyLetterCobs,
   needsSolvePhase,
   restoreMazeRun,
-  revealIfActive,
   unusedBarnFinds,
   type MazeReveal,
   type MazeRun,
@@ -50,6 +50,7 @@ import {
 import { mazeFindsFor } from '../game/mazeFinds';
 import { bestMazeScore, formatMazeScoreTime, type MazeFieldScore } from '../game/mazeScores';
 import { advanceMazePlay } from '../game/mazePlay';
+import { fieldDoubleTap, fieldPointerRelease, fieldWalkStick } from '../game/gestures';
 import { nextStoryBeat } from '../game/mazeStory';
 import { applyMazeTool, barnChargesFor } from '../game/mazeTools';
 import { StoryBeatOverlay } from '../components/maze/StoryBeatOverlay';
@@ -100,6 +101,7 @@ export function MazeScreen() {
   const [toastTool, setToastTool] = useState<ToolId | null>(null);
   const [storyLine, setStoryLine] = useState(0);
   const [toolFx, setToolFx] = useState<MazeToolFx | null>(null);
+  const [toolPrimer, setToolPrimer] = useState<ToolId | null>(null);
   const stick = useRef({ x: 0, y: 0 });
   const runRef = useRef(run);
   const puzzleRef = useRef(puzzle);
@@ -178,8 +180,12 @@ export function MazeScreen() {
         if (freshId) {
           const find = mazeFindsFor(puzzleRef.current).find(item => item.id === freshId);
           if (find) {
-            setToast(`${TOOL_INFO[find.tool].title} found`);
-            setToastTool(find.tool);
+            const needsPrimer = TOOL_PRIMER_IDS.includes(find.tool) && !storeRef.current.save.seenToolHelp.includes(find.tool);
+            if (needsPrimer) setToolPrimer(find.tool);
+            else {
+              setToast(`${TOOL_INFO[find.tool].title} found`);
+              setToastTool(find.tool);
+            }
             playGameSound('tool', 0.78);
             if (!fxLockRef.current) {
               setToolFx({ nonce: Date.now(), kind: 'find', tool: find.tool, at: find.cell });
@@ -204,20 +210,16 @@ export function MazeScreen() {
   }, []);
 
   const nearbyCobs = useMemo(() => nearbyLetterCobs(puzzle, run), [puzzle, run]);
-  const activeReveal = revealIfActive(reveal, run.elapsedActiveMs);
   const selected = nearbyCobs.find(cob => cob.id === selectedId)
     ?? nearbyCobs.find(cob => farmerFacesCob(run, cob))
     ?? nearbyCobs[0];
   const target = currentTarget(puzzle, run);
   const waiting = !run.started || !run.solved;
-  const revealedIds = [...new Set([
-    ...(activeReveal ? [activeReveal.cobId] : []),
-    ...clippedLetterIds(run),
-  ])];
-  const harvestPick = nearbyCobs.find(cob => cob.letter === target) ?? selected;
-  const canHarvest = !!(harvestPick && harvestPick.letter === target && !waiting);
+  const revealedIds = mazeRevealedIds(run, reveal);
+  const harvestPick = harvestReadyCobs(puzzle, run, revealedIds)[0] ?? null;
+  const canHarvest = !!(harvestPick && !waiting);
   const nearPlant = nearbyCobs.length > 0;
-  const harvestPulse = !!(revealedIds.length && nearbyCobs.some(cob => revealedIds.includes(cob.id) && cob.letter === target) && !waiting);
+  const harvestPulse = canHarvest;
   const livePhase = stormPhase(puzzle, run);
   const previewFx = __DEV__ ? (Array.isArray(fx) ? fx[0] : fx) : undefined;
   const phase = previewFx === 'rain' ? 'rain' : livePhase;
@@ -262,7 +264,8 @@ export function MazeScreen() {
 
   const harvest = (cobId?: string) => {
     if (waiting || runRef.current.completed) return;
-    const pickId = cobId ?? harvestPick?.id;
+    const ready = harvestReadyCobs(puzzle, runRef.current, mazeRevealedIds(runRef.current, revealRef.current));
+    const pickId = cobId && ready.some(cob => cob.id === cobId) ? cobId : (!cobId ? ready[0]?.id : undefined);
     if (cobId) setSelectedId(cobId);
     const faced = selected ?? cobsInRange(puzzle, runRef.current).find(cob => farmerFacesCob(runRef.current, cob));
     const reject = (id?: string) => {
@@ -271,7 +274,7 @@ export function MazeScreen() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     };
     if (!pickId) {
-      reject(faced?.id);
+      reject(cobId ?? faced?.id);
       return;
     }
     const result = harvestCob(puzzle, runRef.current, pickId, null);
@@ -359,6 +362,9 @@ export function MazeScreen() {
     setToastTool(tool);
     playGameSound('tool', 0.78);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (TOOL_PRIMER_IDS.includes(tool) && !storeRef.current.save.seenToolHelp.includes(tool)) {
+      setToolPrimer(tool);
+    }
     const nonce = Date.now();
     if (tool === 'mower' || tool === 'tractor') {
       fxLockRef.current = true;
@@ -395,13 +401,15 @@ export function MazeScreen() {
 
   const cobAt = useCallback((x: number, y: number) => {
     const origin = originRef.current;
+    const revealed = mazeRevealedIds(runRef.current, revealRef.current);
     let best: { id: string; d: number } | null = null;
     for (const cob of liveCobs(puzzleRef.current, runRef.current)) {
       if (runRef.current.harvestedCobIds.includes(cob.id)) continue;
       const cx = origin.x + cob.wall.col * TILE + TILE / 2;
       const cy = origin.y + cob.wall.row * TILE + TILE * 0.22;
       const d = Math.hypot(x - cx, y - cy);
-      if (d < TILE * 0.85 && (!best || d < best.d)) best = { id: cob.id, d };
+      const hit = revealed.includes(cob.id) ? TILE * 1.1 : TILE * 0.85;
+      if (d < hit && (!best || d < best.d)) best = { id: cob.id, d };
     }
     return best?.id ?? null;
   }, []);
@@ -413,7 +421,16 @@ export function MazeScreen() {
 
   const harvestPlant = useCallback((x: number, y: number) => {
     const id = cobAt(x, y);
-    if (id) harvestRef.current(id);
+    if (id) {
+      harvestRef.current(id);
+      return;
+    }
+    const ready = harvestReadyCobs(
+      puzzleRef.current,
+      runRef.current,
+      mazeRevealedIds(runRef.current, revealRef.current),
+    )[0];
+    if (ready) harvestRef.current(ready.id);
   }, [cobAt]);
 
   useEffect(() => {
@@ -544,20 +561,23 @@ export function MazeScreen() {
     chapterDone,
     finale: puzzle.id === MAZE_PUZZLES[MAZE_PUZZLES.length - 1]?.id,
   });
-  pausedRef.current = paused || mapOpen || !!storyBeat || !!barnRestock;
+  pausedRef.current = paused || mapOpen || !!storyBeat || !!barnRestock || !!toolPrimer;
   const sight = parseMazeVisibility(puzzle.visibility);
   const fogActive = sight.mode === 'mist';
   const foggy = fogActive || sight.mode === 'evening' || (sight.mode === 'storm' && !!sight.radius);
   const stormFx = phase === 'overcast' || phase === 'dark' || phase === 'rain' || phase === 'grace' || phase === 'expired' || phase === 'untimed';
   const mood = stormFx && (phase === 'dark' || phase === 'rain' || phase === 'grace' || phase === 'expired') ? 'fog' : 'sunny';
   const showPad = store.save.settings.showMazePad;
+  const instructorOpen = !!storyBeat || !!toolPrimer;
   const timedStorm = !!(puzzle.stormSeconds && !run.stormUntimed);
   const harvestLetters = puzzle.answer.replace(/[^A-Z]/g, '').length;
 
   return (
     <View style={[styles.shell, { backgroundColor: mood === 'fog' ? '#8a6a32' : '#c9872c' }]}>
-      <View
-        collapsable={false}
+      <FieldSteer
+        onStick={setStick}
+        onTap={tapPlant}
+        onHarvest={harvestPlant}
         onLayout={event => {
           const next = event.nativeEvent.layout;
           setFieldSize(prev => (prev.width === next.width && prev.height === next.height ? prev : { width: next.width, height: next.height }));
@@ -611,14 +631,13 @@ export function MazeScreen() {
             reducedMotion={store.save.settings.reducedMotion}
           />
         ) : null}
-        <FieldSteer onStick={setStick} onTap={tapPlant} onHarvest={harvestPlant} />
         {toast ? (
           <Pressable onPress={() => { setToast(''); setToastTool(null); }} style={[styles.toast, { bottom: chromeH.bottom + 8 }]}>
             {toastTool ? <Image source={wordMaizeAssets.powerups[toastTool]} style={styles.toastIcon} /> : null}
             <Text style={styles.toastText}>{toast}</Text>
           </Pressable>
         ) : null}
-      </View>
+      </FieldSteer>
       <MazeChrome
         fog={mood === 'fog'}
         style={[styles.topChrome, { paddingTop: overlayTop }]}
@@ -673,9 +692,9 @@ export function MazeScreen() {
         }}
       >
         <View style={[styles.controls, showPad ? styles.controlsPad : styles.controlsSlim]}>
-          {showPad ? <Joystick onVector={setStick} /> : <View />}
+          {showPad && !instructorOpen ? <Joystick onVector={setStick} /> : <View />}
           <View style={styles.actions}>
-            {run.wildlife && animalReady ? (
+            {run.wildlife && animalReady && !instructorOpen ? (
               <Pressable
                 accessibilityRole="button"
                 onPressIn={() => {
@@ -694,6 +713,7 @@ export function MazeScreen() {
                 <Text style={styles.actionText}>{wildlifeActionLabel(run.wildlife.kind)}</Text>
               </Pressable>
             ) : null}
+            {!instructorOpen ? (
             <HarvestButton
               enabled={canHarvest}
               nearby={nearPlant}
@@ -703,6 +723,7 @@ export function MazeScreen() {
               compact={!showPad}
               onPress={() => harvest()}
             />
+            ) : null}
           </View>
         </View>
       </MazeChrome>
@@ -754,7 +775,7 @@ export function MazeScreen() {
       >
         <DialogCopy>Drag the field to walk. Double-tap a plant to harvest the next letter. Weather waits until you return.</DialogCopy>
         <DialogCopy>{store.save.settings.farmerName || 'Farmer May'}</DialogCopy>
-        <MazeFarmerPicker value={store.save.settings.mazeFarmer} onChange={id => store.setSetting('mazeFarmer', id)} />
+        <MazeFarmerPicker compact value={store.save.settings.mazeFarmer} onChange={id => store.setSetting('mazeFarmer', id)} />
       </FarmDialog>
 
       <FarmDialog visible={mapOpen} title="Field map" onClose={() => setMapOpen(false)} primary={{ label: 'CLOSE', onPress: () => setMapOpen(false), tone: 'slate' }}>
@@ -783,7 +804,7 @@ export function MazeScreen() {
       </FarmDialog>
 
       <FarmDialog
-        visible={!!scorecard}
+        visible={!!scorecard && !storyBeat}
         title={chapterDone ? 'Chapter harvested!' : campaign ? 'Bumper crop!' : 'Free Play finish'}
         primary={{ label: campaign ? (chapterDone ? 'CHAPTER MAP' : 'NEXT LEVEL') : 'FREE PLAY', onPress: () => router.replace(campaign ? (chapterDone ? '/maze' : `/maze/${nextLevel.id}`) : '/maze/free') }}
         actions={[
@@ -808,7 +829,26 @@ export function MazeScreen() {
         onPacked={message => { setToast(message); setToastTool(null); }}
       />
 
-      <ModeHelpDialog mode="maize" blocked={!!storyBeat} />
+      <ModeHelpDialog mode="maize" blocked={!!storyBeat || !!toolPrimer} />
+
+      {toolPrimer ? (
+        <FarmDialog
+          visible
+          title={TOOL_INFO[toolPrimer].title}
+          primary={{
+            label: 'GOT IT',
+            onPress: () => {
+              store.markToolHelpSeen(toolPrimer);
+              setToast(`${TOOL_INFO[toolPrimer].title} found`);
+              setToastTool(toolPrimer);
+              setToolPrimer(null);
+            },
+          }}
+        >
+          <DialogCopy>{TOOL_INFO[toolPrimer].blurb}</DialogCopy>
+          <DialogCopy>{TOOL_PRIMER_HOW_TO[toolPrimer]}</DialogCopy>
+        </FarmDialog>
+      ) : null}
 
       {storyBeat ? (
         <StoryBeatOverlay
@@ -830,76 +870,83 @@ export function MazeScreen() {
 }
 
 function FieldSteer({
-  onStick, onTap, onHarvest,
+  onStick, onTap, onHarvest, onLayout, style, children,
 }: {
   onStick: (x: number, y: number) => void;
   onTap: (x: number, y: number) => void;
   onHarvest: (x: number, y: number) => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  style?: StyleProp<ViewStyle>;
+  children: ReactNode;
 }) {
   const stickRef = useRef(onStick);
   const tapRef = useRef(onTap);
   const harvestRef = useRef(onHarvest);
+  const startRef = useRef({ t: 0, walking: false });
+  const lastTapRef = useRef<{ x: number; y: number; at: number } | null>(null);
   stickRef.current = onStick;
   tapRef.current = onTap;
   harvestRef.current = onHarvest;
 
-  const sendStick = useCallback((x: number, y: number) => {
-    stickRef.current(x, y);
+  const begin = useCallback(() => {
+    startRef.current = { t: Date.now(), walking: false };
   }, []);
-  const sendTap = useCallback((x: number, y: number) => {
+  const move = useCallback((dx: number, dy: number) => {
+    const stick = fieldWalkStick(dx, dy);
+    if (stick.x !== 0 || stick.y !== 0) startRef.current.walking = true;
+    stickRef.current(stick.x, stick.y);
+  }, []);
+  const end = useCallback((dx: number, dy: number, x: number, y: number) => {
+    stickRef.current(0, 0);
+    const started = startRef.current;
+    const walked = started.walking || fieldPointerRelease(dx, dy, Date.now() - started.t) === 'walk';
+    startRef.current = { t: 0, walking: false };
+    if (walked) {
+      lastTapRef.current = null;
+      return;
+    }
+    const now = Date.now();
+    if (fieldDoubleTap(x, y, now, lastTapRef.current)) {
+      lastTapRef.current = null;
+      harvestRef.current(x, y);
+      return;
+    }
+    lastTapRef.current = { x, y, at: now };
     tapRef.current(x, y);
   }, []);
-  const sendHarvest = useCallback((x: number, y: number) => {
-    harvestRef.current(x, y);
+  const cancel = useCallback(() => {
+    startRef.current = { t: 0, walking: false };
+    stickRef.current(0, 0);
   }, []);
 
-  const gesture = useMemo(() => {
-    const pan = Gesture.Pan()
-      .minDistance(12)
+  const gesture = useMemo(() => (
+    Gesture.Pan()
+      .minDistance(0)
       .maxPointers(1)
       .shouldCancelWhenOutside(false)
+      .onBegin(() => {
+        'worklet';
+        runOnJS(begin)();
+      })
       .onUpdate(event => {
         'worklet';
-        const max = 48;
-        const length = Math.hypot(event.translationX, event.translationY) || 1;
-        const scale = Math.min(1, max / length);
-        const x = (event.translationX * scale) / max;
-        const y = (event.translationY * scale) / max;
-        if (Math.hypot(x, y) < 0.16) {
-          runOnJS(sendStick)(0, 0);
-          return;
-        }
-        runOnJS(sendStick)(x, y);
+        runOnJS(move)(event.translationX, event.translationY);
       })
-      .onEnd(() => {
-        'worklet';
-        runOnJS(sendStick)(0, 0);
-      })
-      .onFinalize(() => {
-        'worklet';
-        runOnJS(sendStick)(0, 0);
-      });
-    const doubleTap = Gesture.Tap()
-      .numberOfTaps(2)
-      .maxDuration(280)
-      .maxDistance(24)
       .onEnd(event => {
         'worklet';
-        runOnJS(sendHarvest)(event.x, event.y);
-      });
-    const singleTap = Gesture.Tap()
-      .maxDuration(240)
-      .maxDistance(18)
-      .onEnd(event => {
+        runOnJS(end)(event.translationX, event.translationY, event.x, event.y);
+      })
+      .onFinalize((_event, success) => {
         'worklet';
-        runOnJS(sendTap)(event.x, event.y);
-      });
-    return Gesture.Simultaneous(pan, Gesture.Exclusive(doubleTap, singleTap));
-  }, [sendHarvest, sendStick, sendTap]);
+        if (!success) runOnJS(cancel)();
+      })
+  ), [begin, cancel, end, move]);
 
   return (
     <GestureDetector gesture={gesture}>
-      <View collapsable={false} accessible={false} importantForAccessibility="no" style={styles.fieldSteer} />
+      <View collapsable={false} onLayout={onLayout} style={style}>
+        {children}
+      </View>
     </GestureDetector>
   );
 }
@@ -1055,7 +1102,6 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 4, paddingTop: 4 },
   viewport: { flex: 1, position: 'relative', overflow: 'hidden' },
   toolDock: { position: 'absolute', left: 8, zIndex: 5 },
-  fieldSteer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 8, backgroundColor: 'transparent' },
   hud: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 10, gap: 8 },
   hudLeft: { alignItems: 'center', width: 46 },
   hudBtn: { width: 46, height: 48 },

@@ -5,7 +5,6 @@
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@shopify/react-native-skia": "2.6.2",
     "babel-preset-expo": "~57.0.0",
     "expo": "~57.0.19",
     "expo-audio": "~57.0.4",
@@ -16,7 +15,6 @@
     "expo-linking": "~57.0.9",
     "expo-router": "~57.0.18",
     "expo-status-bar": "~57.0.1",
-    "expo-web-browser": "~57.0.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -30,6 +28,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "pngjs": "^7.0.0",
     "typescript": "~6.0.3",
     "vitest": "^4.0.18"
   },

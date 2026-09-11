@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAZE_CAMPAIGN_TARGETS, validateMazeCampaignTargets } from '../../data/mazeCatalog';
 import { MAZE_PUZZLES, validateMazeLevels } from '../../data/mazeLevels';
-import { cellKey, createMazeRun, displayProgress, harvestCob, inspectCob } from '../maze';
+import { cellKey, createMazeRun, displayProgress, floodFillPathsAllowingMow, harvestCob, inspectCob } from '../maze';
 import { isFreePlayUnlocked, isMazeLevelUnlocked, LEGACY_MAZE_IDS, mazeDistances, migrateMazeUnlocks, nextMazeLevel } from '../mazeCampaign';
 
 describe('maze campaign catalog', () => {
@@ -33,7 +33,7 @@ describe('maze campaign boards', () => {
       for (const letter of puzzle.answer) {
         const cob = cobs.find(c => c.letter === letter && !run.harvestedCobIds.includes(c.id))!;
         expect(cob).toBeDefined();
-        expect(mazeDistances(puzzle, puzzle.spawn).has(cellKey(cob.inspect))).toBe(true);
+        expect(floodFillPathsAllowingMow(puzzle, puzzle.spawn).has(cellKey(cob.inspect))).toBe(true);
         run = { ...run, player: { x: cob.inspect.col + .5, y: cob.inspect.row + .5 } };
         const peek = inspectCob(puzzle, run, cob.id, run.elapsedActiveMs);
         expect(peek.ok).toBe(true);
@@ -63,7 +63,7 @@ describe('maze campaign boards', () => {
     expect(slots.filter(slot => !slot.space).map(slot => slot.filled)).toEqual([true, true, true, true, true, false, false, false, false]);
   });
 
-  it('keeps Green Fields unlocked after new Sunny Acres levels are inserted', () => {
+  it('keeps Green Valley unlocked after new Sandy Point levels are inserted', () => {
     const playable = MAZE_PUZZLES.map(level => level.id);
     const completed = ['sunny-acres-corn', 'sunny-hen', 'sunny-gate', 'sunny-apple', 'sunny-sheep'];
     const unlocked = migrateMazeUnlocks(completed, [], playable);
@@ -73,7 +73,7 @@ describe('maze campaign boards', () => {
     expect(nextMazeLevel(MAZE_PUZZLES, completed, unlocked)?.id).toBe('maze-06-barn');
   });
 
-  it('keeps Sunny Acres and Green Fields as daytime walks with no storm clock', () => {
+  it('keeps Sandy Point and Green Valley as daytime walks with no storm clock', () => {
     const early = MAZE_PUZZLES.filter(level => level.chapter <= 2);
     expect(early).toHaveLength(20);
     expect(early.every(level => !level.stormSeconds && (level.visibility ?? 'day') === 'day')).toBe(true);

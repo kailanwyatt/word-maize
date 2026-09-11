@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { wordMaizeAssets } from '../../assets/word-maize/assets';
-import { FarmButton } from './FarmButton';
+import { DialogCopy, FarmDialog } from './FarmDialog';
 
 type Goal = { id: string; label: string; complete: boolean };
 
@@ -78,92 +78,60 @@ export function BumperCropModal({
   const celebrationDone = revealedStars >= 3 && shownCoins >= payout;
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.shade}>
-        <ScrollView bounces={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.panel}>
-          <View style={styles.banner}>
-            <Text style={styles.title}>BUMPER CROP!</Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={celebrationDone ? 'Bumper crop rewards' : 'Skip celebration'}
-            onPress={() => { if (!celebrationDone) setSkipped(true); }}
-            style={styles.celebration}
-          >
-            <Image source={wordMaizeAssets.effects.sparkleBurst} style={styles.sparkles} />
-            <Text style={styles.level}>{completionLabel ?? `Level ${levelId} complete`}</Text>
-            <View style={styles.cast}>
-              <Image source={wordMaizeAssets.props.tractorCelebration} style={styles.tractor} />
-              <Image source={wordMaizeAssets.characters.patchCelebrating} style={styles.patch} />
-              <Image source={wordMaizeAssets.props.harvestBasketFull} style={styles.basket} />
-            </View>
-            <View accessibilityLabel={`${stars} of 3 stars`} style={styles.starRow}>
-              {[0, 1, 2].map(index => {
-                const earned = index < stars;
-                const shown = index < revealedStars;
-                return (
-                  <View key={index} style={styles.starSlot}>
-                    <Image
-                      source={shown && earned ? wordMaizeAssets.ui.mapStarFilled : wordMaizeAssets.ui.mapStarEmpty}
-                      style={[styles.starKernel, shown && earned && styles.starKernelOn]}
-                    />
-                    {shown && earned ? <Image source={wordMaizeAssets.effects.sparkleBurst} style={styles.starSparkle} /> : null}
-                  </View>
-                );
-              })}
-            </View>
-            <View style={styles.rewardBox}>
-              <Image source={wordMaizeAssets.ui.coin} style={styles.coin} />
-              <Text style={styles.reward}>+{shownCoins.toLocaleString('en-US')}</Text>
-            </View>
-            <Text style={styles.detail}>{rewardDetail}</Text>
-            <View style={styles.stats}>
-              <Text style={styles.stat}>{harvestedCount} kernels · {wordsFound} words · {longest}</Text>
-              {goals.map(goal => (
-                <Text key={goal.id} style={[styles.goal, goal.complete && styles.goalOn]}>
-                  {goal.complete ? 'Harvested' : 'Missed'} · {goal.label}
-                </Text>
-              ))}
-            </View>
-            {!celebrationDone ? <Text style={styles.skip}>Tap to skip</Text> : null}
-          </Pressable>
-          {showDouble ? (
-            <>
-              <View style={{ height: 10 }} />
-              <FarmButton label="DOUBLE REWARD" onPress={onDouble} />
-            </>
-          ) : null}
-          <View style={{ height: 12 }} />
-          <FarmButton label="CONTINUE" onPress={onContinue} />
+    <FarmDialog
+      visible={visible}
+      title="Bumper crop!"
+      primary={{ label: 'CONTINUE', onPress: onContinue }}
+      actions={showDouble ? [{ label: 'DOUBLE REWARD', onPress: onDouble, tone: 'gold' }] : undefined}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={celebrationDone ? 'Bumper crop rewards' : 'Skip celebration'}
+        onPress={() => { if (!celebrationDone) setSkipped(true); }}
+        style={styles.celebration}
+      >
+        <Image source={wordMaizeAssets.effects.sparkleBurst} style={styles.sparkles} />
+        <DialogCopy>{completionLabel ?? `Level ${levelId} complete`}</DialogCopy>
+        <View style={styles.cast}>
+          <Image source={wordMaizeAssets.props.tractorCelebration} style={styles.tractor} />
+          <Image source={wordMaizeAssets.characters.patchCelebrating} style={styles.patch} />
+          <Image source={wordMaizeAssets.props.harvestBasketFull} style={styles.basket} />
         </View>
-        </ScrollView>
-      </View>
-    </Modal>
+        <View accessibilityLabel={`${stars} of 3 stars`} style={styles.starRow}>
+          {[0, 1, 2].map(index => {
+            const earned = index < stars;
+            const shown = index < revealedStars;
+            return (
+              <View key={index} style={styles.starSlot}>
+                <Image
+                  source={shown && earned ? wordMaizeAssets.ui.mapStarFilled : wordMaizeAssets.ui.mapStarEmpty}
+                  style={[styles.starKernel, shown && earned && styles.starKernelOn]}
+                />
+                {shown && earned ? <Image source={wordMaizeAssets.effects.sparkleBurst} style={styles.starSparkle} /> : null}
+              </View>
+            );
+          })}
+        </View>
+        <View style={styles.rewardBox}>
+          <Image source={wordMaizeAssets.ui.coin} style={styles.coin} />
+          <Text style={styles.reward}>+{shownCoins.toLocaleString('en-US')}</Text>
+        </View>
+        <DialogCopy>{rewardDetail}</DialogCopy>
+        <Text style={styles.stat}>{harvestedCount} kernels · {wordsFound} words · {longest}</Text>
+        {goals.map(goal => (
+          <Text key={goal.id} style={[styles.goal, goal.complete && styles.goalOn]}>
+            {goal.complete ? 'Harvested' : 'Missed'} · {goal.label}
+          </Text>
+        ))}
+        {!celebrationDone ? <Text style={styles.skip}>Tap to skip</Text> : null}
+      </Pressable>
+    </FarmDialog>
   );
 }
 
 const styles = StyleSheet.create({
-  shade: { flex: 1, backgroundColor: 'rgba(10,25,18,0.85)' },
-  scroll: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingTop: 48, paddingBottom: 24 },
-  panel: {
-    backgroundColor: '#fdf1cd',
-    borderWidth: 4,
-    borderColor: '#73441f',
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingTop: 28,
-    paddingBottom: 18,
-    width: '100%',
-    maxWidth: 380,
-    alignItems: 'center',
-    overflow: 'visible',
-  },
   celebration: { width: '100%', alignItems: 'center', overflow: 'visible' },
   sparkles: { position: 'absolute', width: '100%', height: 180, resizeMode: 'contain', opacity: 0.35, top: 0 },
-  banner: { backgroundColor: '#58c22e', paddingHorizontal: 18, paddingVertical: 8, borderRadius: 22, borderWidth: 3, borderColor: '#7ee04a', marginTop: -42 },
-  title: { fontSize: 22, fontWeight: '900', color: '#ffffff', letterSpacing: 1 },
-  level: { marginTop: 10, color: '#5d3a18', fontWeight: '800', fontSize: 15 },
   cast: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 6, marginTop: 8, minHeight: 92 },
   tractor: { width: 86, height: 66, resizeMode: 'contain' },
   patch: { width: 78, height: 96, resizeMode: 'contain' },
@@ -176,8 +144,6 @@ const styles = StyleSheet.create({
   rewardBox: { flexDirection: 'row', backgroundColor: '#6e431f', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8, alignItems: 'center', marginTop: 4 },
   coin: { width: 28, height: 28, resizeMode: 'contain', marginRight: 8 },
   reward: { color: '#ffffff', fontSize: 28, fontWeight: '900' },
-  detail: { color: '#684525', fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 6 },
-  stats: { width: '100%', marginTop: 10, gap: 4, alignItems: 'center' },
   stat: { color: '#51351f', fontWeight: '800', fontSize: 13, textAlign: 'center' },
   goal: { color: '#8a6a45', fontWeight: '700', fontSize: 12, textAlign: 'center' },
   goalOn: { color: '#3f7c19' },
